@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35806.99 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeActivity", "TimeActivity.csproj", "{A3731B67-7D08-4527-8751-0E47C712EC04}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A3731B67-7D08-4527-8751-0E47C712EC04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3731B67-7D08-4527-8751-0E47C712EC04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3731B67-7D08-4527-8751-0E47C712EC04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3731B67-7D08-4527-8751-0E47C712EC04}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D6A244A1-083D-4520-AF55-A24744A569F3}
+	EndGlobalSection
+EndGlobal
