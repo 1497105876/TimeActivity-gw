@@ -17,7 +17,9 @@ public partial class MainWindow : Window
 {
     private readonly TrackingEngine _engine;
     private readonly ActivityClassifier _classifier;
+    private readonly ScreenshotService _screenshotService;
     private readonly ObservableCollection<ActivityDisplayItem> _items = new();
+    private StatisticsPage? _statsPage;
 
     private Dictionary<string, string> _categoryColors = new();
     private DateTime _currentDate = DateTime.Today;
@@ -26,7 +28,7 @@ public partial class MainWindow : Window
     // 可见时间范围（秒），1x 时 = 86400（全天）
     // 滚轮缩放改这个值，越小越放大
     private double _visibleSeconds = 86400;
-    private const double MinVisibleSeconds = 1800; // 最小30分钟
+    private const double MinVisibleSeconds = 300; // 最小5分钟
     private const double MaxVisibleSeconds = 86400; // 最大24小时
 
     // 可见范围起始时间（秒，0~86400-visibleSeconds）
@@ -53,6 +55,10 @@ public partial class MainWindow : Window
     private double _dragStartX = 0;
     private double _dragStartViewStart = 0;
 
+    // 托盘
+    private TrayIcon? _trayIcon;
+    private bool _forceClose = false;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -62,6 +68,7 @@ public partial class MainWindow : Window
 
         _classifier = new ActivityClassifier();
         _engine = new TrackingEngine(_classifier);
+        _screenshotService = new ScreenshotService();
 
         if (int.TryParse(DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), out int poll))
             _engine.PollIntervalSeconds = poll;
@@ -75,6 +82,13 @@ public partial class MainWindow : Window
 
         DrawLegend();
         LoadDateData(_currentDate);
+
+        // 统计页
+        _statsPage = new StatisticsPage();
+        StatsFrame.Navigate(_statsPage);
+
+        var settingsPage = new SettingsPage();
+        SettingsFrame.Navigate(settingsPage);
 
         // 窗口大小变化时重绘 — 整体等比缩放
         TimelineContainer.SizeChanged += (s, e) =>
@@ -98,10 +112,110 @@ public partial class MainWindow : Window
         if (DatabaseHelper.GetSetting("AutoStartTracking", "true") == "true")
         {
             _engine.Start();
+            if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+                _screenshotService.Start();
             BtnStart.IsEnabled = false;
             BtnStop.IsEnabled = true;
             StatusText.Text = "追踪中...";
         }
+
+        // 初始化托盘需等窗口句柄就绪
+        this.SourceInitialized += (s, e) => InitTray();
+
+        // 设置页保存后重启截图服务
+        SettingsPage.SettingsSaved += OnSettingsSaved;
+
+        // --minimized 启动时直接隐藏到托盘
+        var args = Environment.GetCommandLineArgs();
+        if (args.Contains("--minimized", StringComparer.OrdinalIgnoreCase))
+        {
+            this.SourceInitialized += (s, e) => Hide();
+        }
+    }
+
+    private void OnSettingsSaved()
+    {
+        // 截图服务：如果在跑就重启（重新读设置）
+        if (_screenshotService.IsRunning)
+        {
+            _screenshotService.Stop();
+            if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+                _screenshotService.Start();
+        }
+        else
+        {
+            if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+                _screenshotService.Start();
+        }
+
+        // 追踪引擎也重读采样间隔和空闲阈值
+        if (int.TryParse(DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), out int poll))
+            _engine.PollIntervalSeconds = poll;
+        if (int.TryParse(DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), out int idle))
+            _engine.IdleThresholdSeconds = idle;
+    }
+
+    // ========== 托盘 ==========
+
+    private void InitTray()
+    {
+        var hwndSource = System.Windows.Interop.HwndSource.FromHwnd(
+            new System.Windows.Interop.WindowInteropHelper(this).Handle);
+        hwndSource?.AddHook(WndProc);
+
+        _trayIcon = new TrayIcon(
+            new System.Windows.Interop.WindowInteropHelper(this).Handle,
+            "TimeActivity");
+        _trayIcon.OnDoubleClick = () => ShowFromTray();
+        _trayIcon.OnShowMenu = () =>
+        {
+            _trayIcon.ShowContextMenuAtCursor(_engine.IsRunning);
+        };
+        _trayIcon.OnToggleTracking = () =>
+        {
+            if (_engine.IsRunning) BtnStop_Click(this, new RoutedEventArgs());
+            else BtnStart_Click(this, new RoutedEventArgs());
+        };
+        _trayIcon.OnExit = () =>
+        {
+            _forceClose = true;
+            Close();
+        };
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == TrayIcon.WM_TRAYICON)
+        {
+            _trayIcon?.HandleMessage(wParam, lParam);
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    private void ShowFromTray()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+    {
+        // 关闭按钮 → 最小化到托盘（除非是强制退出）
+        if (!_forceClose && DatabaseHelper.GetSetting("MinimizeToTray", "true") == "true")
+        {
+            e.Cancel = true;
+            Hide();
+            _trayIcon?.UpdateTooltip($"TimeActivity — {(_engine.IsRunning ? "追踪中" : "已停止")}");
+            return;
+        }
+
+        // 真正退出
+        _engine.Stop();
+        _screenshotService.Stop();
+        _trayIcon?.Dispose();
+        base.OnClosing(e);
     }
 
     // ========== 分类颜色 ==========
@@ -153,6 +267,8 @@ public partial class MainWindow : Window
     private void BtnStart_Click(object sender, RoutedEventArgs e)
     {
         _engine.Start();
+        if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+            _screenshotService.Start();
         BtnStart.IsEnabled = false;
         BtnStop.IsEnabled = true;
         StatusText.Text = "追踪中...";
@@ -161,6 +277,7 @@ public partial class MainWindow : Window
     private void BtnStop_Click(object sender, RoutedEventArgs e)
     {
         _engine.Stop();
+        _screenshotService.Stop();
         BtnStart.IsEnabled = true;
         BtnStop.IsEnabled = false;
         StatusText.Text = "已停止";
@@ -589,6 +706,19 @@ public partial class MainWindow : Window
             PopupProcess.Text = hit.ProcessName;
             PopupTitle.Text = hit.WindowTitle;
             PopupTitle.Visibility = string.IsNullOrEmpty(hit.WindowTitle) ? Visibility.Collapsed : Visibility.Visible;
+
+            // 加载截图
+            var screenshotPath = ScreenshotService.GetScreenshotForTime(hit.StartTime);
+            if (screenshotPath != null)
+            {
+                PopupScreenshot.Source = new System.Windows.Media.Imaging.BitmapImage(
+                    new Uri(screenshotPath));
+                PopupScreenshot.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                PopupScreenshot.Visibility = Visibility.Collapsed;
+            }
         }
         else
         {
@@ -597,6 +727,7 @@ public partial class MainWindow : Window
             PopupCategory.Visibility = Visibility.Collapsed;
             PopupProcess.Visibility = Visibility.Collapsed;
             PopupTitle.Visibility = Visibility.Collapsed;
+            PopupScreenshot.Visibility = Visibility.Collapsed;
             PopupTime.Text = $"{ts.Hours:D2}:{ts.Minutes:D2}:{ts.Seconds:D2}";
         }
     }

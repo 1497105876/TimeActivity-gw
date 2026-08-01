@@ -343,6 +343,84 @@ public class DatabaseHelper
     }
 
     /// <summary>
+    /// 获取某个日期范围内按类别汇总的统计
+    /// </summary>
+    public static Dictionary<string, int> GetCategorySummaryByRange(DateTime start, DateTime end)
+    {
+        Initialize();
+        var result = new Dictionary<string, int>();
+        const string sql = @"
+            SELECT Category, SUM(Duration) AS TotalSeconds
+            FROM Activities
+            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End AND IsIdle = 0
+            GROUP BY Category
+            ORDER BY TotalSeconds DESC";
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            result[reader.GetString(0)] = reader.GetInt32(1);
+        return result;
+    }
+
+    /// <summary>
+    /// 获取某个日期范围内按进程汇总的统计
+    /// </summary>
+    public static Dictionary<string, int> GetProcessSummaryByRange(DateTime start, DateTime end)
+    {
+        Initialize();
+        var result = new Dictionary<string, int>();
+        const string sql = @"
+            SELECT ProcessName, SUM(Duration) AS TotalSeconds
+            FROM Activities
+            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End AND IsIdle = 0
+            GROUP BY ProcessName
+            ORDER BY TotalSeconds DESC";
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            result[reader.GetString(0)] = reader.GetInt32(1);
+        return result;
+    }
+
+    /// <summary>
+    /// 获取某个日期范围内每天的活跃时长
+    /// </summary>
+    public static Dictionary<string, int> GetDailyTotalsByRange(DateTime start, DateTime end)
+    {
+        Initialize();
+        var result = new Dictionary<string, int>();
+        const string sql = @"
+            SELECT substr(StartTime, 1, 10) AS Date, SUM(Duration) AS TotalSeconds
+            FROM Activities
+            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End AND IsIdle = 0
+            GROUP BY Date
+            ORDER BY Date";
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            result[reader.GetString(0)] = reader.GetInt32(1);
+        return result;
+    }
+
+    /// <summary>
     /// 读取设置项
     /// </summary>
     public static string? GetSetting(string key, string? defaultValue = null)
@@ -421,6 +499,23 @@ public class DatabaseHelper
     }
 
     /// <summary>
+    /// 获取某天的 AI 总结
+    /// </summary>
+    public static string? GetAISummary(DateTime date)
+    {
+        Initialize();
+        const string sql = "SELECT SummaryText FROM AISummaries WHERE Date = @Date ORDER BY CreatedAt DESC LIMIT 1";
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+
+        var result = cmd.ExecuteScalar();
+        return result as string;
+    }
+
+    /// <summary>
     /// 清理超过指定天数的旧数据
     /// </summary>
     public static int CleanOldData(int retentionDays)
@@ -435,5 +530,22 @@ public class DatabaseHelper
         cmd.Parameters.AddWithValue("@Cutoff", cutoff);
 
         return cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// 清空所有数据（保留设置和分类）
+    /// </summary>
+    public static void ClearAllData()
+    {
+        Initialize();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+
+        string[] tables = { "Activities", "Screenshots", "DailySummaries", "AISummaries" };
+        foreach (var table in tables)
+        {
+            using var cmd = new SqliteCommand($"DELETE FROM {table}", conn);
+            cmd.ExecuteNonQuery();
+        }
     }
 }

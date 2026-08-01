@@ -28,6 +28,9 @@ public class TrackingEngine
     // 当前状态变化时触发
     public event Action<string, string, string>? OnStatusChanged;
 
+    // 是否正在运行
+    public bool IsRunning => _cts != null;
+
     private string _lastProcessName = string.Empty;
     private string _lastWindowTitle = string.Empty;
 
