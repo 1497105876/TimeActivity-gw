@@ -25,6 +25,9 @@ public class TrackingEngine
     // 当一条活动记录结束时触发（切换软件或空闲）
     public event Action<ActivityRecord>? OnActivityRecorded;
 
+    // 当切换应用时触发（用于截图）
+    public event Action? OnAppSwitched;
+
     // 当前状态变化时触发
     public event Action<string, string, string>? OnStatusChanged;
 
@@ -125,6 +128,7 @@ public class TrackingEngine
         // 如果进程名或标题变了，说明切换了软件 — 结束旧活动，开始新活动
         if (processName != _lastProcessName || windowTitle != _lastWindowTitle)
         {
+            OnAppSwitched?.Invoke();
             FinishCurrentActivity();
 
             _currentActivity = new ActivityRecord

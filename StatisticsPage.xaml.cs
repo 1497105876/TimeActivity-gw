@@ -26,6 +26,8 @@ public partial class StatisticsPage : Page
     {
         InitializeComponent();
         LoadCategoryColors();
+        // 从设置读取跳过空闲开关初始状态
+        ChkSkipIdle.IsChecked = Data.DatabaseHelper.GetSetting("SkipIdleInStats", "false") == "true";
         RbDay.IsChecked = true;
         UpdateRange();
         LoadData();
@@ -151,9 +153,10 @@ public partial class StatisticsPage : Page
     {
         var (start, end) = GetRange();
 
-        var catData = DatabaseHelper.GetCategorySummaryByRange(start, end);
-        var procData = DatabaseHelper.GetProcessSummaryByRange(start, end);
-        var dailyData = DatabaseHelper.GetDailyTotalsByRange(start, end);
+        bool includeIdle = ChkSkipIdle.IsChecked == true;
+        var catData = DatabaseHelper.GetCategorySummaryByRange(start, end, includeIdle);
+        var procData = DatabaseHelper.GetProcessSummaryByRange(start, end, includeIdle);
+        var dailyData = DatabaseHelper.GetDailyTotalsByRange(start, end, includeIdle);
 
         // 类别筛选
         string filterCategory = GetSelectedFilterCategory();
@@ -198,6 +201,12 @@ public partial class StatisticsPage : Page
     }
 
     private void CategoryFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CategoryBarsPanel == null) return;
+        LoadData();
+    }
+
+    private void ChkSkipIdle_Changed(object sender, RoutedEventArgs e)
     {
         if (CategoryBarsPanel == null) return;
         LoadData();

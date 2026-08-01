@@ -34,6 +34,7 @@
                 <ComboBoxItem Content="系统" Tag="系统"/>
                 <ComboBoxItem Content="其他" Tag="其他"/>
             </ComboBox>
+            <CheckBox x:Name="ChkSkipIdle" Content="跳过空闲时段" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12" Checked="ChkSkipIdle_Changed" Unchecked="ChkSkipIdle_Changed"/>
         </StackPanel>
 
         <!-- 内容区 -->

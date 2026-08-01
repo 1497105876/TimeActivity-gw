@@ -125,6 +125,9 @@ public partial class MainWindow : Window
         // 设置页保存后重启截图服务
         SettingsPage.SettingsSaved += OnSettingsSaved;
 
+        // 切换应用时截屏（仿 ManicTime）
+        _engine.OnAppSwitched += () => _screenshotService.OnAppSwitched();
+
         // --minimized 启动时直接隐藏到托盘
         var args = Environment.GetCommandLineArgs();
         if (args.Contains("--minimized", StringComparer.OrdinalIgnoreCase))
@@ -769,6 +772,8 @@ public partial class MainWindow : Window
 
     private static int ChooseInterval(double minIntervalSeconds)
     {
+        if (minIntervalSeconds <= 60) return 1;
+        if (minIntervalSeconds <= 2 * 60) return 2;
         if (minIntervalSeconds <= 5 * 60) return 5;
         if (minIntervalSeconds <= 10 * 60) return 10;
         if (minIntervalSeconds <= 15 * 60) return 15;

@@ -2,13 +2,14 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using TimeActivity.Data;
 
 namespace TimeActivity.Services;
 
 /// <summary>
-/// 截图服务 — 定时截屏，存到用户指定文件夹 + 数据库
+/// 截图服务 — 定时截屏 + 切换应用时截屏，仿 ManicTime
 /// </summary>
 public class ScreenshotService
 {
@@ -16,6 +17,9 @@ public class ScreenshotService
     private string _screenshotDir = "";
     private System.Threading.Timer? _timer;
     private bool _running;
+
+    // 是否在切换应用时截屏
+    private bool _captureOnSwitch;
 
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
@@ -31,14 +35,15 @@ public class ScreenshotService
     }
 
     /// <summary>
-    /// 从数据库重新读取设置（改了设置后调用）
+    /// 从数据库重新读取设置
     /// </summary>
     public void ReloadSettings()
     {
         _intervalMinutes = int.Parse(
             DatabaseHelper.GetSetting("ScreenshotIntervalMinutes", "5") ?? "5");
 
-        // 读用户设置的路径，空则用 exe 目录下 screenshots
+        _captureOnSwitch = DatabaseHelper.GetSetting("ScreenshotOnSwitch", "true") == "true";
+
         string? userPath = DatabaseHelper.GetSetting("ScreenshotPath", "");
         if (!string.IsNullOrWhiteSpace(userPath))
             _screenshotDir = userPath;
@@ -51,13 +56,15 @@ public class ScreenshotService
     public void Start()
     {
         if (_running) return;
-        ReloadSettings(); // 启动时重新读设置
+        ReloadSettings();
         _running = true;
 
         CaptureAndSave();
+        CleanOldScreenshots();
 
+        // 定时截屏
         _timer = new System.Threading.Timer(
-            _ => CaptureAndSave(),
+            _ => { CaptureAndSave(); CleanOldScreenshots(); },
             null,
             TimeSpan.FromMinutes(_intervalMinutes),
             TimeSpan.FromMinutes(_intervalMinutes));
@@ -68,6 +75,71 @@ public class ScreenshotService
         _running = false;
         _timer?.Dispose();
         _timer = null;
+    }
+
+    /// <summary>
+    /// 清理旧截图 — 仿 ManicTime 存储限制
+    /// </summary>
+    private void CleanOldScreenshots()
+    {
+        try
+        {
+            if (!Directory.Exists(_screenshotDir)) return;
+
+            bool enableMaxSize = DatabaseHelper.GetSetting("EnableMaxSize", "true") == "true";
+            bool enableMaxAge = DatabaseHelper.GetSetting("EnableMaxAge", "true") == "true";
+
+            var files = Directory.GetFiles(_screenshotDir, "*.*", SearchOption.TopDirectoryOnly)
+                .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                             f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                             f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                .Select(f => new FileInfo(f))
+                .OrderBy(f => f.CreationTime)
+                .ToList();
+
+            // 按最大年龄清理
+            if (enableMaxAge && int.TryParse(DatabaseHelper.GetSetting("MaxScreenshotAgeDays", "30"), out int maxAge))
+            {
+                var cutoff = DateTime.Now.AddDays(-maxAge);
+                foreach (var f in files)
+                {
+                    if (f.CreationTime < cutoff)
+                    {
+                        try { f.Delete(); } catch { }
+                    }
+                }
+                files = files.Where(f => f.Exists).ToList();
+            }
+
+            // 按最大总大小清理（删最老的）
+            if (enableMaxSize && int.TryParse(DatabaseHelper.GetSetting("MaxScreenshotSizeMB", "5120"), out int maxMB))
+            {
+                long maxBytes = (long)maxMB * 1024 * 1024;
+                long currentSize = files.Sum(f => f.Length);
+
+                while (currentSize > maxBytes && files.Count > 0)
+                {
+                    var oldest = files[0];
+                    try
+                    {
+                        currentSize -= oldest.Length;
+                        oldest.Delete();
+                    }
+                    catch { }
+                    files.RemoveAt(0);
+                }
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 切换应用时调用 — 仿 ManicTime "在每次应用程序切换时截屏"
+    /// </summary>
+    public void OnAppSwitched()
+    {
+        if (!_running || !_captureOnSwitch) return;
+        CaptureAndSave();
     }
 
     private void CaptureAndSave()
@@ -83,21 +155,28 @@ public class ScreenshotService
                 g.CopyFromScreen(0, 0, 0, 0, bmp.Size);
             }
 
-            // 命名：screenshot_年月日_时分秒.jpg
-            string fileName = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.jpg";
+            string format = DatabaseHelper.GetSetting("ScreenshotFormat", "jpg") ?? "jpg";
+            string ext = format == "png" ? "png" : "jpg";
+            string fileName = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}";
             string filePath = Path.Combine(_screenshotDir, fileName);
 
-            var encoderParams = new EncoderParameters(1);
-            var quality = DatabaseHelper.GetSetting("ScreenshotQuality", "medium") switch
+            if (format == "png")
             {
-                "high" => 80L,
-                "low" => 30L,
-                _ => 50L
-            };
-            encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, quality);
-
-            var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
-            bmp.Save(filePath, jpegEncoder, encoderParams);
+                bmp.Save(filePath, ImageFormat.Png);
+            }
+            else
+            {
+                var encoderParams = new EncoderParameters(1);
+                var quality = DatabaseHelper.GetSetting("ScreenshotQuality", "medium") switch
+                {
+                    "high" => 80L,
+                    "low" => 30L,
+                    _ => 50L
+                };
+                encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, quality);
+                var jpegEncoder = GetEncoder(ImageFormat.Jpeg);
+                bmp.Save(filePath, jpegEncoder, encoderParams);
+            }
 
             var fileSize = new FileInfo(filePath).Length;
             DatabaseHelper.InsertScreenshot(filePath, fileSize);
@@ -117,6 +196,9 @@ public class ScreenshotService
         }
         return codecs[0];
     }
+
+    public static int GetScreenWidth() => GetSystemMetrics(SM_CXSCREEN);
+    public static int GetScreenHeight() => GetSystemMetrics(SM_CYSCREEN);
 
     /// <summary>
     /// 获取某个时间点最近的一张截图

@@ -347,12 +347,18 @@ public class DatabaseHelper
     /// </summary>
     public static Dictionary<string, int> GetCategorySummaryByRange(DateTime start, DateTime end)
     {
+        return GetCategorySummaryByRange(start, end, false);
+    }
+
+    public static Dictionary<string, int> GetCategorySummaryByRange(DateTime start, DateTime end, bool includeIdle)
+    {
         Initialize();
         var result = new Dictionary<string, int>();
-        const string sql = @"
+        string idleFilter = includeIdle ? "" : " AND IsIdle = 0";
+        string sql = $@"
             SELECT Category, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End AND IsIdle = 0
+            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End{idleFilter}
             GROUP BY Category
             ORDER BY TotalSeconds DESC";
 
@@ -373,12 +379,18 @@ public class DatabaseHelper
     /// </summary>
     public static Dictionary<string, int> GetProcessSummaryByRange(DateTime start, DateTime end)
     {
+        return GetProcessSummaryByRange(start, end, false);
+    }
+
+    public static Dictionary<string, int> GetProcessSummaryByRange(DateTime start, DateTime end, bool includeIdle)
+    {
         Initialize();
         var result = new Dictionary<string, int>();
-        const string sql = @"
+        string idleFilter = includeIdle ? "" : " AND IsIdle = 0";
+        string sql = $@"
             SELECT ProcessName, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End AND IsIdle = 0
+            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End{idleFilter}
             GROUP BY ProcessName
             ORDER BY TotalSeconds DESC";
 
@@ -399,12 +411,18 @@ public class DatabaseHelper
     /// </summary>
     public static Dictionary<string, int> GetDailyTotalsByRange(DateTime start, DateTime end)
     {
+        return GetDailyTotalsByRange(start, end, false);
+    }
+
+    public static Dictionary<string, int> GetDailyTotalsByRange(DateTime start, DateTime end, bool includeIdle)
+    {
         Initialize();
         var result = new Dictionary<string, int>();
-        const string sql = @"
+        string idleFilter = includeIdle ? "" : " AND IsIdle = 0";
+        string sql = $@"
             SELECT substr(StartTime, 1, 10) AS Date, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End AND IsIdle = 0
+            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End{idleFilter}
             GROUP BY Date
             ORDER BY Date";
 
@@ -547,5 +565,118 @@ public class DatabaseHelper
             using var cmd = new SqliteCommand($"DELETE FROM {table}", conn);
             cmd.ExecuteNonQuery();
         }
+    }
+
+    // ========== 分类查询 ==========
+
+    public static List<Models.Category> GetAllCategories()
+    {
+        Initialize();
+        var list = new List<Models.Category>();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand("SELECT Id, Name, Color, Icon, SortOrder FROM Categories ORDER BY SortOrder, Id", conn);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new Models.Category
+            {
+                Id = reader.GetInt32(0),
+                Name = reader.GetString(1),
+                Color = reader.GetString(2),
+                Icon = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                SortOrder = reader.GetInt32(4)
+            });
+        }
+        return list;
+    }
+
+    public static void UpdateOrInsertCategory(int id, string name, string color, int sortOrder)
+    {
+        Initialize();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        if (id > 0)
+        {
+            using var cmd = new SqliteCommand(
+                "UPDATE Categories SET Name=@Name, Color=@Color, SortOrder=@Sort WHERE Id=@Id", conn);
+            cmd.Parameters.AddWithValue("@Name", name);
+            cmd.Parameters.AddWithValue("@Color", color);
+            cmd.Parameters.AddWithValue("@Sort", sortOrder);
+            cmd.Parameters.AddWithValue("@Id", id);
+            cmd.ExecuteNonQuery();
+        }
+        else
+        {
+            using var cmd = new SqliteCommand(
+                "INSERT INTO Categories (Name, Color, Icon, SortOrder) VALUES (@Name, @Color, '', @Sort)", conn);
+            cmd.Parameters.AddWithValue("@Name", name);
+            cmd.Parameters.AddWithValue("@Color", color);
+            cmd.Parameters.AddWithValue("@Sort", sortOrder);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    // ========== 规则查询 ==========
+
+    public static List<Models.Rule> GetAllRules()
+    {
+        Initialize();
+        var list = new List<Models.Rule>();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand("SELECT Id, ProcessName, TitleKeyword, CategoryId, IsCustom FROM Rules ORDER BY Id", conn);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            list.Add(new Models.Rule
+            {
+                Id = reader.GetInt32(0),
+                ProcessName = reader.GetString(1),
+                TitleKeyword = reader.IsDBNull(2) ? null : reader.GetString(2),
+                CategoryId = reader.GetInt32(3),
+                IsCustom = reader.GetBoolean(4)
+            });
+        }
+        return list;
+    }
+
+    public static void InsertRule(string processName, string titleKeyword, int categoryId)
+    {
+        Initialize();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(
+            "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@P, @T, @C, 1)", conn);
+        cmd.Parameters.AddWithValue("@P", processName);
+        cmd.Parameters.AddWithValue("@T", string.IsNullOrEmpty(titleKeyword) ? (object)DBNull.Value : titleKeyword);
+        cmd.Parameters.AddWithValue("@C", categoryId);
+        cmd.ExecuteNonQuery();
+    }
+
+    public static void ClearAllRules()
+    {
+        Initialize();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand("DELETE FROM Rules WHERE IsCustom = 1", conn);
+        cmd.ExecuteNonQuery();
+    }
+
+    // ========== 所有设置查询 ==========
+
+    public static Dictionary<string, string> GetAllSettings()
+    {
+        Initialize();
+        var dict = new Dictionary<string, string>();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand("SELECT Key, Value FROM Settings", conn);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            dict[reader.GetString(0)] = reader.IsDBNull(1) ? "" : reader.GetString(1);
+        }
+        return dict;
     }
 }
