@@ -30,42 +30,62 @@
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
             <Button x:Name="BtnStart" Content="开始追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStart_Click"/>
             <Button x:Name="BtnStop" Content="停止追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStop_Click" IsEnabled="False"/>
-            <Button x:Name="BtnClear" Content="清空列表" Width="100" Height="32" Margin="0,0,8,0" Click="BtnClear_Click"/>
             <Button x:Name="BtnRefresh" Content="刷新时间轴" Width="100" Height="32" Margin="0,0,8,0" Click="BtnRefresh_Click"/>
+
+            <Border Background="#F0F0F0" CornerRadius="4" Margin="24,0,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="BtnPrevDay" Content="◀" Width="32" Height="32" Background="Transparent" BorderThickness="0" Click="BtnPrevDay_Click"/>
+                    <TextBlock x:Name="DateText" Text="今天" VerticalAlignment="Center" HorizontalAlignment="Center" Width="100" TextAlignment="Center" FontSize="14"/>
+                    <Button x:Name="BtnNextDay" Content="▶" Width="32" Height="32" Background="Transparent" BorderThickness="0" Click="BtnNextDay_Click"/>
+                    <Button x:Name="BtnToday" Content="今天" Width="48" Height="32" Background="Transparent" BorderThickness="0,0,1,0" Click="BtnToday_Click" FontSize="12"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
-        <!-- 今日时间轴 -->
+        <!-- 时间轴区域 -->
         <Border Grid.Row="2" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,8">
-            <StackPanel>
-                <TextBlock Text="今日时间轴" FontWeight="Bold" Margin="0,0,0,6"/>
+            <StackPanel x:Name="TimelineContainer">
+                <DockPanel Margin="0,0,0,6">
+                    <TextBlock Text="时间轴" FontWeight="Bold" DockPanel.Dock="Left"/>
+                    <TextBlock x:Name="ZoomText" Text="缩放：1x" DockPanel.Dock="Right" HorizontalAlignment="Right" FontSize="11" Foreground="#999"/>
+                </DockPanel>
 
-                <!-- 时间刻度 -->
-                <Grid Height="16" Margin="20,0,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="0:00" FontSize="10" Foreground="#999"/>
-                    <TextBlock Grid.Column="1" Text="4:00" FontSize="10" Foreground="#999"/>
-                    <TextBlock Grid.Column="2" Text="8:00" FontSize="10" Foreground="#999"/>
-                    <TextBlock Grid.Column="3" Text="12:00" FontSize="10" Foreground="#999"/>
-                    <TextBlock Grid.Column="4" Text="16:00" FontSize="10" Foreground="#999"/>
-                    <TextBlock Grid.Column="5" Text="20:00" FontSize="10" Foreground="#999"/>
-                    <TextBlock Grid.Column="6" Text="24:00" FontSize="10" Foreground="#999" HorizontalAlignment="Right"/>
-                </Grid>
+                <!-- 上方：可缩放时间轴的刻度 -->
+                <Canvas x:Name="TopScaleCanvas" Height="18" Margin="0,0,0,2" ClipToBounds="True"/>
 
-                <!-- 色块时间轴 -->
-                <Canvas x:Name="TimelineCanvas" Height="36" Margin="20,0,0,0" ClipToBounds="True"/>
+                <!-- 上方：可缩放时间轴主体 -->
+                <Canvas x:Name="MainTimelineCanvas" Height="44" ClipToBounds="True" Background="#F5F5F5"
+                        MouseMove="MainTimelineCanvas_MouseMove" MouseLeave="MainTimelineCanvas_MouseLeave"
+                        PreviewMouseWheel="MainTimelineCanvas_PreviewMouseWheel"/>
 
-                <!-- 分类图例 -->
-                <WrapPanel x:Name="LegendPanel" Margin="20,4,0,0"/>
+                <!-- 下方：固定 0-24h 概览条 -->
+                <Canvas x:Name="OverviewCanvas" Height="20" Margin="0,4,0,0" ClipToBounds="True"
+                        MouseLeftButtonDown="OverviewCanvas_MouseLeftButtonDown"
+                        MouseMove="OverviewCanvas_MouseMove"
+                        MouseLeftButtonUp="OverviewCanvas_MouseLeftButtonUp"/>
+
+                <!-- 下方概览刻度 -->
+                <Canvas x:Name="OverviewScaleCanvas" Height="14" Margin="0,1,0,0" ClipToBounds="True"/>
+
+                <WrapPanel x:Name="LegendPanel" Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
+
+        <!-- 跟随鼠标的浮动详情框 -->
+        <Popup x:Name="DetailPopup" AllowsTransparency="True" Placement="RelativePoint" PlacementTarget="{Binding ElementName=MainTimelineCanvas}" IsOpen="False" StaysOpen="True">
+            <Border Background="White" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="8,5">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                        <Rectangle x:Name="PopupColor" Width="10" Height="10" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock x:Name="PopupCategory" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <TextBlock x:Name="PopupTime" FontSize="11" Foreground="#666"/>
+                    <TextBlock x:Name="PopupProcess" FontSize="11" Foreground="#333" Margin="0,2,0,0"/>
+                    <TextBlock x:Name="PopupTitle" FontSize="11" Foreground="#999" TextTrimming="CharacterEllipsis" MaxWidth="280"/>
+                    <Image x:Name="PopupScreenshot" Stretch="Uniform" MaxWidth="280" Margin="0,4,0,0" Visibility="Collapsed"/>
+                </StackPanel>
+            </Border>
+        </Popup>
 
         <!-- 活动列表 -->
         <Border Grid.Row="3" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
