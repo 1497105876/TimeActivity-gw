@@ -1,12 +1,85 @@
-﻿<Window x:Class="TimeActivity.MainWindow"
+<Window x:Class="TimeActivity.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TimeActivity"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="TimeActivity — 屏幕时间追踪" Height="720" Width="960"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
+        <!-- 顶部状态栏 -->
+        <Border Grid.Row="0" Background="#F0F0F0" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="当前：" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock x:Name="StatusText" Text="未开始" VerticalAlignment="Center" Margin="6,0,0,0" FontSize="14"/>
+                <TextBlock Text="类别：" FontWeight="Bold" VerticalAlignment="Center" Margin="24,0,0,0"/>
+                <TextBlock x:Name="CategoryText" Text="—" VerticalAlignment="Center" Margin="6,0,0,0" FontSize="14"/>
+                <TextBlock x:Name="TodayTotalText" Text="" VerticalAlignment="Center" Margin="24,0,0,0" FontSize="14" Foreground="#666"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 控制按钮 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="BtnStart" Content="开始追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStart_Click"/>
+            <Button x:Name="BtnStop" Content="停止追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStop_Click" IsEnabled="False"/>
+            <Button x:Name="BtnClear" Content="清空列表" Width="100" Height="32" Margin="0,0,8,0" Click="BtnClear_Click"/>
+            <Button x:Name="BtnRefresh" Content="刷新时间轴" Width="100" Height="32" Margin="0,0,8,0" Click="BtnRefresh_Click"/>
+        </StackPanel>
+
+        <!-- 今日时间轴 -->
+        <Border Grid.Row="2" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,0,8">
+            <StackPanel>
+                <TextBlock Text="今日时间轴" FontWeight="Bold" Margin="0,0,0,6"/>
+
+                <!-- 时间刻度 -->
+                <Grid Height="16" Margin="20,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="0:00" FontSize="10" Foreground="#999"/>
+                    <TextBlock Grid.Column="1" Text="4:00" FontSize="10" Foreground="#999"/>
+                    <TextBlock Grid.Column="2" Text="8:00" FontSize="10" Foreground="#999"/>
+                    <TextBlock Grid.Column="3" Text="12:00" FontSize="10" Foreground="#999"/>
+                    <TextBlock Grid.Column="4" Text="16:00" FontSize="10" Foreground="#999"/>
+                    <TextBlock Grid.Column="5" Text="20:00" FontSize="10" Foreground="#999"/>
+                    <TextBlock Grid.Column="6" Text="24:00" FontSize="10" Foreground="#999" HorizontalAlignment="Right"/>
+                </Grid>
+
+                <!-- 色块时间轴 -->
+                <Canvas x:Name="TimelineCanvas" Height="36" Margin="20,0,0,0" ClipToBounds="True"/>
+
+                <!-- 分类图例 -->
+                <WrapPanel x:Name="LegendPanel" Margin="20,4,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- 活动列表 -->
+        <Border Grid.Row="3" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
+            <ListView x:Name="ActivityList" FontSize="13">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="开始时间" Width="140" DisplayMemberBinding="{Binding StartTime, StringFormat=HH:mm:ss}"/>
+                        <GridViewColumn Header="时长" Width="80" DisplayMemberBinding="{Binding DurationText}"/>
+                        <GridViewColumn Header="进程" Width="120" DisplayMemberBinding="{Binding ProcessName}"/>
+                        <GridViewColumn Header="类别" Width="70" DisplayMemberBinding="{Binding Category}"/>
+                        <GridViewColumn Header="窗口标题" Width="400" DisplayMemberBinding="{Binding WindowTitle}"/>
+                    </GridView>
+                </ListView.View>
+            </ListView>
+        </Border>
     </Grid>
 </Window>
