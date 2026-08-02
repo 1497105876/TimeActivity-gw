@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TimeActivity.Models;
 using TimeActivity.Data;
+using TimeActivity.Services;
 
 namespace TimeActivity.Services;
 
@@ -163,8 +164,7 @@ public class TrackingEngine
             }
             catch (Exception ex)
             {
-                // 数据库写入失败不崩溃，只记日志
-                System.Diagnostics.Debug.WriteLine($"[DatabaseHelper] 写入失败: {ex.Message}");
+                Logger.Error("活动写入数据库失败", ex);
             }
 
             OnActivityRecorded?.Invoke(_currentActivity);

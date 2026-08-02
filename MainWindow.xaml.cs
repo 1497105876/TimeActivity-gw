@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -54,6 +55,7 @@ public partial class MainWindow : Window
 
     // Popup 标志
     private bool _popupOpen = false;
+    private string? _lastScreenshotPath = null;
 
     // 概览条拖拽
     private bool _overviewDragging = false;
@@ -114,11 +116,15 @@ public partial class MainWindow : Window
         {
             if (_currentDate == DateTime.Today)
                 LoadDateData(_currentDate);
+            _ = CheckAutoSummaryAsync();
         };
         _autoRefreshTimer.Start();
 
         // 启动时执行数据保留清理
         PerformDataRetention();
+
+        // 启动时检查是否需要补生成上周/上月的自动总结
+        _ = CheckAutoSummaryAsync();
 
         if (DatabaseHelper.GetSetting("AutoStartTracking", "true") == "true")
         {
@@ -192,8 +198,75 @@ public partial class MainWindow : Window
             {
                 int deleted = DatabaseHelper.CleanOldData(days);
                 if (deleted > 0)
-                    System.Diagnostics.Debug.WriteLine($"[DataRetention] 清理了 {deleted} 条超过 {days} 天的旧数据");
+                {
+                    Logger.Info($"数据清理：删除 {deleted} 条超过 {days} 天的旧数据");
+                    ShowStatus($"已清理 {deleted} 条旧数据");
+                }
             }
+
+            // 启动时生成昨天的每日汇总
+            string yesterday = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd");
+            DatabaseHelper.GenerateDailySummary(yesterday);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("数据清理/汇总失败", ex);
+        }
+    }
+
+    /// <summary>
+    /// 检查是否需要自动生成周/月总结（启动兆底 + 定时检查）
+    /// </summary>
+    private async Task CheckAutoSummaryAsync()
+    {
+        try
+        {
+            if (DatabaseHelper.GetSetting("EnableAI", "true") != "true") return;
+
+            var aiService = new AISummaryService();
+            DateTime today = DateTime.Today;
+
+            // 检查上周总结
+            DateTime lastWeekStart = GetWeekStart(today.AddDays(-7));
+            if (!DatabaseHelper.HasAutoSummary(lastWeekStart, "weekly"))
+            {
+                Logger.Info($"补生成上周总结：{lastWeekStart:yyyy-MM-dd}");
+                string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
+                if (result != null)
+                    DatabaseHelper.InsertAISummary(lastWeekStart, result, "weekly", "auto");
+            }
+
+            // 检查上月总结
+            DateTime lastMonthStart = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+            if (!DatabaseHelper.HasAutoSummary(lastMonthStart, "monthly"))
+            {
+                Logger.Info($"补生成上月总结：{lastMonthStart:yyyy-MM-dd}");
+                string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
+                if (result != null)
+                    DatabaseHelper.InsertAISummary(lastMonthStart, result, "monthly", "auto");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("自动周/月总结检查失败", ex);
+        }
+    }
+
+    /// <summary>
+    /// 获取本周一（或指定日期所在周的周一）
+    /// </summary>
+    private static DateTime GetWeekStart(DateTime date)
+    {
+        int diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return date.AddDays(-1 * diff).Date;
+    }
+    private async void ShowStatus(string message)
+    {
+        try
+        {
+            StatusBar.Text = message;
+            await Task.Delay(3500);
+            StatusBar.Text = "";
         }
         catch { }
     }
@@ -541,12 +614,16 @@ public partial class MainWindow : Window
             PopupTitle.Text = hit.WindowTitle;
             PopupTitle.Visibility = string.IsNullOrEmpty(hit.WindowTitle) ? Visibility.Collapsed : Visibility.Visible;
 
-            // 加载截图
+            // 加载截图（路径没变就不重新加载）
             var screenshotPath = ScreenshotService.GetScreenshotForTime(hit.StartTime);
             if (screenshotPath != null)
             {
-                PopupScreenshot.Source = new System.Windows.Media.Imaging.BitmapImage(
-                    new Uri(screenshotPath));
+                if (_lastScreenshotPath != screenshotPath)
+                {
+                    PopupScreenshot.Source = new System.Windows.Media.Imaging.BitmapImage(
+                        new Uri(screenshotPath));
+                    _lastScreenshotPath = screenshotPath;
+                }
                 PopupScreenshot.Visibility = Visibility.Visible;
             }
             else

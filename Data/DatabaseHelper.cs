@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Microsoft.Data.Sqlite;
+using TimeActivity.Services;
 
 namespace TimeActivity.Data;
 
@@ -14,7 +16,7 @@ public class DatabaseHelper
     private static readonly string DbPath = System.IO.Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "timeactivity.db");
 
-    private static string ConnectionString => $"Data Source={DbPath}";
+    public static string ConnectionString => $"Data Source={DbPath}";
 
     private static bool _initialized = false;
 
@@ -25,8 +27,17 @@ public class DatabaseHelper
     {
         if (_initialized) return;
 
-        using var conn = new SqliteConnection(ConnectionString);
-        conn.Open();
+        try
+        {
+            using var conn = new SqliteConnection(ConnectionString);
+            conn.Open();
+
+            // 开启 WAL 模式提升并发性能
+            using var pragmaCmd = conn.CreateCommand();
+            pragmaCmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;";
+            pragmaCmd.ExecuteNonQuery();
+
+            Logger.Info("数据库初始化：WAL 已开启");
 
         // 建表
         var sql = @"
@@ -95,10 +106,38 @@ public class DatabaseHelper
             CREATE INDEX IF NOT EXISTS IX_Activities_ProcessName ON Activities(ProcessName);
             CREATE INDEX IF NOT EXISTS IX_Screenshots_CapturedAt ON Screenshots(CapturedAt);
             CREATE INDEX IF NOT EXISTS IX_DailySummaries_Date ON DailySummaries(Date);
+        
+            -- 迁移：给 AISummaries 加 AutoType 字段（如果还没有）
+            CREATE TABLE IF NOT EXISTS _aisummaries_check(AutoType TEXT);
+            DROP TABLE IF EXISTS _aisummaries_check;
         ";
 
-        using var cmd = new SqliteCommand(sql, conn);
-        cmd.ExecuteNonQuery();
+        // 迁移：检查 AISummaries 是否有 AutoType 列，没有就加
+        try
+        {
+            using var checkCol = new SqliteCommand("PRAGMA table_info(AISummaries)", conn);
+            using var reader = checkCol.ExecuteReader();
+            bool hasAutoType = false;
+            while (reader.Read())
+            {
+                if (reader.GetString(1) == "AutoType") { hasAutoType = true; break; }
+            }
+            if (!hasAutoType)
+            {
+                using var alterCmd = new SqliteCommand("ALTER TABLE AISummaries ADD COLUMN AutoType TEXT NOT NULL DEFAULT 'manual'", conn);
+                alterCmd.ExecuteNonQuery();
+                Logger.Info("数据库迁移：AISummaries 表已加 AutoType 字段");
+            }
+        }
+        catch { }
+
+        // 创建唯一索引（如果不存在）— 用于 UPSERT
+        try
+        {
+            using var idxCmd = new SqliteCommand("CREATE UNIQUE INDEX IF NOT EXISTS UX_AISummaries_Type ON AISummaries(Date, SummaryType, AutoType)", conn);
+            idxCmd.ExecuteNonQuery();
+        }
+        catch { }
 
         // 插入预置分类（如果还没有）
         var countCmd = new SqliteCommand("SELECT COUNT(*) FROM Categories", conn);
@@ -164,6 +203,13 @@ public class DatabaseHelper
         }
 
         _initialized = true;
+        Logger.Info("数据库初始化完成");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("数据库初始化失败", ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -219,7 +265,7 @@ public class DatabaseHelper
         const string sql = @"
             SELECT Id, ProcessName, WindowTitle, Category, StartTime, EndTime, Duration, IsIdle
             FROM Activities
-            WHERE substr(StartTime, 1, 10) = @DateStr
+            WHERE date(StartTime) = @DateStr
             ORDER BY StartTime";
 
         using var conn = new SqliteConnection(ConnectionString);
@@ -295,7 +341,7 @@ public class DatabaseHelper
         const string sql = @"
             SELECT Category, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) = @DateStr AND IsIdle = 0
+            WHERE date(StartTime) = @DateStr AND IsIdle = 0
             GROUP BY Category
             ORDER BY TotalSeconds DESC";
 
@@ -324,7 +370,7 @@ public class DatabaseHelper
         const string sql = @"
             SELECT ProcessName, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) = @DateStr AND IsIdle = 0
+            WHERE date(StartTime) = @DateStr AND IsIdle = 0
             GROUP BY ProcessName
             ORDER BY TotalSeconds DESC";
 
@@ -358,7 +404,7 @@ public class DatabaseHelper
         string sql = $@"
             SELECT Category, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End{idleFilter}
+            WHERE date(StartTime) >= @Start AND date(StartTime) <= @End{idleFilter}
             GROUP BY Category
             ORDER BY TotalSeconds DESC";
 
@@ -390,7 +436,7 @@ public class DatabaseHelper
         string sql = $@"
             SELECT ProcessName, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End{idleFilter}
+            WHERE date(StartTime) >= @Start AND date(StartTime) <= @End{idleFilter}
             GROUP BY ProcessName
             ORDER BY TotalSeconds DESC";
 
@@ -420,9 +466,9 @@ public class DatabaseHelper
         var result = new Dictionary<string, int>();
         string idleFilter = includeIdle ? "" : " AND IsIdle = 0";
         string sql = $@"
-            SELECT substr(StartTime, 1, 10) AS Date, SUM(Duration) AS TotalSeconds
+            SELECT date(StartTime) AS Date, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE substr(StartTime, 1, 10) >= @Start AND substr(StartTime, 1, 10) <= @End{idleFilter}
+            WHERE date(StartTime) >= @Start AND date(StartTime) <= @End{idleFilter}
             GROUP BY Date
             ORDER BY Date";
 
@@ -498,12 +544,13 @@ public class DatabaseHelper
     /// <summary>
     /// 插入 AI 总结
     /// </summary>
-    public static void InsertAISummary(DateTime date, string summaryText, string summaryType = "daily")
+    public static void InsertAISummary(DateTime date, string summaryText, string summaryType = "daily", string autoType = "manual")
     {
         Initialize();
         const string sql = @"
-            INSERT INTO AISummaries (Date, SummaryText, SummaryType, CreatedAt)
-            VALUES (@Date, @SummaryText, @SummaryType, @CreatedAt)";
+            INSERT INTO AISummaries (Date, SummaryText, SummaryType, AutoType, CreatedAt)
+            VALUES (@Date, @SummaryText, @SummaryType, @AutoType, @CreatedAt)
+            ON CONFLICT(Date, SummaryType, AutoType) DO UPDATE SET SummaryText=@SummaryText, CreatedAt=@CreatedAt";
 
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
@@ -511,9 +558,26 @@ public class DatabaseHelper
         cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
         cmd.Parameters.AddWithValue("@SummaryText", summaryText);
         cmd.Parameters.AddWithValue("@SummaryType", summaryType);
+        cmd.Parameters.AddWithValue("@AutoType", autoType);
         cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
 
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// 检查是否已有某类型某来源的自动总结
+    /// </summary>
+    public static bool HasAutoSummary(DateTime date, string summaryType)
+    {
+        Initialize();
+        const string sql = "SELECT COUNT(*) FROM AISummaries WHERE Date=@Date AND SummaryType=@Type AND AutoType='auto'";
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Type", summaryType);
+        long count = (long)cmd.ExecuteScalar()!;
+        return count > 0;
     }
 
     /// <summary>
@@ -540,14 +604,127 @@ public class DatabaseHelper
     {
         Initialize();
         string cutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd HH:mm:ss");
-        const string sql = "DELETE FROM Activities WHERE StartTime < @Cutoff";
+        string dateCutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd");
+        int totalDeleted = 0;
 
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
-        using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Cutoff", cutoff);
 
-        return cmd.ExecuteNonQuery();
+        // 1. 清 Activities
+        using var cmd1 = new SqliteCommand("DELETE FROM Activities WHERE StartTime < @Cutoff", conn);
+        cmd1.Parameters.AddWithValue("@Cutoff", cutoff);
+        totalDeleted += cmd1.ExecuteNonQuery();
+
+        // 2. 清 Screenshots（同时删文件）
+        using var cmd2 = new SqliteCommand("SELECT FilePath FROM Screenshots WHERE CapturedAt < @Cutoff", conn);
+        cmd2.Parameters.AddWithValue("@Cutoff", cutoff);
+        using (var reader = cmd2.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                try
+                {
+                    var p = reader.GetString(0);
+                    // 数据库存的可能是相对路径，拼上程序目录
+                    string fullPath = System.IO.Path.IsPathRooted(p) ? p : System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, p);
+                    if (System.IO.File.Exists(fullPath)) System.IO.File.Delete(fullPath);
+                }
+                catch { }
+            }
+        }
+        using var cmd3 = new SqliteCommand("DELETE FROM Screenshots WHERE CapturedAt < @Cutoff", conn);
+        cmd3.Parameters.AddWithValue("@Cutoff", cutoff);
+        totalDeleted += cmd3.ExecuteNonQuery();
+
+        // 3. 清 AISummaries（手动总结超期也删）
+        using var cmd4 = new SqliteCommand("DELETE FROM AISummaries WHERE Date < @DateCutoff AND AutoType='manual'", conn);
+        cmd4.Parameters.AddWithValue("@DateCutoff", dateCutoff);
+        totalDeleted += cmd4.ExecuteNonQuery();
+
+        // 4. 清 DailySummaries
+        using var cmd5 = new SqliteCommand("DELETE FROM DailySummaries WHERE Date < @DateCutoff", conn);
+        cmd5.Parameters.AddWithValue("@DateCutoff", dateCutoff);
+        totalDeleted += cmd5.ExecuteNonQuery();
+
+        if (totalDeleted > 0)
+            Logger.Info($"数据清理：共删除 {totalDeleted} 条旧数据（含活动/截图/AI总结/每日汇总）");
+
+        return totalDeleted;
+    }
+
+    /// <summary>
+    /// 生成某天的每日汇总（UPSERT 到 DailySummaries 表）
+    /// </summary>
+    public static void GenerateDailySummary(string date)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+
+        // 计算总活跃时长
+        using var totalCmd = conn.CreateCommand();
+        totalCmd.CommandText = "SELECT COALESCE(SUM(Duration),0) FROM Activities WHERE date(StartTime)=@date AND IsIdle=0";
+        totalCmd.Parameters.AddWithValue("@date", date);
+        long totalActive = (long)totalCmd.ExecuteScalar();
+
+        // 计算分类细分
+        using var catCmd = conn.CreateCommand();
+        catCmd.CommandText = @"SELECT Category, SUM(Duration) as Total FROM Activities 
+            WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY Category ORDER BY Total DESC";
+        catCmd.Parameters.AddWithValue("@date", date);
+        var catBreakdown = new System.Text.StringBuilder();
+        using (var reader = catCmd.ExecuteReader())
+        {
+            bool first = true;
+            while (reader.Read())
+            {
+                if (!first) catBreakdown.Append(";");
+                catBreakdown.Append($"{reader.GetString(0)}:{reader.GetInt64(1)}");
+                first = false;
+            }
+        }
+
+        // 计算 Top 应用
+        using var appCmd = conn.CreateCommand();
+        appCmd.CommandText = @"SELECT ProcessName, SUM(Duration) as Total FROM Activities 
+            WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY ProcessName ORDER BY Total DESC LIMIT 5";
+        appCmd.Parameters.AddWithValue("@date", date);
+        var topApps = new System.Text.StringBuilder();
+        using (var reader = appCmd.ExecuteReader())
+        {
+            bool first = true;
+            while (reader.Read())
+            {
+                if (!first) topApps.Append(";");
+                topApps.Append($"{reader.GetString(0)}:{reader.GetInt64(1)}");
+                first = false;
+            }
+        }
+
+        // UPSERT
+        using var upsertCmd = conn.CreateCommand();
+        upsertCmd.CommandText = @"INSERT INTO DailySummaries (Date, TotalActiveTime, CategoryBreakdown, TopApps)
+            VALUES (@date, @total, @cat, @apps)
+            ON CONFLICT(Date) DO UPDATE SET TotalActiveTime=@total, CategoryBreakdown=@cat, TopApps=@apps, CreatedAt=datetime('now','localtime')";
+        upsertCmd.Parameters.AddWithValue("@date", date);
+        upsertCmd.Parameters.AddWithValue("@total", totalActive);
+        upsertCmd.Parameters.AddWithValue("@cat", catBreakdown.ToString());
+        upsertCmd.Parameters.AddWithValue("@apps", topApps.ToString());
+        upsertCmd.ExecuteNonQuery();
+
+        Logger.Info($"每日汇总已生成：{date}，总活跃 {totalActive} 秒");
+    }
+
+    /// <summary>
+    /// 备份数据库到指定路径（VACUUM INTO，不需要停引擎）
+    /// </summary>
+    public static void BackupTo(string targetPath)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"VACUUM INTO '{targetPath.Replace("'", "''")}'";
+        cmd.ExecuteNonQuery();
+        Logger.Info($"数据库备份到 {targetPath}");
     }
 
     /// <summary>
@@ -615,6 +792,20 @@ public class DatabaseHelper
             cmd.Parameters.AddWithValue("@Sort", sortOrder);
             cmd.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>
+    /// 删除自定义分类（预置 Id 1-8 不可删）
+    /// </summary>
+    public static bool DeleteCategory(int id)
+    {
+        if (id <= 8) return false; // 预置分类不可删
+        Initialize();
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand("DELETE FROM Categories WHERE Id=@Id", conn);
+        cmd.Parameters.AddWithValue("@Id", id);
+        return cmd.ExecuteNonQuery() > 0;
     }
 
     // ========== 规则查询 ==========

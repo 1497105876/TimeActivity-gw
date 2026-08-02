@@ -140,31 +140,18 @@ public class ChartRenderer
             canvas.Children.Add(label);
         }
 
-        // 柱状图
+        // 折线图
         double barW = (w - 48) / days;
+        var points = new List<Point>();
         for (int i = 0; i < days; i++)
         {
             DateTime day = start.AddDays(i);
             string key = day.ToString("yyyy-MM-dd");
             int sec = dailyData.ContainsKey(key) ? dailyData[key] : 0;
 
-            double x = 40 + i * barW + 2;
-            double barH = sec > 0 ? (h - 32) * ((double)sec / maxSec) : 0;
-            double y = h - 16 - barH;
-
-            if (sec > 0)
-            {
-                var bar = new Rectangle
-                {
-                    Width = Math.Max(barW - 4, 2),
-                    Height = barH,
-                    Fill = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9)),
-                    RadiusX = 2, RadiusY = 2
-                };
-                Canvas.SetLeft(bar, x);
-                Canvas.SetTop(bar, y);
-                canvas.Children.Add(bar);
-            }
+            double x = 40 + i * barW + barW / 2;
+            double y = h - 16 - (sec > 0 ? (h - 32) * ((double)sec / maxSec) : 0);
+            points.Add(new Point(x, y));
 
             if (barW >= 30)
             {
@@ -174,9 +161,38 @@ public class ChartRenderer
                     FontSize = 9,
                     Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
                 };
-                Canvas.SetLeft(label, x);
+                Canvas.SetLeft(label, x - 15);
                 Canvas.SetTop(label, h - 14);
                 canvas.Children.Add(label);
+            }
+        }
+
+        // 画折线
+        if (points.Count > 1)
+        {
+            for (int i = 0; i < points.Count - 1; i++)
+            {
+                var line = new Line
+                {
+                    X1 = points[i].X, Y1 = points[i].Y,
+                    X2 = points[i + 1].X, Y2 = points[i + 1].Y,
+                    Stroke = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9)),
+                    StrokeThickness = 2
+                };
+                canvas.Children.Add(line);
+            }
+
+            // 画点
+            foreach (var p in points)
+            {
+                var dot = new Ellipse
+                {
+                    Width = 5, Height = 5,
+                    Fill = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9))
+                };
+                Canvas.SetLeft(dot, p.X - 2.5);
+                Canvas.SetTop(dot, p.Y - 2.5);
+                canvas.Children.Add(dot);
             }
         }
     }

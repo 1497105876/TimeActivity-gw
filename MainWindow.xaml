@@ -109,6 +109,9 @@
             </TabItem>
         </TabControl>
 
+        <!-- 底部状态栏 -->
+        <TextBlock x:Name="StatusBar" DockPanel.Dock="Bottom" Height="20" FontSize="11" Foreground="#888" Padding="8,0" VerticalAlignment="Center" Text=""/>
+
         <!-- 跟随鼠标的浮动详情框 -->
         <Popup x:Name="DetailPopup" AllowsTransparency="True" Placement="RelativePoint" PlacementTarget="{Binding ElementName=MainTimelineCanvas}" IsOpen="False" StaysOpen="True">
             <Border Background="White" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="8,5">

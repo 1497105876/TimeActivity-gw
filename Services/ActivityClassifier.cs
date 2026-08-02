@@ -17,8 +17,8 @@ public class ActivityClassifier
     // 内存缓存：标题关键词 → 类别名
     private List<(string keyword, string category)> _titleKeywordRules = new();
 
-    // 浏览器进程名
-    private static readonly HashSet<string> Browsers = new(StringComparer.OrdinalIgnoreCase)
+    // 浏览器进程名（从数据库加载，分类为"网页"的规则进程名自动成为浏览器）
+    private HashSet<string> _browsers = new(StringComparer.OrdinalIgnoreCase)
     {
         "chrome", "msedge", "firefox", "brave", "opera"
     };
@@ -66,6 +66,13 @@ public class ActivityClassifier
 
             bool hasCustom = false;
 
+            // 重置浏览器集合为默认，再从规则补充
+            _browsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "chrome", "msedge", "firefox", "brave", "opera" };
+
+            // 找到"网页"分类的 ID
+            var webCatId = catById.FirstOrDefault(c => c.Value == "网页").Key;
+
             foreach (var rule in dbRules)
             {
                 if (!catById.TryGetValue(rule.CategoryId, out var catName))
@@ -75,6 +82,10 @@ public class ActivityClassifier
                 {
                     _processRules[rule.ProcessName] = catName;
                     hasCustom = true;
+
+                    // 如果规则分类是"网页"，把进程加入浏览器集合
+                    if (rule.CategoryId == webCatId)
+                        _browsers.Add(rule.ProcessName);
                 }
 
                 if (!string.IsNullOrWhiteSpace(rule.TitleKeyword))
@@ -129,7 +140,7 @@ public class ActivityClassifier
             return category;
 
         // 2. 浏览器特殊处理 — 按标题关键词分类
-        if (Browsers.Contains(processName))
+        if (_browsers.Contains(processName))
         {
             foreach (var (keyword, cat) in _titleKeywordRules)
             {

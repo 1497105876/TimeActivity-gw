@@ -19,9 +19,13 @@ public partial class SettingsPage : Page
 {
     private bool _loading = false;
     private bool _hasChanges = false;
+    private Dictionary<string, string> _originalSettings = new();
 
     // 分类列表（用于规则下拉和分类管理）
     private List<CategoryItem> _categories = new();
+
+    // 分类名列表（供 DataGridComboBoxColumn 绑定用）
+    public List<string> _categoryNames = new();
 
     public SettingsPage()
     {
@@ -42,8 +46,8 @@ public partial class SettingsPage : Page
     private void LoadSettings()
     {
         // 追踪设置
-        SetComboByTagOrText(CbxSamplingInterval, DatabaseHelper.GetSetting("SamplingInterval", "3"), "秒");
-        SetComboByTagOrText(CbxIdleThreshold, DatabaseHelper.GetSetting("IdleThreshold", "300"), "分钟");
+        SetComboByTagOrText(CbxSamplingInterval, DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), "秒");
+        SetComboByTagOrText(CbxIdleThreshold, DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), "分钟");
         ChkAutoStartTracking.IsChecked = DatabaseHelper.GetSetting("AutoStartTracking", "true") == "true";
         ChkTrackWindowTitle.IsChecked = DatabaseHelper.GetSetting("TrackWindowTitle", "true") == "true";
 
@@ -118,6 +122,9 @@ public partial class SettingsPage : Page
 
         CategoriesGrid.ItemsSource = new ObservableCollection<CategoryItem>(_categories);
 
+        // 更新分类名列表供 DataGridComboBoxColumn 绑定
+        _categoryNames = _categories.Select(c => c.Name).ToList();
+
         // 更新规则 DataGrid 的分类下拉
         UpdateRuleCategoryColumn();
     }
@@ -162,15 +169,15 @@ public partial class SettingsPage : Page
         // 追踪设置
         string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
         if (int.TryParse(samplingText, out int sv) && sv > 0)
-            DatabaseHelper.SetSetting("SamplingInterval", sv.ToString());
+            DatabaseHelper.SetSetting("PollIntervalSeconds", sv.ToString());
         else
-            DatabaseHelper.SetSetting("SamplingInterval", "3");
+            DatabaseHelper.SetSetting("PollIntervalSeconds", "3");
 
         string idleText = CbxIdleThreshold.Text.Replace("分钟", "").Trim();
         if (int.TryParse(idleText, out int iv) && iv > 0)
-            DatabaseHelper.SetSetting("IdleThreshold", (iv * 60).ToString());
+            DatabaseHelper.SetSetting("IdleThresholdSeconds", (iv * 60).ToString());
         else
-            DatabaseHelper.SetSetting("IdleThreshold", "300");
+            DatabaseHelper.SetSetting("IdleThresholdSeconds", "300");
 
         DatabaseHelper.SetSetting("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
         DatabaseHelper.SetSetting("TrackWindowTitle", ChkTrackWindowTitle.IsChecked == true ? "true" : "false");
@@ -244,6 +251,7 @@ public partial class SettingsPage : Page
 
         _hasChanges = false;
         TxtUnsaved.Text = "";
+        SaveSnapshot();
 
         MessageBox.Show("设置已保存", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
     }
@@ -296,9 +304,86 @@ public partial class SettingsPage : Page
         _loading = false;
         _hasChanges = false;
         TxtUnsaved.Text = "";
+        SaveSnapshot();
     }
 
-    // ========== 截图路径浏览 ==========
+    /// <summary>
+    /// 保存当前设置的快照，用于后续对比是否有变更
+    /// </summary>
+    private void SaveSnapshot()
+    {
+        _originalSettings = GetCurrentSettingsSnapshot();
+    }
+
+    /// <summary>
+    /// 收集当前 UI 上所有设置项的值
+    /// </summary>
+    private Dictionary<string, string> GetCurrentSettingsSnapshot()
+    {
+        var snap = new Dictionary<string, string>();
+        snap["PollIntervalSeconds"] = CbxSamplingInterval.Text ?? "";
+        snap["IdleThresholdSeconds"] = CbxIdleThreshold.Text ?? "";
+        snap["AutoStartTracking"] = (ChkAutoStartTracking.IsChecked == true).ToString().ToLower();
+        snap["TrackWindowTitle"] = (ChkTrackWindowTitle.IsChecked == true).ToString().ToLower();
+        snap["EnableScreenshot"] = (ChkEnableScreenshot.IsChecked == true).ToString().ToLower();
+        snap["ScreenshotOnSwitch"] = (ChkScreenshotOnSwitch.IsChecked == true).ToString().ToLower();
+        snap["ScreenshotIntervalMinutes"] = CbxScreenshotInterval.Text ?? "";
+        snap["ScreenshotQuality"] = GetComboTag(CbxScreenshotQuality);
+        snap["ScreenshotFormat"] = GetComboTag(CbxScreenshotFormat);
+        snap["ScreenshotPath"] = TxtScreenshotPath.Text;
+        snap["EnableMaxSize"] = (ChkMaxSize.IsChecked == true).ToString().ToLower();
+        snap["MaxScreenshotSizeMB"] = TxtMaxSize.Text;
+        snap["EnableMaxAge"] = (ChkMaxAge.IsChecked == true).ToString().ToLower();
+        snap["MaxScreenshotAgeDays"] = TxtMaxAge.Text;
+        snap["Use24Hour"] = (Chk24Hour.IsChecked == true).ToString().ToLower();
+        snap["Theme"] = GetComboTag(CbxTheme);
+        snap["DataRetentionDays"] = CbxDataRetention.Text ?? "";
+        snap["EnableAI"] = (ChkEnableAI.IsChecked == true).ToString().ToLower();
+        snap["AIMode"] = GetComboTag(CbxAIMode);
+        snap["AIApiUrl"] = TxtApiUrl.Text;
+        snap["AIApiKey"] = TxtApiKey.Password;
+        snap["AIModel"] = TxtAIModel.Text;
+        snap["AISummaryPath"] = TxtAISummaryPath.Text;
+        snap["AISummaryMaxCount"] = TxtAISummaryMaxCount.Text;
+        snap["AISummaryMaxSizeMB"] = TxtAISummaryMaxSizeMB.Text;
+        snap["AutoStartWithWindows"] = (ChkAutoStart.IsChecked == true).ToString().ToLower();
+        snap["MinimizeToTray"] = (ChkMinimizeToTray.IsChecked == true).ToString().ToLower();
+
+        // 规则和分类数据
+        if (RulesGrid.ItemsSource is ObservableCollection<RuleItem> rules)
+            snap["__rules"] = JsonSerializer.Serialize(rules.Select(r => new { r.ProcessName, r.TitleKeyword, r.CategoryName }).ToList());
+        if (CategoriesGrid.ItemsSource is ObservableCollection<CategoryItem> cats)
+            snap["__categories"] = JsonSerializer.Serialize(cats.Select(c => new { c.Name, c.Color, c.SortOrder }).ToList());
+
+        return snap;
+    }
+
+    /// <summary>
+    /// 对比当前值和快照，检查是否有变更
+    /// </summary>
+    private void CheckHasChanges()
+    {
+        if (_loading || _originalSettings.Count == 0) return;
+        var current = GetCurrentSettingsSnapshot();
+        bool changed = false;
+        foreach (var kvp in _originalSettings)
+        {
+            if (!current.TryGetValue(kvp.Key, out var val) || val != kvp.Value)
+            {
+                changed = true;
+                break;
+            }
+        }
+        _hasChanges = changed;
+        TxtUnsaved.Text = changed ? "有未保存的更改" : "";
+    }
+
+    private static string GetComboTag(ComboBox combo)
+    {
+        if (combo.SelectedItem is ComboBoxItem item && item.Tag != null)
+            return item.Tag.ToString() ?? "";
+        return combo.Text ?? "";
+    }
 
     private void BtnBrowsePath_Click(object sender, RoutedEventArgs e)
     {
@@ -544,8 +629,38 @@ public partial class SettingsPage : Page
     private void MarkChanged()
     {
         if (_loading) return;
-        _hasChanges = true;
-        TxtUnsaved.Text = "● 有未保存的更改";
+        CheckHasChanges();
+    }
+
+    // ========== 备份数据库 ==========
+
+    private void BtnBackupDb_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dlg = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "SQLite 数据库|*.db|所有文件|*.*",
+                FileName = $"timeactivity_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db"
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            var dbPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "timeactivity.db");
+            if (!System.IO.File.Exists(dbPath))
+            {
+                MessageBox.Show("数据库文件不存在", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 用 VACUUM INTO 备份，不需要停引擎
+            DatabaseHelper.BackupTo(dlg.FileName);
+            MessageBox.Show($"备份成功！\n{dlg.FileName}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("数据库备份失败", ex);
+            MessageBox.Show($"备份失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     // ========== 清空数据 ==========
@@ -579,8 +694,8 @@ public partial class SettingsPage : Page
         // 重置数据库设置到默认
         var defaults = new Dictionary<string, string>
         {
-            {"SamplingInterval", "3"},
-            {"IdleThreshold", "300"},
+            {"PollIntervalSeconds", "3"},
+            {"IdleThresholdSeconds", "300"},
             {"AutoStartTracking", "true"},
             {"TrackWindowTitle", "true"},
             {"EnableScreenshot", "false"},
@@ -718,13 +833,6 @@ public partial class SettingsPage : Page
         }
         // 匹配不上：直接写文本（可编辑模式）
         combo.Text = value;
-    }
-
-    private static string GetComboTag(ComboBox combo)
-    {
-        if (combo.SelectedItem is ComboBoxItem item)
-            return item.Tag?.ToString() ?? "";
-        return "";
     }
 }
 

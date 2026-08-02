@@ -193,7 +193,9 @@
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="进程名" Binding="{Binding ProcessName}" Width="*"/>
                                 <DataGridTextColumn Header="标题关键词" Binding="{Binding TitleKeyword}" Width="*"/>
-                                <DataGridTextColumn Header="分类" Binding="{Binding CategoryName}" Width="*"/>
+                                <DataGridComboBoxColumn Header="分类" Width="*"
+                                        ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Page}, Path=_categoryNames}"
+                                        SelectedItemBinding="{Binding CategoryName}"/>
                             </DataGrid.Columns>
                         </DataGrid>
                         <TextBlock Text="提示：进程名留空表示按标题关键词匹配。改了规则后点保存生效。" Margin="0,4,0,0" Foreground="#999" FontSize="11"/>
@@ -278,6 +280,15 @@
                             <TextBlock Text="清空所有数据" VerticalAlignment="Center"/>
                             <Button x:Name="BtnClearData" Grid.Column="1" Content="清空..." HorizontalAlignment="Left" Width="80"
                                     Background="#FFE0E0" BorderBrush="#FFCCCC" Click="BtnClearData_Click"/>
+                        </Grid>
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="备份数据库" VerticalAlignment="Center"/>
+                            <Button x:Name="BtnBackupDb" Grid.Column="1" Content="备份..." HorizontalAlignment="Left" Width="80"
+                                    Click="BtnBackupDb_Click"/>
                         </Grid>
                     </StackPanel>
                 </Expander>

@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using TimeActivity.Services;
 using System.Runtime.InteropServices;
 using TimeActivity.Data;
 
@@ -179,10 +180,14 @@ public class ScreenshotService
             }
 
             var fileSize = new FileInfo(filePath).Length;
-            DatabaseHelper.InsertScreenshot(filePath, fileSize);
+            // 数据库存相对路径（相对于程序目录）
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            string dbPath = filePath.StartsWith(appDir) ? filePath.Substring(appDir.Length) : filePath;
+            DatabaseHelper.InsertScreenshot(dbPath, fileSize);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error("截图保存失败", ex);
         }
     }
 
@@ -207,8 +212,7 @@ public class ScreenshotService
     {
         try
         {
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection(
-                $"Data Source={Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "timeactivity.db")}");
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection(DatabaseHelper.ConnectionString);
             conn.Open();
             using var cmd = new Microsoft.Data.Sqlite.SqliteCommand(@"
                 SELECT FilePath FROM Screenshots
@@ -220,6 +224,9 @@ public class ScreenshotService
             if (result != null && result != DBNull.Value)
             {
                 string path = (string)result;
+                // 相对路径拼接程序目录
+                if (!Path.IsPathRooted(path))
+                    path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
                 if (File.Exists(path))
                     return path;
             }

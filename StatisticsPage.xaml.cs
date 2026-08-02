@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using TimeActivity.Data;
+using TimeActivity.Services;
 using TimeActivity.Helpers;
 using TimeActivity.Rendering;
 using TimeActivity.Services;
@@ -34,6 +35,7 @@ public partial class StatisticsPage : Page
         _chartRenderer = new ChartRenderer(_colorHelper);
         // 从设置读取跳过空闲开关初始状态
         ChkSkipIdle.IsChecked = Data.DatabaseHelper.GetSetting("SkipIdleInStats", "false") == "true";
+        LoadCategoryFilter();
         RbDay.IsChecked = true;
         UpdateRange();
         LoadData();
@@ -72,11 +74,20 @@ public partial class StatisticsPage : Page
     {
         var (s, e) = GetRange();
         if (_period == "day")
+        {
             RangeText.Text = s.ToString("MM-dd") + (s == DateTime.Today ? "（今天）" : "");
+            AITitle.Text = "AI 每日总结";
+        }
         else if (_period == "week")
+        {
             RangeText.Text = $"{s:MM-dd} ~ {e:MM-dd}";
+            AITitle.Text = "AI 每周总结";
+        }
         else
+        {
             RangeText.Text = s.ToString("yyyy-MM");
+            AITitle.Text = "AI 每月总结";
+        }
     }
 
     private void BtnPrev_Click(object sender, RoutedEventArgs e)
@@ -113,6 +124,25 @@ public partial class StatisticsPage : Page
         _periodStart = DateTime.Today;
         UpdateRange();
         LoadData();
+    }
+
+    // ========== 分类筛选加载 ==========
+
+    private void LoadCategoryFilter()
+    {
+        CategoryFilter.Items.Clear();
+        var allItem = new ComboBoxItem { Content = "全部分类", Tag = "", IsSelected = true };
+        CategoryFilter.Items.Add(allItem);
+        try
+        {
+            var cats = DatabaseHelper.GetAllCategories();
+            foreach (var cat in cats)
+            {
+                CategoryFilter.Items.Add(new ComboBoxItem { Content = cat.Name, Tag = cat.Name });
+            }
+        }
+        catch { }
+        CategoryFilter.SelectedIndex = 0;
     }
 
     // ========== 数据加载 ==========
@@ -213,45 +243,52 @@ public partial class StatisticsPage : Page
         var elapsed = (DateTime.Now - _lastAICallTime).TotalSeconds;
         if (elapsed < AICooldownSeconds)
         {
-            AISummaryText.Text = $"请稍候，距离上次生成不足 {AICooldownSeconds} 秒（还剩 {(int)(AICooldownSeconds - elapsed)} 秒）";
+            AISummaryText.Markdown = $"请稍候，距离上次生成不足 {AICooldownSeconds} 秒（还剩 {(int)(AICooldownSeconds - elapsed)} 秒）";
             return;
         }
         _lastAICallTime = DateTime.Now;
 
         BtnGenerateAI.IsEnabled = false;
         BtnSaveAISummary.IsEnabled = false;
-        AISummaryText.Text = "正在生成...";
+        AISummaryText.Markdown = "正在生成...";
 
         try
         {
             var aiService = new AISummaryService();
 
-            DateTime summaryDate = _period switch
+            // 根据 _period 调对应方法
+            string? result;
+            if (_period == "day")
             {
-                "day" => _periodStart,
-                "week" => _periodStart,
-                _ => _periodStart,
-            };
-
-            // 每次点击都重新生成，不读缓存
-            string? result = await aiService.GenerateDailySummary(summaryDate);
-            if (result != null)
+                result = await aiService.GenerateDailySummary(_periodStart);
+            }
+            else if (_period == "week")
             {
-                AISummaryText.Text = result;
-                _currentAISummary = result;
-                BtnSaveAISummary.IsEnabled = true;
-
-                // 存入数据库（覆盖旧的）
-                DatabaseHelper.InsertAISummary(summaryDate, result);
+                result = await aiService.GenerateWeeklySummary(_periodStart);
             }
             else
             {
-                AISummaryText.Text = "生成失败，请检查设置页中的 AI API 配置。";
+                result = await aiService.GenerateMonthlySummary(_periodStart);
+            }
+            if (result != null)
+            {
+                AISummaryText.Markdown = result;
+                _currentAISummary = result;
+                BtnSaveAISummary.IsEnabled = true;
+
+                // 存入数据库
+                DatabaseHelper.InsertAISummary(_periodStart, result, _period, "manual");
+            }
+            else
+            {
+                AISummaryText.Markdown = "生成失败，请检查设置页中的 AI API 配置。";
+                Logger.Error("AI 总结生成返回 null");
             }
         }
         catch (Exception ex)
         {
-            AISummaryText.Text = $"生成失败：{ex.Message}";
+            AISummaryText.Markdown = $"生成失败：{ex.Message}";
+            Logger.Error("AI 总结生成异常", ex);
         }
         finally
         {
@@ -263,7 +300,7 @@ public partial class StatisticsPage : Page
     {
         if (string.IsNullOrEmpty(_currentAISummary))
         {
-            AISummaryText.Text = "没有可保存的总结内容，请先生成。";
+            AISummaryText.Markdown = "没有可保存的总结内容，请先生成。";
             return;
         }
 
@@ -272,16 +309,16 @@ public partial class StatisticsPage : Page
             string? savePath = AISummaryService.SaveSummaryToFile(_currentAISummary, _periodStart);
             if (savePath != null)
             {
-                AISummaryText.Text = $"{_currentAISummary}\n\n---\n已保存到：{savePath}";
+                AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n已保存到：{savePath}";
             }
             else
             {
-                AISummaryText.Text = $"{_currentAISummary}\n\n---\n保存失败。";
+                AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n保存失败。";
             }
         }
         catch (Exception ex)
         {
-            AISummaryText.Text = $"{_currentAISummary}\n\n---\n保存失败：{ex.Message}";
+            AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n保存失败：{ex.Message}";
         }
     }
 }

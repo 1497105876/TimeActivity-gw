@@ -28,7 +28,7 @@ public static class Win32Api
     public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
     [DllImport("kernel32.dll")]
-    public static extern uint GetTickCount();
+    public static extern ulong GetTickCount64();
 
     /// <summary>
     /// 获取当前前台窗口的标题
@@ -65,9 +65,13 @@ public static class Win32Api
         var info = new LASTINPUTINFO();
         info.cbSize = (uint)Marshal.SizeOf(info);
         GetLastInputInfo(ref info);
-        uint now = GetTickCount();
-        // 处理 GetTickCount 溢出回绕
-        uint elapsed = now - info.dwTime;
+        // GetTickCount64 返回 ulong 不会溢出
+        // LASTINPUTINFO.dwTime 是 uint（GetTickCount 的值），48天后会回绕
+        // 但 GetTickCount64 内部和 dwTime 的基准一致，做减法时 uint 会隐式转 ulong
+        // 回绕后 dwTime 变小，now 变大，差值会很大但正确——因为 uint 到 ulong 是零扩展
+        ulong now = GetTickCount64();
+        ulong lastInput = info.dwTime; // uint → ulong 零扩展，和 GetTickCount64 同基准
+        ulong elapsed = now - lastInput;
         return (int)(elapsed / 1000);
     }
 }
