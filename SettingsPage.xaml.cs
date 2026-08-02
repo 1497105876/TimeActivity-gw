@@ -226,7 +226,10 @@ public partial class SettingsPage : Page
         DatabaseHelper.SetSetting("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
 
         // 开机自启
-        SetAutoStart(ChkAutoStart.IsChecked == true);
+        if (ChkAutoStart.IsChecked == true)
+            AutoStartHelper.Enable();
+        else
+            AutoStartHelper.Disable();
 
         // 保存分类规则
         SaveRules();
@@ -675,40 +678,6 @@ public partial class SettingsPage : Page
         {
             MessageBox.Show($"导入失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
-    }
-
-    // ========== 开机自启 ==========
-
-    private void SetAutoStart(bool enable)
-    {
-        try
-        {
-            string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
-            string shortcutPath = Path.Combine(startupFolder, "TimeActivity.lnk");
-
-            if (enable)
-            {
-                string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName;
-                CreateShortcut(shortcutPath, exePath, "--minimized");
-            }
-            else
-            {
-                if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
-            }
-        }
-        catch { }
-    }
-
-    private static void CreateShortcut(string shortcutPath, string targetPath, string arguments)
-    {
-        var shellType = Type.GetTypeFromProgID("WScript.Shell")!;
-        dynamic shell = Activator.CreateInstance(shellType)!;
-        dynamic shortcut = shell.CreateShortcut(shortcutPath);
-        shortcut.TargetPath = targetPath;
-        shortcut.Arguments = arguments;
-        shortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);
-        shortcut.WindowStyle = 1;
-        shortcut.Save();
     }
 
     // ========== 辅助方法 ==========

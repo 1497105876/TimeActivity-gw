@@ -8,7 +8,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using TimeActivity.Data;
+using TimeActivity.Helpers;
 using TimeActivity.Models;
+using TimeActivity.Rendering;
 using TimeActivity.Services;
 
 namespace TimeActivity;
@@ -21,6 +23,9 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ActivityDisplayItem> _items = new();
     private StatisticsPage? _statsPage;
 
+    private readonly CategoryColorHelper _colorHelper = new();
+    private readonly TimelineRenderer _timelineRenderer;
+    private readonly OverviewRenderer _overviewRenderer;
     private Dictionary<string, string> _categoryColors = new();
     private DateTime _currentDate = DateTime.Today;
 
@@ -65,6 +70,9 @@ public partial class MainWindow : Window
 
         DatabaseHelper.Initialize();
         LoadCategoryColors();
+
+        _timelineRenderer = new TimelineRenderer(_colorHelper);
+        _overviewRenderer = new OverviewRenderer(_colorHelper);
 
         _classifier = new ActivityClassifier();
         _engine = new TrackingEngine(_classifier);
@@ -257,34 +265,12 @@ public partial class MainWindow : Window
 
     private void LoadCategoryColors()
     {
-        _categoryColors = new Dictionary<string, string>();
-        try
-        {
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection(
-                $"Data Source={System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "timeactivity.db")}");
-            conn.Open();
-            using var cmd = new Microsoft.Data.Sqlite.SqliteCommand(
-                "SELECT Name, Color FROM Categories ORDER BY SortOrder", conn);
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                _categoryColors[reader.GetString(0)] = reader.GetString(1);
-        }
-        catch
-        {
-            _categoryColors = new Dictionary<string, string>
-            {
-                { "开发", "#4A90D9" }, { "社交", "#E67E22" }, { "娱乐", "#E74C3C" },
-                { "学习", "#2ECC71" }, { "系统", "#95A5A6" }, { "网页", "#9B59B6" },
-                { "空闲", "#BDC3C7" }, { "未分类", "#7F8C8D" },
-            };
-        }
+        _categoryColors = _colorHelper.Load();
     }
 
     private Color GetCategoryColor(string category)
     {
-        if (_categoryColors.TryGetValue(category, out var hex))
-            return (Color)ColorConverter.ConvertFromString(hex);
-        return (Color)ColorConverter.ConvertFromString("#7F8C8D");
+        return _colorHelper.GetColor(category);
     }
 
     // ========== 宽度计算 ==========
@@ -362,7 +348,7 @@ public partial class MainWindow : Window
                     WindowTitle = activity.WindowTitle,
                     Category = activity.Category,
                     StartTime = activity.StartTime,
-                    DurationText = FormatDuration(activity.Duration)
+                    DurationText = TimelineRenderer.FormatDuration(activity.Duration)
                 });
                 while (_items.Count > 500)
                     _items.RemoveAt(_items.Count - 1);
@@ -415,7 +401,7 @@ public partial class MainWindow : Window
                 WindowTitle = a.WindowTitle,
                 Category = a.Category,
                 StartTime = a.StartTime,
-                DurationText = FormatDuration(a.Duration)
+                DurationText = TimelineRenderer.FormatDuration(a.Duration)
             });
         }
 
@@ -441,205 +427,18 @@ public partial class MainWindow : Window
         // 上方时间轴
         TopScaleCanvas.Width = w;
         MainTimelineCanvas.Width = w;
-        DrawMainTimeline(w);
-        DrawTopScale(w);
+        _timelineRenderer.DrawActivities(MainTimelineCanvas, w, TimelineHeight, _cachedActivities, _viewStartSeconds, _visibleSeconds);
+        _timelineRenderer.DrawScale(TopScaleCanvas, w, _viewStartSeconds, _visibleSeconds);
 
         // 下方概览条
         OverviewCanvas.Width = w;
         OverviewScaleCanvas.Width = w;
-        DrawOverview(w);
-        DrawOverviewScale(w);
+        _overviewRenderer.Draw(OverviewCanvas, w, OverviewHeight, _cachedActivities, _viewStartSeconds, _visibleSeconds);
+        _overviewRenderer.DrawScale(OverviewScaleCanvas, w);
 
         // 更新缩放显示
         double zoomLevel = 86400.0 / _visibleSeconds;
         ZoomText.Text = $"缩放：{zoomLevel:F1}x";
-    }
-
-    // ========== 上方：可缩放时间轴 ==========
-
-    private void DrawMainTimeline(double width)
-    {
-        MainTimelineCanvas.Children.Clear();
-        MainTimelineCanvas.Height = TimelineHeight;
-
-        // 背景
-        var bg = new Rectangle
-        {
-            Width = width,
-            Height = TimelineHeight,
-            Fill = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5)),
-            RadiusX = 4,
-            RadiusY = 4
-        };
-        Panel.SetZIndex(bg, 0);
-        Canvas.SetLeft(bg, 0);
-        Canvas.SetTop(bg, 0);
-        MainTimelineCanvas.Children.Add(bg);
-
-        // 色块 — 只画可见范围内的
-        int z = 1;
-        foreach (var act in _cachedActivities)
-        {
-            if (act.IsIdle) continue;
-
-            double startSec = act.StartTime.TimeOfDay.TotalSeconds;
-            double endSec = act.EndTime.TimeOfDay.TotalSeconds;
-
-            // 裁剪到可见范围
-            if (endSec <= _viewStartSeconds || startSec >= _viewStartSeconds + _visibleSeconds)
-                continue;
-
-            double clipStart = Math.Max(startSec, _viewStartSeconds);
-            double clipEnd = Math.Min(endSec, _viewStartSeconds + _visibleSeconds);
-            double durSec = clipEnd - clipStart;
-
-            double x = ((clipStart - _viewStartSeconds) / _visibleSeconds) * width;
-            double w = Math.Max((durSec / _visibleSeconds) * width, 2);
-
-            var color = GetCategoryColor(act.Category);
-            var block = new Rectangle
-            {
-                Width = w,
-                Height = TimelineHeight,
-                Fill = new SolidColorBrush(color),
-                Tag = act
-            };
-            Panel.SetZIndex(block, z++);
-            Canvas.SetLeft(block, x);
-            Canvas.SetTop(block, 0);
-            MainTimelineCanvas.Children.Add(block);
-        }
-    }
-
-    private void DrawTopScale(double width)
-    {
-        TopScaleCanvas.Children.Clear();
-        TopScaleCanvas.Height = 18;
-
-        double spp = _visibleSeconds / width; // 每像素多少秒
-        double minIntervalSeconds = spp * 60; // 刻度间距至少60px
-
-        int intervalMinutes = ChooseInterval(minIntervalSeconds);
-        double startMinutes = (int)(_viewStartSeconds / 60 / intervalMinutes) * intervalMinutes;
-
-        for (int m = (int)startMinutes; m <= 1440; m += intervalMinutes)
-        {
-            double sec = m * 60;
-            if (sec < _viewStartSeconds) continue;
-            if (sec > _viewStartSeconds + _visibleSeconds) break;
-
-            double x = ((sec - _viewStartSeconds) / _visibleSeconds) * width;
-
-            var line = new Line
-            {
-                X1 = x, Y1 = 0, X2 = x, Y2 = 6,
-                Stroke = new SolidColorBrush(Color.FromRgb(0xBB, 0xBB, 0xBB)),
-                StrokeThickness = 1
-            };
-            TopScaleCanvas.Children.Add(line);
-
-            int h = m / 60;
-            int mm = m % 60;
-            string label = mm == 0 ? $"{h}" : $"{h}:{mm:D2}";
-
-            var text = new TextBlock
-            {
-                Text = label,
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99))
-            };
-            Canvas.SetLeft(text, x + 2);
-            Canvas.SetTop(text, 6);
-            TopScaleCanvas.Children.Add(text);
-        }
-    }
-
-    // ========== 下方：固定 0-24h 概览条 ==========
-
-    private void DrawOverview(double width)
-    {
-        OverviewCanvas.Children.Clear();
-        OverviewCanvas.Height = OverviewHeight;
-
-        const double totalSeconds = 86400;
-
-        // 背景
-        var bg = new Rectangle
-        {
-            Width = width,
-            Height = OverviewHeight,
-            Fill = new SolidColorBrush(Color.FromRgb(0xE8, 0xE8, 0xE8)),
-            RadiusX = 3,
-            RadiusY = 3
-        };
-        Canvas.SetLeft(bg, 0);
-        Canvas.SetTop(bg, 0);
-        OverviewCanvas.Children.Add(bg);
-
-        // 色块（全天缩略）
-        foreach (var act in _cachedActivities)
-        {
-            if (act.IsIdle) continue;
-            double startSec = act.StartTime.TimeOfDay.TotalSeconds;
-            double durSec = act.Duration;
-            double x = (startSec / totalSeconds) * width;
-            double w = Math.Max((durSec / totalSeconds) * width, 1);
-
-            var color = GetCategoryColor(act.Category);
-            var block = new Rectangle
-            {
-                Width = w,
-                Height = OverviewHeight,
-                Fill = new SolidColorBrush(color),
-                Opacity = 0.7
-            };
-            Canvas.SetLeft(block, x);
-            Canvas.SetTop(block, 0);
-            OverviewCanvas.Children.Add(block);
-        }
-
-        // 视口指示框（表示当前上方显示的时间范围）
-        double viewX = (_viewStartSeconds / totalSeconds) * width;
-        double viewW = (_visibleSeconds / totalSeconds) * width;
-
-        var viewport = new Border
-        {
-            Width = viewW,
-            Height = OverviewHeight,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x33, 0x99, 0xFF)),
-            BorderThickness = new Thickness(2),
-            Background = new SolidColorBrush(Color.FromArgb(30, 0x33, 0x99, 0xFF)),
-            CornerRadius = new CornerRadius(2)
-        };
-        Panel.SetZIndex(viewport, 100);
-        Canvas.SetLeft(viewport, viewX);
-        Canvas.SetTop(viewport, 0);
-        OverviewCanvas.Children.Add(viewport);
-    }
-
-    private void DrawOverviewScale(double width)
-    {
-        OverviewScaleCanvas.Children.Clear();
-        OverviewScaleCanvas.Height = 14;
-
-        const double totalSeconds = 86400;
-        int intervalMinutes = 180; // 固定3小时一个刻度
-
-        for (int m = 0; m <= 1440; m += intervalMinutes)
-        {
-            double sec = m * 60;
-            double x = (sec / totalSeconds) * width;
-
-            var text = new TextBlock
-            {
-                Text = $"{m / 60}",
-                FontSize = 9,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
-            };
-            Canvas.SetLeft(text, x + 2);
-            Canvas.SetTop(text, 0);
-            OverviewScaleCanvas.Children.Add(text);
-        }
     }
 
     // ========== 滚轮缩放（跟随鼠标） ==========
@@ -736,7 +535,7 @@ public partial class MainWindow : Window
             PopupCategory.Visibility = Visibility.Visible;
             PopupProcess.Visibility = Visibility.Visible;
             PopupColor.Fill = new SolidColorBrush(GetCategoryColor(hit.Category));
-            PopupCategory.Text = $"{hit.Category}  ·  {FormatDuration(hit.Duration)}";
+            PopupCategory.Text = $"{hit.Category}  ·  {TimelineRenderer.FormatDuration(hit.Duration)}";
             PopupTime.Text = $"{hit.StartTime:HH:mm:ss} → {hit.EndTime:HH:mm:ss}";
             PopupProcess.Text = hit.ProcessName;
             PopupTitle.Text = hit.WindowTitle;
@@ -800,37 +599,5 @@ public partial class MainWindow : Window
         }
     }
 
-    // ========== 工具方法 ==========
-
-    private static int ChooseInterval(double minIntervalSeconds)
-    {
-        if (minIntervalSeconds <= 60) return 1;
-        if (minIntervalSeconds <= 2 * 60) return 2;
-        if (minIntervalSeconds <= 5 * 60) return 5;
-        if (minIntervalSeconds <= 10 * 60) return 10;
-        if (minIntervalSeconds <= 15 * 60) return 15;
-        if (minIntervalSeconds <= 30 * 60) return 30;
-        if (minIntervalSeconds <= 60 * 60) return 60;
-        if (minIntervalSeconds <= 2 * 3600) return 120;
-        if (minIntervalSeconds <= 3 * 3600) return 180;
-        if (minIntervalSeconds <= 4 * 3600) return 240;
-        if (minIntervalSeconds <= 6 * 3600) return 360;
-        return 720;
-    }
-
-    private static string FormatDuration(int seconds)
-    {
-        if (seconds < 60) return $"{seconds}s";
-        if (seconds < 3600) return $"{seconds / 60}m{seconds % 60}s";
-        return $"{seconds / 3600}h{(seconds % 3600) / 60}m";
-    }
 }
 
-public class ActivityDisplayItem
-{
-    public string ProcessName { get; set; } = "";
-    public string WindowTitle { get; set; } = "";
-    public string Category { get; set; } = "";
-    public DateTime StartTime { get; set; }
-    public string DurationText { get; set; } = "";
-}
