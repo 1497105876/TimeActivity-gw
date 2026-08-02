@@ -78,6 +78,7 @@
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock Text="AI 每日总结" FontWeight="Bold" FontSize="14" Foreground="#4A90D9"/>
                             <Button x:Name="BtnGenerateAI" Content="生成总结" Width="80" Height="26" FontSize="11" Margin="12,0,0,0" Background="#4A90D9" Foreground="White" Click="BtnGenerateAI_Click"/>
+                            <Button x:Name="BtnSaveAISummary" Content="保存总结" Width="80" Height="26" FontSize="11" Margin="8,0,0,0" Click="BtnSaveAISummary_Click" IsEnabled="False"/>
                         </StackPanel>
                         <TextBlock x:Name="AISummaryText" Text="点击「生成总结」获取 AI 分析..." FontSize="13" TextWrapping="Wrap" Foreground="#555"/>
                     </StackPanel>

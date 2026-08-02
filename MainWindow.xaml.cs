@@ -109,6 +109,9 @@ public partial class MainWindow : Window
         };
         _autoRefreshTimer.Start();
 
+        // 启动时执行数据保留清理
+        PerformDataRetention();
+
         if (DatabaseHelper.GetSetting("AutoStartTracking", "true") == "true")
         {
             _engine.Start();
@@ -151,11 +154,40 @@ public partial class MainWindow : Window
                 _screenshotService.Start();
         }
 
-        // 追踪引擎也重读采样间隔和空闲阈值
+        // 追踪引擎重读采样间隔和空闲阈值
         if (int.TryParse(DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), out int poll))
             _engine.PollIntervalSeconds = poll;
         if (int.TryParse(DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), out int idle))
             _engine.IdleThresholdSeconds = idle;
+
+        // 分类器重载规则
+        _classifier.ReloadRules();
+
+        // 重载分类颜色（用户可能改了分类颜色）
+        LoadCategoryColors();
+        DrawLegend();
+        DrawAll();
+
+        // 执行数据保留清理
+        PerformDataRetention();
+    }
+
+    /// <summary>
+    /// 按设置的数据保留天数清理旧数据
+    /// </summary>
+    private void PerformDataRetention()
+    {
+        try
+        {
+            string? retentionStr = DatabaseHelper.GetSetting("DataRetentionDays", "90");
+            if (int.TryParse(retentionStr, out int days) && days > 0)
+            {
+                int deleted = DatabaseHelper.CleanOldData(days);
+                if (deleted > 0)
+                    System.Diagnostics.Debug.WriteLine($"[DataRetention] 清理了 {deleted} 条超过 {days} 天的旧数据");
+            }
+        }
+        catch { }
     }
 
     // ========== 托盘 ==========

@@ -179,4 +179,71 @@ public class AISummaryService
         if (h > 0) return $"{h}小时{m}分钟";
         return $"{m}分钟";
     }
+
+    // ========== 总结文件保存 ==========
+
+    /// <summary>
+    /// 保存 AI 总结到文件，文件名格式：AI_Summary_yyyy-MM-dd.txt
+    /// 保存路径和存储限制从设置读取
+    /// </summary>
+    public static string? SaveSummaryToFile(string summary, DateTime date)
+    {
+        // 保存路径：设置里的 AISummaryPath，空则用程序目录下的 ai_summaries/
+        string? configuredPath = DatabaseHelper.GetSetting("AISummaryPath", "");
+        string dir = string.IsNullOrWhiteSpace(configuredPath)
+            ? System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai_summaries")
+            : configuredPath;
+
+        Directory.CreateDirectory(dir);
+
+        string filename = $"AI_Summary_{date:yyyy-MM-dd}.txt";
+        string filepath = System.IO.Path.Combine(dir, filename);
+
+        string content = $"TimeActivity AI 每日总结\n日期：{date:yyyy年MM月dd日}\n生成时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n\n{summary}";
+
+        File.WriteAllText(filepath, content, Encoding.UTF8);
+
+        // 保存后执行存储限制清理
+        CleanOldSummaries(dir);
+
+        return filepath;
+    }
+
+    /// <summary>
+    /// 按设置清理旧的 AI 总结文件
+    /// </summary>
+    private static void CleanOldSummaries(string dir)
+    {
+        try
+        {
+            var files = Directory.GetFiles(dir, "AI_Summary_*.txt")
+                .Select(f => new FileInfo(f))
+                .OrderBy(f => f.CreationTime)
+                .ToList();
+
+            // 按数量限制
+            if (int.TryParse(DatabaseHelper.GetSetting("AISummaryMaxCount", "0"), out int maxCount) && maxCount > 0)
+            {
+                while (files.Count > maxCount)
+                {
+                    files[0].Delete();
+                    files.RemoveAt(0);
+                }
+            }
+
+            // 按总大小限制（MB）
+            if (int.TryParse(DatabaseHelper.GetSetting("AISummaryMaxSizeMB", "0"), out int maxSizeMB) && maxSizeMB > 0)
+            {
+                long maxBytes = maxSizeMB * 1024L * 1024L;
+                long totalSize = files.Sum(f => f.Length);
+                while (totalSize > maxBytes && files.Count > 0)
+                {
+                    totalSize -= files[0].Length;
+                    files[0].Delete();
+                    files.RemoveAt(0);
+                }
+            }
+        }
+        catch { }
+    }
 }

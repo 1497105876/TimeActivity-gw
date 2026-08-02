@@ -91,6 +91,11 @@ public partial class SettingsPage : Page
         TxtApiKey.Password = DatabaseHelper.GetSetting("AIApiKey", "");
         TxtAIModel.Text = DatabaseHelper.GetSetting("AIModel", "");
 
+        // AI 总结文件保存设置
+        TxtAISummaryPath.Text = DatabaseHelper.GetSetting("AISummaryPath", "");
+        TxtAISummaryMaxCount.Text = DatabaseHelper.GetSetting("AISummaryMaxCount", "0");
+        TxtAISummaryMaxSizeMB.Text = DatabaseHelper.GetSetting("AISummaryMaxSizeMB", "0");
+
         // 系统设置
         ChkAutoStart.IsChecked = DatabaseHelper.GetSetting("AutoStartWithWindows", "false") == "true";
         ChkMinimizeToTray.IsChecked = DatabaseHelper.GetSetting("MinimizeToTray", "true") == "true";
@@ -211,6 +216,11 @@ public partial class SettingsPage : Page
         DatabaseHelper.SetSetting("AIModel", TxtAIModel.Text);
         DatabaseHelper.SetSetting("AutoDailySummary", ChkAutoSummary.IsChecked == true ? "true" : "false");
 
+        // AI 总结文件保存
+        DatabaseHelper.SetSetting("AISummaryPath", TxtAISummaryPath.Text);
+        DatabaseHelper.SetSetting("AISummaryMaxCount", TxtAISummaryMaxCount.Text);
+        DatabaseHelper.SetSetting("AISummaryMaxSizeMB", TxtAISummaryMaxSizeMB.Text);
+
         // 系统设置
         DatabaseHelper.SetSetting("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
         DatabaseHelper.SetSetting("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
@@ -299,6 +309,23 @@ public partial class SettingsPage : Page
         {
             TxtScreenshotPath.Text = dialog.FolderName;
             UpdateDiskUsage();
+            MarkChanged();
+        }
+    }
+
+    // ========== AI 总结路径浏览 ==========
+
+    private void BtnBrowseAISummaryPath_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "选择 AI 总结保存路径",
+            InitialDirectory = TxtAISummaryPath.Text ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            TxtAISummaryPath.Text = dialog.FolderName;
             MarkChanged();
         }
     }

@@ -209,6 +209,8 @@ public partial class StatisticsPage : Page
     private void ChkSkipIdle_Changed(object sender, RoutedEventArgs e)
     {
         if (CategoryBarsPanel == null) return;
+        // 回写设置，跟设置页同步
+        Data.DatabaseHelper.SetSetting("SkipIdleInStats", ChkSkipIdle.IsChecked == true ? "true" : "false");
         LoadData();
     }
 
@@ -480,16 +482,32 @@ public partial class StatisticsPage : Page
 
     // ========== AI 总结 ==========
 
+    // 防重复点击：上次调用时间
+    private DateTime _lastAICallTime = DateTime.MinValue;
+    // Cooldown 秒数（后续可从设置读）
+    private const int AICooldownSeconds = 30;
+    // 当前 AI 总结内容（用于保存）
+    private string? _currentAISummary = null;
+
     private async void BtnGenerateAI_Click(object sender, RoutedEventArgs e)
     {
+        // 防重复点击 — Cooldown 机制
+        var elapsed = (DateTime.Now - _lastAICallTime).TotalSeconds;
+        if (elapsed < AICooldownSeconds)
+        {
+            AISummaryText.Text = $"请稍候，距离上次生成不足 {AICooldownSeconds} 秒（还剩 {(int)(AICooldownSeconds - elapsed)} 秒）";
+            return;
+        }
+        _lastAICallTime = DateTime.Now;
+
         BtnGenerateAI.IsEnabled = false;
+        BtnSaveAISummary.IsEnabled = false;
         AISummaryText.Text = "正在生成...";
 
         try
         {
             var aiService = new AISummaryService();
 
-            // 先查数据库有没有已存的总结
             DateTime summaryDate = _period switch
             {
                 "day" => _periodStart,
@@ -497,18 +515,15 @@ public partial class StatisticsPage : Page
                 _ => _periodStart,
             };
 
-            var existing = DatabaseHelper.GetAISummary(summaryDate);
-            if (existing != null)
-            {
-                AISummaryText.Text = existing;
-                BtnGenerateAI.IsEnabled = true;
-                return;
-            }
-
+            // 每次点击都重新生成，不读缓存
             string? result = await aiService.GenerateDailySummary(summaryDate);
             if (result != null)
             {
                 AISummaryText.Text = result;
+                _currentAISummary = result;
+                BtnSaveAISummary.IsEnabled = true;
+
+                // 存入数据库（覆盖旧的）
                 DatabaseHelper.InsertAISummary(summaryDate, result);
             }
             else
@@ -523,6 +538,32 @@ public partial class StatisticsPage : Page
         finally
         {
             BtnGenerateAI.IsEnabled = true;
+        }
+    }
+
+    private void BtnSaveAISummary_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_currentAISummary))
+        {
+            AISummaryText.Text = "没有可保存的总结内容，请先生成。";
+            return;
+        }
+
+        try
+        {
+            string? savePath = AISummaryService.SaveSummaryToFile(_currentAISummary, _periodStart);
+            if (savePath != null)
+            {
+                AISummaryText.Text = $"{_currentAISummary}\n\n---\n已保存到：{savePath}";
+            }
+            else
+            {
+                AISummaryText.Text = $"{_currentAISummary}\n\n---\n保存失败。";
+            }
+        }
+        catch (Exception ex)
+        {
+            AISummaryText.Text = $"{_currentAISummary}\n\n---\n保存失败：{ex.Message}";
         }
     }
 }
