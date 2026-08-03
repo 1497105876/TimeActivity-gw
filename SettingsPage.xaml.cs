@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -45,67 +45,67 @@ public partial class SettingsPage : Page
     private void LoadSettings()
     {
         // 追踪设置
-        SetComboByTagOrText(CbxSamplingInterval, DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), "秒");
-        SetComboByTagOrText(CbxIdleThreshold, DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), "分钟");
+        SetComboByTagOrText(CbxSamplingInterval, SettingsRepository.Get("PollIntervalSeconds", "3"), "秒");
+        SetComboByTagOrText(CbxIdleThreshold, SettingsRepository.Get("IdleThresholdSeconds", "300"), "分钟");
         // 如果 Tag 匹配不上（自定义值），把秒转回分钟显示
         if (CbxIdleThreshold.SelectedIndex == -1)
         {
-            if (int.TryParse(DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), out int idleSec))
+            if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idleSec))
                 CbxIdleThreshold.Text = (idleSec / 60).ToString();
         }
-        ChkAutoStartTracking.IsChecked = DatabaseHelper.GetSetting("AutoStartTracking", "true") == "true";
-        ChkTrackWindowTitle.IsChecked = DatabaseHelper.GetSetting("TrackWindowTitle", "true") == "true";
+        ChkAutoStartTracking.IsChecked = SettingsRepository.Get("AutoStartTracking", "true") == "true";
+        ChkTrackWindowTitle.IsChecked = SettingsRepository.Get("TrackWindowTitle", "true") == "true";
 
         // 截图设置
-        ChkEnableScreenshot.IsChecked = DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true";
-        ChkScreenshotOnSwitch.IsChecked = DatabaseHelper.GetSetting("ScreenshotOnSwitch", "true") == "true";
+        ChkEnableScreenshot.IsChecked = SettingsRepository.Get("EnableScreenshot", "false") == "true";
+        ChkScreenshotOnSwitch.IsChecked = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true";
 
-        string intervalStr = DatabaseHelper.GetSetting("ScreenshotIntervalMinutes", "5");
+        string intervalStr = SettingsRepository.Get("ScreenshotIntervalMinutes", "5");
         SetComboByTagOrText(CbxScreenshotInterval, intervalStr, "分钟");
 
         // 截图格式
-        string fmt = DatabaseHelper.GetSetting("ScreenshotFormat", "jpg");
+        string fmt = SettingsRepository.Get("ScreenshotFormat", "jpg");
         foreach (ComboBoxItem item in CbxScreenshotFormat.Items)
         {
             if (item.Tag?.ToString() == fmt) { CbxScreenshotFormat.SelectedItem = item; break; }
         }
         CbxScreenshotFormat.SelectedIndex = fmt == "png" ? 1 : 0;
 
-        SelectComboByTag(CbxScreenshotQuality, DatabaseHelper.GetSetting("ScreenshotQuality", "medium"));
-        TxtScreenshotPath.Text = DatabaseHelper.GetSetting("ScreenshotPath",
+        SelectComboByTag(CbxScreenshotQuality, SettingsRepository.Get("ScreenshotQuality", "medium"));
+        TxtScreenshotPath.Text = SettingsRepository.Get("ScreenshotPath",
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots"));
 
         // 存储限制
-        ChkMaxSize.IsChecked = DatabaseHelper.GetSetting("EnableMaxSize", "true") == "true";
-        TxtMaxSize.Text = DatabaseHelper.GetSetting("MaxScreenshotSizeMB", "5120");
-        ChkMaxAge.IsChecked = DatabaseHelper.GetSetting("EnableMaxAge", "true") == "true";
-        TxtMaxAge.Text = DatabaseHelper.GetSetting("MaxScreenshotAgeDays", "30");
+        ChkMaxSize.IsChecked = SettingsRepository.Get("EnableMaxSize", "true") == "true";
+        TxtMaxSize.Text = SettingsRepository.Get("MaxScreenshotSizeMB", "5120");
+        ChkMaxAge.IsChecked = SettingsRepository.Get("EnableMaxAge", "true") == "true";
+        TxtMaxAge.Text = SettingsRepository.Get("MaxScreenshotAgeDays", "30");
 
         // 显示设置
-        Chk24Hour.IsChecked = DatabaseHelper.GetSetting("Use24Hour", "true") == "true";
+        Chk24Hour.IsChecked = SettingsRepository.Get("Use24Hour", "true") == "true";
 
         // 数据设置
-        SetComboByTagOrText(CbxDataRetention, DatabaseHelper.GetSetting("DataRetentionDays", "90"), "天");
+        SetComboByTagOrText(CbxDataRetention, SettingsRepository.Get("DataRetentionDays", "90"), "天");
 
         // AI 设置
-        ChkEnableAI.IsChecked = DatabaseHelper.GetSetting("EnableAI", "true") == "true";
-        string aiMode = DatabaseHelper.GetSetting("AIMode", "lan");
+        ChkEnableAI.IsChecked = SettingsRepository.Get("EnableAI", "true") == "true";
+        string aiMode = SettingsRepository.Get("AIMode", "lan");
         foreach (ComboBoxItem item in CbxAIMode.Items)
         {
             if (item.Tag?.ToString() == aiMode) { CbxAIMode.SelectedItem = item; break; }
         }
-        TxtApiUrl.Text = DatabaseHelper.GetSetting("AIApiUrl", "");
-        TxtApiKey.Password = DatabaseHelper.GetSetting("AIApiKey", "");
-        TxtAIModel.Text = DatabaseHelper.GetSetting("AIModel", "");
+        TxtApiUrl.Text = SettingsRepository.Get("AIApiUrl", "");
+        TxtApiKey.Password = SettingsRepository.Get("AIApiKey", "");
+        TxtAIModel.Text = SettingsRepository.Get("AIModel", "");
 
         // AI 总结文件保存设置
-        TxtAISummaryPath.Text = DatabaseHelper.GetSetting("AISummaryPath", "");
-        TxtAISummaryMaxCount.Text = DatabaseHelper.GetSetting("AISummaryMaxCount", "0");
-        TxtAISummaryMaxSizeMB.Text = DatabaseHelper.GetSetting("AISummaryMaxSizeMB", "0");
+        TxtAISummaryPath.Text = SettingsRepository.Get("AISummaryPath", "");
+        TxtAISummaryMaxCount.Text = SettingsRepository.Get("AISummaryMaxCount", "0");
+        TxtAISummaryMaxSizeMB.Text = SettingsRepository.Get("AISummaryMaxSizeMB", "0");
 
         // 系统设置
-        ChkAutoStart.IsChecked = DatabaseHelper.GetSetting("AutoStartWithWindows", "false") == "true";
-        ChkMinimizeToTray.IsChecked = DatabaseHelper.GetSetting("MinimizeToTray", "true") == "true";
+        ChkAutoStart.IsChecked = SettingsRepository.Get("AutoStartWithWindows", "false") == "true";
+        ChkMinimizeToTray.IsChecked = SettingsRepository.Get("MinimizeToTray", "true") == "true";
     }
 
     // ========== 分类管理 ==========
@@ -115,7 +115,7 @@ public partial class SettingsPage : Page
         _categories = new List<CategoryItem>();
         try
         {
-            var cats = DatabaseHelper.GetAllCategories();
+            var cats = CategoryRepository.GetAll();
             foreach (var cat in cats)
             {
                 _categories.Add(new CategoryItem { Id = cat.Id, Name = cat.Name, Color = cat.Color, SortOrder = cat.SortOrder });
@@ -147,7 +147,7 @@ public partial class SettingsPage : Page
 
     private void LoadRules()
     {
-        var rules = DatabaseHelper.GetAllRules();
+        var rules = RuleRepository.GetAll();
         var ruleItems = new ObservableCollection<RuleItem>();
         foreach (var r in rules)
         {
@@ -172,65 +172,65 @@ public partial class SettingsPage : Page
         // 追踪设置
         string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
         if (int.TryParse(samplingText, out int sv) && sv > 0)
-            DatabaseHelper.SetSetting("PollIntervalSeconds", sv.ToString());
+            SettingsRepository.Set("PollIntervalSeconds", sv.ToString());
         else
-            DatabaseHelper.SetSetting("PollIntervalSeconds", "3");
+            SettingsRepository.Set("PollIntervalSeconds", "3");
 
         string idleText = CbxIdleThreshold.Text.Replace("分钟", "").Trim();
         if (int.TryParse(idleText, out int iv) && iv > 0)
-            DatabaseHelper.SetSetting("IdleThresholdSeconds", (iv * 60).ToString());
+            SettingsRepository.Set("IdleThresholdSeconds", (iv * 60).ToString());
         else
-            DatabaseHelper.SetSetting("IdleThresholdSeconds", "300");
+            SettingsRepository.Set("IdleThresholdSeconds", "300");
 
-        DatabaseHelper.SetSetting("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
-        DatabaseHelper.SetSetting("TrackWindowTitle", ChkTrackWindowTitle.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("TrackWindowTitle", ChkTrackWindowTitle.IsChecked == true ? "true" : "false");
 
         // 截图设置
-        DatabaseHelper.SetSetting("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
-        DatabaseHelper.SetSetting("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
 
         string intervalText = CbxScreenshotInterval.Text.Replace("分钟", "").Trim();
         if (int.TryParse(intervalText, out int intervalVal) && intervalVal > 0)
-            DatabaseHelper.SetSetting("ScreenshotIntervalMinutes", intervalVal.ToString());
+            SettingsRepository.Set("ScreenshotIntervalMinutes", intervalVal.ToString());
         else
-            DatabaseHelper.SetSetting("ScreenshotIntervalMinutes", "5");
+            SettingsRepository.Set("ScreenshotIntervalMinutes", "5");
 
-        DatabaseHelper.SetSetting("ScreenshotFormat", CbxScreenshotFormat.SelectedItem is ComboBoxItem fmtItem ? fmtItem.Tag?.ToString() ?? "jpg" : "jpg");
-        DatabaseHelper.SetSetting("ScreenshotQuality", GetComboTag(CbxScreenshotQuality));
-        DatabaseHelper.SetSetting("ScreenshotPath", TxtScreenshotPath.Text);
+        SettingsRepository.Set("ScreenshotFormat", CbxScreenshotFormat.SelectedItem is ComboBoxItem fmtItem ? fmtItem.Tag?.ToString() ?? "jpg" : "jpg");
+        SettingsRepository.Set("ScreenshotQuality", GetComboTag(CbxScreenshotQuality));
+        SettingsRepository.Set("ScreenshotPath", TxtScreenshotPath.Text);
 
-        DatabaseHelper.SetSetting("EnableMaxSize", ChkMaxSize.IsChecked == true ? "true" : "false");
-        DatabaseHelper.SetSetting("MaxScreenshotSizeMB",
+        SettingsRepository.Set("EnableMaxSize", ChkMaxSize.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("MaxScreenshotSizeMB",
             int.TryParse(TxtMaxSize.Text, out int ms) && ms > 0 ? ms.ToString() : "5120");
-        DatabaseHelper.SetSetting("EnableMaxAge", ChkMaxAge.IsChecked == true ? "true" : "false");
-        DatabaseHelper.SetSetting("MaxScreenshotAgeDays",
+        SettingsRepository.Set("EnableMaxAge", ChkMaxAge.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("MaxScreenshotAgeDays",
             int.TryParse(TxtMaxAge.Text, out int ma) && ma > 0 ? ma.ToString() : "30");
 
         // 显示设置
-        DatabaseHelper.SetSetting("Use24Hour", Chk24Hour.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("Use24Hour", Chk24Hour.IsChecked == true ? "true" : "false");
         // 数据设置
         string retentionText = CbxDataRetention.Text.Replace("天", "").Replace("永久", "0").Trim();
         if (int.TryParse(retentionText, out int dr) && dr >= 0)
-            DatabaseHelper.SetSetting("DataRetentionDays", dr.ToString());
+            SettingsRepository.Set("DataRetentionDays", dr.ToString());
         else
-            DatabaseHelper.SetSetting("DataRetentionDays", "90");
+            SettingsRepository.Set("DataRetentionDays", "90");
 
         // AI 设置
-        DatabaseHelper.SetSetting("EnableAI", ChkEnableAI.IsChecked == true ? "true" : "false");
-        DatabaseHelper.SetSetting("AIMode", CbxAIMode.SelectedItem is ComboBoxItem aiItem ? aiItem.Tag?.ToString() ?? "lan" : "lan");
-        DatabaseHelper.SetSetting("AIApiUrl", TxtApiUrl.Text);
-        DatabaseHelper.SetSetting("AIApiKey", TxtApiKey.Password);
-        DatabaseHelper.SetSetting("AIModel", TxtAIModel.Text);
-        DatabaseHelper.SetSetting("AutoDailySummary", ChkAutoSummary.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("EnableAI", ChkEnableAI.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("AIMode", CbxAIMode.SelectedItem is ComboBoxItem aiItem ? aiItem.Tag?.ToString() ?? "lan" : "lan");
+        SettingsRepository.Set("AIApiUrl", TxtApiUrl.Text);
+        SettingsRepository.Set("AIApiKey", TxtApiKey.Password);
+        SettingsRepository.Set("AIModel", TxtAIModel.Text);
+        SettingsRepository.Set("AutoDailySummary", ChkAutoSummary.IsChecked == true ? "true" : "false");
 
         // AI 总结文件保存
-        DatabaseHelper.SetSetting("AISummaryPath", TxtAISummaryPath.Text);
-        DatabaseHelper.SetSetting("AISummaryMaxCount", TxtAISummaryMaxCount.Text);
-        DatabaseHelper.SetSetting("AISummaryMaxSizeMB", TxtAISummaryMaxSizeMB.Text);
+        SettingsRepository.Set("AISummaryPath", TxtAISummaryPath.Text);
+        SettingsRepository.Set("AISummaryMaxCount", TxtAISummaryMaxCount.Text);
+        SettingsRepository.Set("AISummaryMaxSizeMB", TxtAISummaryMaxSizeMB.Text);
 
         // 系统设置
-        DatabaseHelper.SetSetting("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
-        DatabaseHelper.SetSetting("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
 
         // 开机自启
         if (ChkAutoStart.IsChecked == true)
@@ -260,7 +260,7 @@ public partial class SettingsPage : Page
     {
         try
         {
-            DatabaseHelper.ClearAllRules();
+            RuleRepository.ClearAll();
             if (RulesGrid.ItemsSource is ObservableCollection<RuleItem> rules)
             {
                 foreach (var r in rules)
@@ -269,7 +269,7 @@ public partial class SettingsPage : Page
                         continue;
                     var cat = _categories.FirstOrDefault(c => c.Name == r.CategoryName);
                     if (cat == null) continue;
-                    DatabaseHelper.InsertRule(r.ProcessName ?? "", r.TitleKeyword ?? "", cat.Id);
+                    RuleRepository.Insert(r.ProcessName ?? "", r.TitleKeyword ?? "", cat.Id);
                 }
             }
         }
@@ -285,7 +285,7 @@ public partial class SettingsPage : Page
                 foreach (var c in cats)
                 {
                     if (string.IsNullOrWhiteSpace(c.Name)) continue;
-                    DatabaseHelper.UpdateOrInsertCategory(c.Id, c.Name, c.Color ?? "#808080", c.SortOrder);
+                    CategoryRepository.UpdateOrInsert(c.Id, c.Name, c.Color ?? "#808080", c.SortOrder);
                 }
             }
         }
@@ -676,7 +676,7 @@ public partial class SettingsPage : Page
             {"MinimizeToTray", "true"},
         };
         foreach (var kv in defaults)
-            DatabaseHelper.SetSetting(kv.Key, kv.Value);
+            SettingsRepository.Set(kv.Key, kv.Value);
 
         _loading = true;
         LoadSettings();
@@ -701,7 +701,7 @@ public partial class SettingsPage : Page
 
         try
         {
-            var settings = DatabaseHelper.GetAllSettings();
+            var settings = SettingsRepository.GetAll();
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(dialog.FileName, json, Encoding.UTF8);
             MessageBox.Show($"设置已导出到\n{dialog.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -728,7 +728,7 @@ public partial class SettingsPage : Page
             if (settings == null) { MessageBox.Show("文件内容为空", "错误"); return; }
 
             foreach (var kv in settings)
-                DatabaseHelper.SetSetting(kv.Key, kv.Value);
+                SettingsRepository.Set(kv.Key, kv.Value);
 
             _loading = true;
             LoadSettings();

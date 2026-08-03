@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -32,8 +32,6 @@ public partial class StatisticsPage : Page
         InitializeComponent();
         _categoryColors = _colorHelper.Load();
         _chartRenderer = new ChartRenderer(_colorHelper);
-        // 从设置读取跳过空闲开关初始状态
-        ChkSkipIdle.IsChecked = Data.DatabaseHelper.GetSetting("SkipIdleInStats", "false") == "true";
         LoadCategoryFilter();
         RbDay.IsChecked = true;
         UpdateRange();
@@ -129,7 +127,7 @@ public partial class StatisticsPage : Page
         if (_period == "day")
         {
             // 日总结：查 manual
-            var (text, createdAt) = DatabaseHelper.GetAISummaryWithMeta(_periodStart, summaryType, "manual");
+            var (text, createdAt) = AISummaryRepository.GetWithMeta(_periodStart, summaryType, "manual");
             if (text != null)
             {
                 AISummaryText.Markdown = text;
@@ -150,7 +148,7 @@ public partial class StatisticsPage : Page
             if (IsCurrentPeriod())
             {
                 // 本周/月：查 manual，显示生成按钮
-                var (text, createdAt) = DatabaseHelper.GetAISummaryWithMeta(_periodStart, summaryType, "manual");
+                var (text, createdAt) = AISummaryRepository.GetWithMeta(_periodStart, summaryType, "manual");
                 if (text != null)
                 {
                     AISummaryText.Markdown = text;
@@ -168,7 +166,7 @@ public partial class StatisticsPage : Page
             else
             {
                 // 非本周/月：查 auto，隐藏生成按钮
-                var (text, createdAt) = DatabaseHelper.GetAISummaryWithMeta(_periodStart, summaryType, "auto");
+                var (text, createdAt) = AISummaryRepository.GetWithMeta(_periodStart, summaryType, "auto");
                 if (text != null)
                 {
                     AISummaryText.Markdown = text;
@@ -179,7 +177,7 @@ public partial class StatisticsPage : Page
                 {
                     // 没有 auto 总结记录，写一条占位
                     string placeholder = _period == "week" ? "本周没有活动记录。" : "本月没有活动记录。";
-                    DatabaseHelper.InsertAISummary(_periodStart, placeholder, summaryType, "auto");
+                    AISummaryRepository.Insert(_periodStart, placeholder, summaryType, "auto");
                     AISummaryText.Markdown = placeholder;
                     AISummaryTime.Text = "";
                     _currentAISummary = null;
@@ -249,7 +247,7 @@ public partial class StatisticsPage : Page
         CategoryFilter.Items.Add(allItem);
         try
         {
-            var cats = DatabaseHelper.GetAllCategories();
+            var cats = CategoryRepository.GetAll();
             foreach (var cat in cats)
             {
                 CategoryFilter.Items.Add(new ComboBoxItem { Content = cat.Name, Tag = cat.Name });
@@ -272,9 +270,9 @@ public partial class StatisticsPage : Page
         var (start, end) = GetRange();
 
         bool includeIdle = ChkSkipIdle.IsChecked != true;
-        var catData = DatabaseHelper.GetCategorySummaryByRange(start, end, includeIdle);
-        var procData = DatabaseHelper.GetProcessSummaryByRange(start, end, includeIdle);
-        var dailyData = DatabaseHelper.GetDailyTotalsByRange(start, end, includeIdle);
+        var catData = ActivityRepository.GetCategorySummaryByRange(start, end, includeIdle);
+        var procData = ActivityRepository.GetProcessSummaryByRange(start, end, includeIdle);
+        var dailyData = ActivityRepository.GetDailyTotalsByRange(start, end, includeIdle);
 
         // 类别筛选
         string filterCategory = GetSelectedFilterCategory();
@@ -333,8 +331,6 @@ public partial class StatisticsPage : Page
     private void ChkSkipIdle_Changed(object sender, RoutedEventArgs e)
     {
         if (CategoryBarsPanel == null) return;
-        // 回写设置，跟设置页同步
-        Data.DatabaseHelper.SetSetting("SkipIdleInStats", ChkSkipIdle.IsChecked == true ? "true" : "false");
         LoadData();
     }
 
@@ -342,7 +338,7 @@ public partial class StatisticsPage : Page
     {
         // 日模式 start==end，查询需要 end+1 天
         DateTime queryEnd = start.Date == end.Date ? end.AddDays(1) : end;
-        var activities = DatabaseHelper.GetActivitiesByRange(start, queryEnd);
+        var activities = ActivityRepository.GetByRange(start, queryEnd);
         return activities
             .Where(a => a.Category == category)
             .GroupBy(a => a.ProcessName)
@@ -403,7 +399,7 @@ public partial class StatisticsPage : Page
 
                 // 存入数据库
                 string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
-                DatabaseHelper.InsertAISummary(_periodStart, result, summaryType, "manual");
+                AISummaryRepository.Insert(_periodStart, result, summaryType, "manual");
 
                 // 自动保存到文件（按日期文件夹分，每次保留不覆盖）
                 string? savePath = null;

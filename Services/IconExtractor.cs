@@ -14,12 +14,6 @@ namespace TimeActivity.Services;
 /// </summary>
 public static class IconExtractor
 {
-    [DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
-    private static extern IntPtr ExtractIcon(IntPtr hInst, string lpszExeFileName, int nIconIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool DestroyIcon(IntPtr hIcon);
-
     /// <summary>
     /// 根据进程名获取图标
     /// </summary>

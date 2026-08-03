@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
@@ -20,11 +20,11 @@ public class AISummaryService
 {
     private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(60) };
 
-    private string ApiUrl => DatabaseHelper.GetSetting("AIApiUrl", "http://localhost:11434");
-    private string ApiKey => DatabaseHelper.GetSetting("AIApiKey", "");
-    private string AiModel => DatabaseHelper.GetSetting("AIModel", "qwen2.5:7b");
-    private string AiMode => DatabaseHelper.GetSetting("AIMode", "lan");
-    private bool Enabled => DatabaseHelper.GetSetting("EnableAI", "true") == "true";
+    private string ApiUrl => SettingsRepository.Get("AIApiUrl", "http://localhost:11434");
+    private string ApiKey => SettingsRepository.Get("AIApiKey", "");
+    private string AiModel => SettingsRepository.Get("AIModel", "qwen2.5:7b");
+    private string AiMode => SettingsRepository.Get("AIMode", "lan");
+    private bool Enabled => SettingsRepository.Get("EnableAI", "true") == "true";
 
     /// <summary>
     /// 生成某一天的 AI 总结
@@ -36,13 +36,13 @@ public class AISummaryService
         if (AiMode == "custom" && string.IsNullOrEmpty(ApiKey)) return null;
 
         // 获取当天活动数据
-        var activities = DatabaseHelper.GetActivitiesByDate(date);
+        var activities = ActivityRepository.GetByDate(date);
         if (activities.Count == 0)
             return "当天没有活动记录。";
 
         // 获取类别统计
-        var catSummary = DatabaseHelper.GetCategorySummaryByRange(date, date.AddDays(1));
-        var procSummary = DatabaseHelper.GetProcessSummaryByRange(date, date.AddDays(1));
+        var catSummary = ActivityRepository.GetCategorySummaryByRange(date, date.AddDays(1));
+        var procSummary = ActivityRepository.GetProcessSummaryByRange(date, date.AddDays(1));
 
         string prompt = BuildPrompt(date, catSummary, procSummary, activities.Count);
 
@@ -192,7 +192,7 @@ public class AISummaryService
     public static string? SaveSummaryToFile(string summary, DateTime date, string summaryType = "daily")
     {
         // 保存路径：设置里的 AISummaryPath，空则用程序目录下的 ai_summaries/
-        string? configuredPath = DatabaseHelper.GetSetting("AISummaryPath", "");
+        string? configuredPath = SettingsRepository.Get("AISummaryPath", "");
         string baseDir = string.IsNullOrWhiteSpace(configuredPath)
             ? System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai_summaries")
             : configuredPath;
@@ -234,7 +234,7 @@ public class AISummaryService
                 .ToList();
 
             // 按数量限制
-            if (int.TryParse(DatabaseHelper.GetSetting("AISummaryMaxCount", "0"), out int maxCount) && maxCount > 0)
+            if (int.TryParse(SettingsRepository.Get("AISummaryMaxCount", "0"), out int maxCount) && maxCount > 0)
             {
                 while (files.Count > maxCount)
                 {
@@ -244,7 +244,7 @@ public class AISummaryService
             }
 
             // 按总大小限制（MB）
-            if (int.TryParse(DatabaseHelper.GetSetting("AISummaryMaxSizeMB", "0"), out int maxSizeMB) && maxSizeMB > 0)
+            if (int.TryParse(SettingsRepository.Get("AISummaryMaxSizeMB", "0"), out int maxSizeMB) && maxSizeMB > 0)
             {
                 long maxBytes = maxSizeMB * 1024L * 1024L;
                 long totalSize = files.Sum(f => f.Length);
@@ -268,9 +268,9 @@ public class AISummaryService
     {
         if (!Enabled) return null;
         DateTime weekEnd = weekStart.AddDays(6);
-        var catSummary = DatabaseHelper.GetCategorySummaryByRange(weekStart, weekEnd, false);
-        var procSummary = DatabaseHelper.GetProcessSummaryByRange(weekStart, weekEnd, false);
-        var dailyTotals = DatabaseHelper.GetDailyTotalsByRange(weekStart, weekEnd, false);
+        var catSummary = ActivityRepository.GetCategorySummaryByRange(weekStart, weekEnd, false);
+        var procSummary = ActivityRepository.GetProcessSummaryByRange(weekStart, weekEnd, false);
+        var dailyTotals = ActivityRepository.GetDailyTotalsByRange(weekStart, weekEnd, false);
 
         int totalSeconds = catSummary.Values.Sum();
         if (totalSeconds == 0)
@@ -287,9 +287,9 @@ public class AISummaryService
     {
         if (!Enabled) return null;
         DateTime monthEnd = monthStart.AddMonths(1).AddDays(-1);
-        var catSummary = DatabaseHelper.GetCategorySummaryByRange(monthStart, monthEnd, false);
-        var procSummary = DatabaseHelper.GetProcessSummaryByRange(monthStart, monthEnd, false);
-        var dailyTotals = DatabaseHelper.GetDailyTotalsByRange(monthStart, monthEnd, false);
+        var catSummary = ActivityRepository.GetCategorySummaryByRange(monthStart, monthEnd, false);
+        var procSummary = ActivityRepository.GetProcessSummaryByRange(monthStart, monthEnd, false);
+        var dailyTotals = ActivityRepository.GetDailyTotalsByRange(monthStart, monthEnd, false);
 
         int totalSeconds = catSummary.Values.Sum();
         if (totalSeconds == 0)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using TimeActivity.Models;
@@ -160,7 +160,7 @@ public class TrackingEngine
             // 存入数据库
             try
             {
-                _currentActivity.Id = DatabaseHelper.InsertActivity(_currentActivity);
+                _currentActivity.Id = ActivityRepository.Insert(_currentActivity);
             }
             catch (Exception ex)
             {

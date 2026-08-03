@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -41,11 +41,11 @@ public class ScreenshotService
     public void ReloadSettings()
     {
         _intervalMinutes = int.Parse(
-            DatabaseHelper.GetSetting("ScreenshotIntervalMinutes", "5") ?? "5");
+            SettingsRepository.Get("ScreenshotIntervalMinutes", "5") ?? "5");
 
-        _captureOnSwitch = DatabaseHelper.GetSetting("ScreenshotOnSwitch", "true") == "true";
+        _captureOnSwitch = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true";
 
-        string? userPath = DatabaseHelper.GetSetting("ScreenshotPath", "");
+        string? userPath = SettingsRepository.Get("ScreenshotPath", "");
         if (!string.IsNullOrWhiteSpace(userPath))
             _screenshotDir = userPath;
         else
@@ -58,7 +58,7 @@ public class ScreenshotService
     {
         if (_running) return;
         // 检查设置开关 — 没开截图就不启动
-        if (DatabaseHelper.GetSetting("EnableScreenshot", "false") != "true") return;
+        if (SettingsRepository.Get("EnableScreenshot", "false") != "true") return;
         ReloadSettings();
         _running = true;
 
@@ -89,8 +89,8 @@ public class ScreenshotService
         {
             if (!Directory.Exists(_screenshotDir)) return;
 
-            bool enableMaxSize = DatabaseHelper.GetSetting("EnableMaxSize", "true") == "true";
-            bool enableMaxAge = DatabaseHelper.GetSetting("EnableMaxAge", "true") == "true";
+            bool enableMaxSize = SettingsRepository.Get("EnableMaxSize", "true") == "true";
+            bool enableMaxAge = SettingsRepository.Get("EnableMaxAge", "true") == "true";
 
             var files = Directory.GetFiles(_screenshotDir, "*.*", SearchOption.TopDirectoryOnly)
                 .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
@@ -101,7 +101,7 @@ public class ScreenshotService
                 .ToList();
 
             // 按最大年龄清理
-            if (enableMaxAge && int.TryParse(DatabaseHelper.GetSetting("MaxScreenshotAgeDays", "30"), out int maxAge))
+            if (enableMaxAge && int.TryParse(SettingsRepository.Get("MaxScreenshotAgeDays", "30"), out int maxAge))
             {
                 var cutoff = DateTime.Now.AddDays(-maxAge);
                 foreach (var f in files)
@@ -115,7 +115,7 @@ public class ScreenshotService
             }
 
             // 按最大总大小清理（删最老的）
-            if (enableMaxSize && int.TryParse(DatabaseHelper.GetSetting("MaxScreenshotSizeMB", "5120"), out int maxMB))
+            if (enableMaxSize && int.TryParse(SettingsRepository.Get("MaxScreenshotSizeMB", "5120"), out int maxMB))
             {
                 long maxBytes = (long)maxMB * 1024 * 1024;
                 long currentSize = files.Sum(f => f.Length);
@@ -158,7 +158,7 @@ public class ScreenshotService
                 g.CopyFromScreen(0, 0, 0, 0, bmp.Size);
             }
 
-            string format = DatabaseHelper.GetSetting("ScreenshotFormat", "jpg") ?? "jpg";
+            string format = SettingsRepository.Get("ScreenshotFormat", "jpg") ?? "jpg";
             string ext = format == "png" ? "png" : "jpg";
             string fileName = $"screenshot_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.{ext}";
             string filePath = Path.Combine(_screenshotDir, fileName);
@@ -170,7 +170,7 @@ public class ScreenshotService
             else
             {
                 var encoderParams = new EncoderParameters(1);
-                var quality = DatabaseHelper.GetSetting("ScreenshotQuality", "medium") switch
+                var quality = SettingsRepository.Get("ScreenshotQuality", "medium") switch
                 {
                     "high" => 80L,
                     "low" => 30L,
@@ -185,7 +185,7 @@ public class ScreenshotService
             // 数据库存相对路径（相对于程序目录）
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
             string dbPath = filePath.StartsWith(appDir) ? filePath.Substring(appDir.Length) : filePath;
-            DatabaseHelper.InsertScreenshot(dbPath, fileSize);
+            ScreenshotRepository.Insert(dbPath, fileSize);
         }
         catch (Exception ex)
         {
@@ -212,6 +212,6 @@ public class ScreenshotService
     /// </summary>
     public static string? GetScreenshotForTime(DateTime time)
     {
-        return DatabaseHelper.GetScreenshotForTime(time);
+        return ScreenshotRepository.GetForTime(time);
     }
 }

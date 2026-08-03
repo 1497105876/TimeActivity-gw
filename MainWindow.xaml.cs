@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -80,9 +80,9 @@ public partial class MainWindow : Window
         _engine = new TrackingEngine(_classifier);
         _screenshotService = new ScreenshotService();
 
-        if (int.TryParse(DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), out int poll))
+        if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
             _engine.PollIntervalSeconds = poll;
-        if (int.TryParse(DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), out int idle))
+        if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
             _engine.IdleThresholdSeconds = idle;
 
         _engine.OnActivityRecorded += OnActivityRecorded;
@@ -126,10 +126,10 @@ public partial class MainWindow : Window
         // 启动时检查是否需要补生成上周/上月的自动总结
         _ = CheckAutoSummaryAsync();
 
-        if (DatabaseHelper.GetSetting("AutoStartTracking", "true") == "true")
+        if (SettingsRepository.Get("AutoStartTracking", "true") == "true")
         {
             _engine.Start();
-            if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+            if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
                 _screenshotService.Start();
             BtnStart.IsEnabled = false;
             BtnStop.IsEnabled = true;
@@ -159,19 +159,19 @@ public partial class MainWindow : Window
         if (_screenshotService.IsRunning)
         {
             _screenshotService.Stop();
-            if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+            if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
                 _screenshotService.Start();
         }
         else
         {
-            if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+            if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
                 _screenshotService.Start();
         }
 
         // 追踪引擎重读采样间隔和空闲阈值
-        if (int.TryParse(DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), out int poll))
+        if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
             _engine.PollIntervalSeconds = poll;
-        if (int.TryParse(DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), out int idle))
+        if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
             _engine.IdleThresholdSeconds = idle;
 
         // 分类器重载规则
@@ -193,7 +193,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            string? retentionStr = DatabaseHelper.GetSetting("DataRetentionDays", "90");
+            string? retentionStr = SettingsRepository.Get("DataRetentionDays", "90");
             if (int.TryParse(retentionStr, out int days) && days > 0)
             {
                 int deleted = DatabaseHelper.CleanOldData(days);
@@ -206,7 +206,7 @@ public partial class MainWindow : Window
 
             // 启动时生成昨天的每日汇总
             string yesterday = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd");
-            DatabaseHelper.GenerateDailySummary(yesterday);
+            DailySummaryRepository.GenerateForDate(yesterday);
         }
         catch (Exception ex)
         {
@@ -221,45 +221,45 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (DatabaseHelper.GetSetting("EnableAI", "true") != "true") return;
+            if (SettingsRepository.Get("EnableAI", "true") != "true") return;
 
             var aiService = new AISummaryService();
             DateTime today = DateTime.Today;
 
             // 检查上周总结
             DateTime lastWeekStart = GetWeekStart(today.AddDays(-7));
-            if (!DatabaseHelper.HasAutoSummary(lastWeekStart, "weekly"))
+            if (!AISummaryRepository.HasAuto(lastWeekStart, "weekly"))
             {
-                int weekSeconds = DatabaseHelper.GetCategorySummaryByRange(lastWeekStart, lastWeekStart.AddDays(6), false).Values.Sum();
+                int weekSeconds = ActivityRepository.GetCategorySummaryByRange(lastWeekStart, lastWeekStart.AddDays(6), false).Values.Sum();
                 if (weekSeconds > 0)
                 {
                     Logger.Info($"补生成上周总结：{lastWeekStart:yyyy-MM-dd}");
                     string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
                     if (result != null)
-                        DatabaseHelper.InsertAISummary(lastWeekStart, result, "weekly", "auto");
+                        AISummaryRepository.Insert(lastWeekStart, result, "weekly", "auto");
                 }
                 else
                 {
                     // 没有活动数据也存一条，避免切过去显示"正在进行"
-                    DatabaseHelper.InsertAISummary(lastWeekStart, "本周没有活动记录。", "weekly", "auto");
+                    AISummaryRepository.Insert(lastWeekStart, "本周没有活动记录。", "weekly", "auto");
                 }
             }
 
             // 检查上月总结
             DateTime lastMonthStart = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
-            if (!DatabaseHelper.HasAutoSummary(lastMonthStart, "monthly"))
+            if (!AISummaryRepository.HasAuto(lastMonthStart, "monthly"))
             {
-                int monthSeconds = DatabaseHelper.GetCategorySummaryByRange(lastMonthStart, lastMonthStart.AddMonths(1).AddDays(-1), false).Values.Sum();
+                int monthSeconds = ActivityRepository.GetCategorySummaryByRange(lastMonthStart, lastMonthStart.AddMonths(1).AddDays(-1), false).Values.Sum();
                 if (monthSeconds > 0)
                 {
                     Logger.Info($"补生成上月总结：{lastMonthStart:yyyy-MM-dd}");
                     string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
                     if (result != null)
-                        DatabaseHelper.InsertAISummary(lastMonthStart, result, "monthly", "auto");
+                        AISummaryRepository.Insert(lastMonthStart, result, "monthly", "auto");
                 }
                 else
                 {
-                    DatabaseHelper.InsertAISummary(lastMonthStart, "本月没有活动记录。", "monthly", "auto");
+                    AISummaryRepository.Insert(lastMonthStart, "本月没有活动记录。", "monthly", "auto");
                 }
             }
         }
@@ -336,7 +336,7 @@ public partial class MainWindow : Window
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         // 关闭按钮 → 最小化到托盘（除非是强制退出）
-        if (!_forceClose && DatabaseHelper.GetSetting("MinimizeToTray", "true") == "true")
+        if (!_forceClose && SettingsRepository.Get("MinimizeToTray", "true") == "true")
         {
             e.Cancel = true;
             Hide();
@@ -378,7 +378,7 @@ public partial class MainWindow : Window
     private void BtnStart_Click(object sender, RoutedEventArgs e)
     {
         _engine.Start();
-        if (DatabaseHelper.GetSetting("EnableScreenshot", "false") == "true")
+        if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
             _screenshotService.Start();
         BtnStart.IsEnabled = false;
         BtnStop.IsEnabled = true;
@@ -461,7 +461,7 @@ public partial class MainWindow : Window
             _debounceTimer!.Stop();
             if (_currentDate == DateTime.Today)
             {
-                _cachedActivities = DatabaseHelper.GetActivitiesByDate(DateTime.Today);
+                _cachedActivities = ActivityRepository.GetByDate(DateTime.Today);
                 DrawAll();
                 UpdateTodayTotal();
             }
@@ -483,7 +483,7 @@ public partial class MainWindow : Window
         BtnNextDay.IsEnabled = date < DateTime.Today;
 
         _items.Clear();
-        var activities = DatabaseHelper.GetActivitiesByDate(date);
+        var activities = ActivityRepository.GetByDate(date);
         _cachedActivities = activities;
         foreach (var a in activities.AsEnumerable().Reverse())
         {
@@ -525,7 +525,7 @@ public partial class MainWindow : Window
 
     private void UpdateTodayTotal()
     {
-        var summary = DatabaseHelper.GetCategorySummaryByDate(_currentDate);
+        var summary = ActivityRepository.GetCategorySummaryByDate(_currentDate);
         int totalSeconds = summary.Values.Sum();
         TimeSpan ts = TimeSpan.FromSeconds(totalSeconds);
         string label = _currentDate == DateTime.Today ? "今日活跃" : $"{_currentDate:MM-dd} 活跃";

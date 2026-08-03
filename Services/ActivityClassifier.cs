@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using TimeActivity.Data;
@@ -60,8 +60,8 @@ public class ActivityClassifier
 
         try
         {
-            var dbRules = DatabaseHelper.GetAllRules();
-            var categories = DatabaseHelper.GetAllCategories();
+            var dbRules = RuleRepository.GetAll();
+            var categories = CategoryRepository.GetAll();
             var catById = categories.ToDictionary(c => c.Id, c => c.Name);
 
             bool hasCustom = false;
