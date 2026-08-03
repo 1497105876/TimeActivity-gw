@@ -106,10 +106,6 @@ public class DatabaseHelper
             CREATE INDEX IF NOT EXISTS IX_Activities_ProcessName ON Activities(ProcessName);
             CREATE INDEX IF NOT EXISTS IX_Screenshots_CapturedAt ON Screenshots(CapturedAt);
             CREATE INDEX IF NOT EXISTS IX_DailySummaries_Date ON DailySummaries(Date);
-        
-            -- 迁移：给 AISummaries 加 AutoType 字段（如果还没有）
-            CREATE TABLE IF NOT EXISTS _aisummaries_check(AutoType TEXT);
-            DROP TABLE IF EXISTS _aisummaries_check;
         ";
 
         // 迁移：检查 AISummaries 是否有 AutoType 列，没有就加
@@ -547,13 +543,20 @@ public class DatabaseHelper
     public static void InsertAISummary(DateTime date, string summaryText, string summaryType = "daily", string autoType = "manual")
     {
         Initialize();
-        const string sql = @"
-            INSERT INTO AISummaries (Date, SummaryText, SummaryType, AutoType, CreatedAt)
-            VALUES (@Date, @SummaryText, @SummaryType, @AutoType, @CreatedAt)
-            ON CONFLICT(Date, SummaryType, AutoType) DO UPDATE SET SummaryText=@SummaryText, CreatedAt=@CreatedAt";
 
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
+
+        // 先删同类型同日期的旧记录，再插入新的
+        using var delCmd = new SqliteCommand("DELETE FROM AISummaries WHERE Date=@Date AND SummaryType=@SummaryType AND AutoType=@AutoType", conn);
+        delCmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        delCmd.Parameters.AddWithValue("@SummaryType", summaryType);
+        delCmd.Parameters.AddWithValue("@AutoType", autoType);
+        delCmd.ExecuteNonQuery();
+
+        const string sql = @"INSERT INTO AISummaries (Date, SummaryText, SummaryType, AutoType, CreatedAt)
+            VALUES (@Date, @SummaryText, @SummaryType, @AutoType, @CreatedAt)";
+
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
         cmd.Parameters.AddWithValue("@SummaryText", summaryText);
@@ -581,20 +584,46 @@ public class DatabaseHelper
     }
 
     /// <summary>
-    /// 获取某天的 AI 总结
+    /// 获取某天的 AI 总结（默认查 daily 类型）
     /// </summary>
-    public static string? GetAISummary(DateTime date)
+    public static string? GetAISummary(DateTime date, string summaryType = "daily")
     {
         Initialize();
-        const string sql = "SELECT SummaryText FROM AISummaries WHERE Date = @Date ORDER BY CreatedAt DESC LIMIT 1";
+        const string sql = "SELECT SummaryText FROM AISummaries WHERE Date = @Date AND SummaryType = @Type ORDER BY CreatedAt DESC LIMIT 1";
 
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Type", summaryType);
 
         var result = cmd.ExecuteScalar();
         return result as string;
+    }
+
+    /// <summary>
+    /// 获取 AI 总结（带 AutoType 过滤），返回 (内容, 生成时间)
+    /// </summary>
+    public static (string? summary, string? createdAt) GetAISummaryWithMeta(DateTime date, string summaryType, string autoType)
+    {
+        Initialize();
+        const string sql = "SELECT SummaryText, CreatedAt FROM AISummaries WHERE Date = @Date AND SummaryType = @Type AND AutoType = @Auto ORDER BY CreatedAt DESC LIMIT 1";
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Type", summaryType);
+        cmd.Parameters.AddWithValue("@Auto", autoType);
+
+        using var reader = cmd.ExecuteReader();
+        if (reader.Read())
+        {
+            string text = reader.GetString(0);
+            string? createdAt = reader.IsDBNull(1) ? null : reader.GetString(1);
+            return (text, createdAt);
+        }
+        return (null, null);
     }
 
     /// <summary>
@@ -850,8 +879,38 @@ public class DatabaseHelper
         Initialize();
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
-        using var cmd = new SqliteCommand("DELETE FROM Rules WHERE IsCustom = 1", conn);
+        using var cmd = new SqliteCommand("DELETE FROM Rules", conn);
         cmd.ExecuteNonQuery();
+    }
+
+    // ========== 截图查询 ==========
+
+    /// <summary>
+    /// 获取某个时间点最近的一张截图路径（自动拼接相对路径）
+    /// </summary>
+    public static string? GetScreenshotForTime(DateTime time)
+    {
+        Initialize();
+        const string sql = @"
+            SELECT FilePath FROM Screenshots
+            WHERE CapturedAt <= @Time
+            ORDER BY CapturedAt DESC LIMIT 1";
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Time", time.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+
+        var result = cmd.ExecuteScalar();
+        if (result != null && result != DBNull.Value)
+        {
+            string path = (string)result;
+            if (!System.IO.Path.IsPathRooted(path))
+                path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+            if (System.IO.File.Exists(path))
+                return path;
+        }
+        return null;
     }
 
     // ========== 所有设置查询 ==========

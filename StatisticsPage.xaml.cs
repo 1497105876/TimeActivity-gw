@@ -9,7 +9,6 @@ using TimeActivity.Data;
 using TimeActivity.Services;
 using TimeActivity.Helpers;
 using TimeActivity.Rendering;
-using TimeActivity.Services;
 
 namespace TimeActivity;
 
@@ -77,17 +76,132 @@ public partial class StatisticsPage : Page
         {
             RangeText.Text = s.ToString("MM-dd") + (s == DateTime.Today ? "（今天）" : "");
             AITitle.Text = "AI 每日总结";
+            TrendSection.Visibility = Visibility.Collapsed;
         }
         else if (_period == "week")
         {
             RangeText.Text = $"{s:MM-dd} ~ {e:MM-dd}";
             AITitle.Text = "AI 每周总结";
+            TrendSection.Visibility = Visibility.Visible;
         }
         else
         {
             RangeText.Text = s.ToString("yyyy-MM");
             AITitle.Text = "AI 每月总结";
+            TrendSection.Visibility = Visibility.Visible;
         }
+
+        // 加载 AI 总结
+        LoadAISummary();
+    }
+
+    /// <summary>
+    /// 判断当前周期是否是本周/本月
+    /// </summary>
+    private bool IsCurrentPeriod()
+    {
+        var (start, end) = GetRange();
+        if (_period == "day")
+            return _periodStart == DateTime.Today;
+        if (_period == "week")
+        {
+            var todayWeekStart = GetWeekStart(DateTime.Today);
+            return start == todayWeekStart;
+        }
+        // month
+        return _periodStart.Year == DateTime.Today.Year && _periodStart.Month == DateTime.Today.Month;
+    }
+
+    private static DateTime GetWeekStart(DateTime date)
+    {
+        int delta = (int)date.DayOfWeek;
+        if (delta == 0) delta = 7;
+        return date.AddDays(-(delta - 1)).Date;
+    }
+
+    /// <summary>
+    /// 从数据库加载 AI 总结并显示
+    /// </summary>
+    private void LoadAISummary()
+    {
+        string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
+
+        if (_period == "day")
+        {
+            // 日总结：查 manual
+            var (text, createdAt) = DatabaseHelper.GetAISummaryWithMeta(_periodStart, summaryType, "manual");
+            if (text != null)
+            {
+                AISummaryText.Markdown = text;
+                AISummaryTime.Text = FormatSummaryTime(createdAt);
+                _currentAISummary = text;
+            }
+            else
+            {
+                AISummaryText.Markdown = "点击「生成总结」获取 AI 分析...";
+                AISummaryTime.Text = "";
+                _currentAISummary = null;
+            }
+            BtnGenerateAI.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            // 周/月总结
+            if (IsCurrentPeriod())
+            {
+                // 本周/月：查 manual，显示生成按钮
+                var (text, createdAt) = DatabaseHelper.GetAISummaryWithMeta(_periodStart, summaryType, "manual");
+                if (text != null)
+                {
+                    AISummaryText.Markdown = text;
+                    AISummaryTime.Text = FormatSummaryTime(createdAt);
+                    _currentAISummary = text;
+                }
+                else
+                {
+                    AISummaryText.Markdown = "点击「生成总结」获取 AI 分析...";
+                    AISummaryTime.Text = "";
+                    _currentAISummary = null;
+                }
+                BtnGenerateAI.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                // 非本周/月：查 auto，隐藏生成按钮
+                var (text, createdAt) = DatabaseHelper.GetAISummaryWithMeta(_periodStart, summaryType, "auto");
+                if (text != null)
+                {
+                    AISummaryText.Markdown = text;
+                    AISummaryTime.Text = FormatSummaryTime(createdAt);
+                    _currentAISummary = text;
+                }
+                else
+                {
+                    // 没有 auto 总结记录，写一条占位
+                    string placeholder = _period == "week" ? "本周没有活动记录。" : "本月没有活动记录。";
+                    DatabaseHelper.InsertAISummary(_periodStart, placeholder, summaryType, "auto");
+                    AISummaryText.Markdown = placeholder;
+                    AISummaryTime.Text = "";
+                    _currentAISummary = null;
+                }
+                BtnGenerateAI.Visibility = Visibility.Hidden;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 格式化总结时间显示，如 "8/3 20:30 总结"
+    /// </summary>
+    private static string FormatSummaryTime(string? createdAt)
+    {
+        if (string.IsNullOrEmpty(createdAt)) return "";
+        try
+        {
+            // CreatedAt 格式：yyyy-MM-dd HH:mm:ss.fff
+            var dt = DateTime.Parse(createdAt);
+            return $"{dt:M/d} {dt:HH:mm} 总结";
+        }
+        catch { return ""; }
     }
 
     private void BtnPrev_Click(object sender, RoutedEventArgs e)
@@ -157,7 +271,7 @@ public partial class StatisticsPage : Page
     {
         var (start, end) = GetRange();
 
-        bool includeIdle = ChkSkipIdle.IsChecked == true;
+        bool includeIdle = ChkSkipIdle.IsChecked != true;
         var catData = DatabaseHelper.GetCategorySummaryByRange(start, end, includeIdle);
         var procData = DatabaseHelper.GetProcessSummaryByRange(start, end, includeIdle);
         var dailyData = DatabaseHelper.GetDailyTotalsByRange(start, end, includeIdle);
@@ -186,6 +300,12 @@ public partial class StatisticsPage : Page
             int days = DateTime.DaysInMonth(start.Year, start.Month);
             DetailText.Text = $"日均：{totalSeconds / days / 3600}h{totalSeconds / days % 3600 / 60}m";
         }
+
+        // 日模式筛选了某类别时隐藏类别占比栏
+        if (_period == "day" && !string.IsNullOrEmpty(filterCategory))
+            CategorySection.Visibility = Visibility.Collapsed;
+        else
+            CategorySection.Visibility = Visibility.Visible;
 
         _chartRenderer.DrawCategoryBars(CategoryBarsPanel, catData, totalSeconds);
 
@@ -220,12 +340,25 @@ public partial class StatisticsPage : Page
 
     private Dictionary<string, int> FilterProcessByCategory(DateTime start, DateTime end, string category)
     {
-        var activities = DatabaseHelper.GetActivitiesByRange(start, end);
+        // 日模式 start==end，查询需要 end+1 天
+        DateTime queryEnd = start.Date == end.Date ? end.AddDays(1) : end;
+        var activities = DatabaseHelper.GetActivitiesByRange(start, queryEnd);
         return activities
             .Where(a => a.Category == category)
             .GroupBy(a => a.ProcessName)
             .OrderByDescending(g => g.Sum(a => a.Duration))
             .ToDictionary(g => g.Key, g => g.Sum(a => a.Duration));
+    }
+
+    /// <summary>
+    /// MarkdownScrollViewer 滚轮事件转交给外层 ScrollViewer
+    /// </summary>
+    private void AISummaryText_PreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        // 标记已处理，不让 MarkdownScrollViewer 自己处理
+        e.Handled = true;
+        // 手动滚动外层 ScrollViewer
+        MainScroll.ScrollToVerticalOffset(MainScroll.VerticalOffset - e.Delta);
     }
 
     // ========== AI 总结 ==========
@@ -234,7 +367,7 @@ public partial class StatisticsPage : Page
     private DateTime _lastAICallTime = DateTime.MinValue;
     // Cooldown 秒数（后续可从设置读）
     private const int AICooldownSeconds = 30;
-    // 当前 AI 总结内容（用于保存）
+    // 当前 AI 总结内容
     private string? _currentAISummary = null;
 
     private async void BtnGenerateAI_Click(object sender, RoutedEventArgs e)
@@ -249,7 +382,6 @@ public partial class StatisticsPage : Page
         _lastAICallTime = DateTime.Now;
 
         BtnGenerateAI.IsEnabled = false;
-        BtnSaveAISummary.IsEnabled = false;
         AISummaryText.Markdown = "正在生成...";
 
         try
@@ -259,25 +391,37 @@ public partial class StatisticsPage : Page
             // 根据 _period 调对应方法
             string? result;
             if (_period == "day")
-            {
                 result = await aiService.GenerateDailySummary(_periodStart);
-            }
             else if (_period == "week")
-            {
                 result = await aiService.GenerateWeeklySummary(_periodStart);
-            }
             else
-            {
                 result = await aiService.GenerateMonthlySummary(_periodStart);
-            }
+
             if (result != null)
             {
-                AISummaryText.Markdown = result;
                 _currentAISummary = result;
-                BtnSaveAISummary.IsEnabled = true;
 
                 // 存入数据库
-                DatabaseHelper.InsertAISummary(_periodStart, result, _period, "manual");
+                string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
+                DatabaseHelper.InsertAISummary(_periodStart, result, summaryType, "manual");
+
+                // 自动保存到文件（按日期文件夹分，每次保留不覆盖）
+                string? savePath = null;
+                try
+                {
+                    savePath = AISummaryService.SaveSummaryToFile(result, _periodStart, summaryType);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("AI 总结自动保存失败", ex);
+                }
+
+                // 从数据库重新加载（这样时间显示也一致）
+                LoadAISummary();
+
+                // 如果保存成功，追加提示
+                if (savePath != null)
+                    AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n已自动保存到：{savePath}";
             }
             else
             {
@@ -293,32 +437,6 @@ public partial class StatisticsPage : Page
         finally
         {
             BtnGenerateAI.IsEnabled = true;
-        }
-    }
-
-    private void BtnSaveAISummary_Click(object sender, RoutedEventArgs e)
-    {
-        if (string.IsNullOrEmpty(_currentAISummary))
-        {
-            AISummaryText.Markdown = "没有可保存的总结内容，请先生成。";
-            return;
-        }
-
-        try
-        {
-            string? savePath = AISummaryService.SaveSummaryToFile(_currentAISummary, _periodStart);
-            if (savePath != null)
-            {
-                AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n已保存到：{savePath}";
-            }
-            else
-            {
-                AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n保存失败。";
-            }
-        }
-        catch (Exception ex)
-        {
-            AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n保存失败：{ex.Message}";
         }
     }
 }

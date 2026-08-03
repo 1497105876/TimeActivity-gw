@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Windows.Media;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Data;
@@ -22,8 +21,7 @@ public class CategoryColorHelper
         _colors = new Dictionary<string, string>();
         try
         {
-            using var conn = new SqliteConnection(
-                $"Data Source={Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "timeactivity.db")}");
+            using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
             conn.Open();
             using var cmd = new SqliteCommand(
                 "SELECT Name, Color FROM Categories ORDER BY SortOrder", conn);

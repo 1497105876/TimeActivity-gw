@@ -1,3 +1,5 @@
+using System.Windows.Media;
+
 namespace TimeActivity.Models;
 
 /// <summary>
@@ -5,9 +7,11 @@ namespace TimeActivity.Models;
 /// </summary>
 public class ActivityDisplayItem
 {
+    public ImageSource? Icon { get; set; }
     public string ProcessName { get; set; } = "";
     public string WindowTitle { get; set; } = "";
     public string Category { get; set; } = "";
     public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
     public string DurationText { get; set; } = "";
 }

@@ -36,7 +36,6 @@ public partial class SettingsPage : Page
         LoadRules();
         UpdateEstimates();
         UpdateDiskUsage();
-        ApplyTheme();
         _loading = false;
         _hasChanges = false;
     }
@@ -48,6 +47,12 @@ public partial class SettingsPage : Page
         // 追踪设置
         SetComboByTagOrText(CbxSamplingInterval, DatabaseHelper.GetSetting("PollIntervalSeconds", "3"), "秒");
         SetComboByTagOrText(CbxIdleThreshold, DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), "分钟");
+        // 如果 Tag 匹配不上（自定义值），把秒转回分钟显示
+        if (CbxIdleThreshold.SelectedIndex == -1)
+        {
+            if (int.TryParse(DatabaseHelper.GetSetting("IdleThresholdSeconds", "300"), out int idleSec))
+                CbxIdleThreshold.Text = (idleSec / 60).ToString();
+        }
         ChkAutoStartTracking.IsChecked = DatabaseHelper.GetSetting("AutoStartTracking", "true") == "true";
         ChkTrackWindowTitle.IsChecked = DatabaseHelper.GetSetting("TrackWindowTitle", "true") == "true";
 
@@ -78,8 +83,6 @@ public partial class SettingsPage : Page
 
         // 显示设置
         Chk24Hour.IsChecked = DatabaseHelper.GetSetting("Use24Hour", "true") == "true";
-        SelectComboByTag(CbxTheme, DatabaseHelper.GetSetting("Theme", "light"));
-        ChkSkipIdle.IsChecked = DatabaseHelper.GetSetting("SkipIdleInStats", "false") == "true";
 
         // 数据设置
         SetComboByTagOrText(CbxDataRetention, DatabaseHelper.GetSetting("DataRetentionDays", "90"), "天");
@@ -205,9 +208,6 @@ public partial class SettingsPage : Page
 
         // 显示设置
         DatabaseHelper.SetSetting("Use24Hour", Chk24Hour.IsChecked == true ? "true" : "false");
-        DatabaseHelper.SetSetting("Theme", GetComboTag(CbxTheme));
-        DatabaseHelper.SetSetting("SkipIdleInStats", ChkSkipIdle.IsChecked == true ? "true" : "false");
-
         // 数据设置
         string retentionText = CbxDataRetention.Text.Replace("天", "").Replace("永久", "0").Trim();
         if (int.TryParse(retentionText, out int dr) && dr >= 0)
@@ -300,7 +300,6 @@ public partial class SettingsPage : Page
         LoadRules();
         UpdateEstimates();
         UpdateDiskUsage();
-        ApplyTheme();
         _loading = false;
         _hasChanges = false;
         TxtUnsaved.Text = "";
@@ -336,7 +335,6 @@ public partial class SettingsPage : Page
         snap["EnableMaxAge"] = (ChkMaxAge.IsChecked == true).ToString().ToLower();
         snap["MaxScreenshotAgeDays"] = TxtMaxAge.Text;
         snap["Use24Hour"] = (Chk24Hour.IsChecked == true).ToString().ToLower();
-        snap["Theme"] = GetComboTag(CbxTheme);
         snap["DataRetentionDays"] = CbxDataRetention.Text ?? "";
         snap["EnableAI"] = (ChkEnableAI.IsChecked == true).ToString().ToLower();
         snap["AIMode"] = GetComboTag(CbxAIMode);
@@ -518,48 +516,6 @@ public partial class SettingsPage : Page
         }
     }
 
-    // ========== 主题切换 ==========
-
-    private void ApplyTheme()
-    {
-        string theme = GetComboTag(CbxTheme);
-        if (theme == "auto")
-        {
-            // 跟随系统：通过注册表判断深浅色
-            try
-            {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize");
-                if (key?.GetValue("AppsUseLightTheme") is int v)
-                    theme = v == 0 ? "dark" : "light";
-            }
-            catch { }
-        }
-
-        if (theme == "dark")
-        {
-            Resources["PageBg"] = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E));
-            Resources["PanelBg"] = new SolidColorBrush(Color.FromRgb(0x2D, 0x2D, 0x2D));
-            Resources["TextFG"] = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0));
-            Resources["BorderBrush"] = new SolidColorBrush(Color.FromRgb(0x44, 0x44, 0x44));
-            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E));
-        }
-        else
-        {
-            Resources["PageBg"] = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
-            Resources["PanelBg"] = Brushes.White;
-            Resources["TextFG"] = Brushes.Black;
-            Resources["BorderBrush"] = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0));
-            Background = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5));
-        }
-    }
-
-    private void Theme_Changed(object sender, SelectionChangedEventArgs e)
-    {
-        if (_loading) return;
-        ApplyTheme();
-        MarkChanged();
-    }
-
     // ========== AI 模式切换 ==========
 
     private void AIMode_Changed(object sender, SelectionChangedEventArgs e)
@@ -709,8 +665,6 @@ public partial class SettingsPage : Page
             {"EnableMaxAge", "true"},
             {"MaxScreenshotAgeDays", "30"},
             {"Use24Hour", "true"},
-            {"Theme", "light"},
-            {"SkipIdleInStats", "false"},
             {"DataRetentionDays", "90"},
             {"EnableAI", "true"},
             {"AIMode", "lan"},
@@ -728,7 +682,6 @@ public partial class SettingsPage : Page
         LoadSettings();
         UpdateEstimates();
         UpdateDiskUsage();
-        ApplyTheme();
         _loading = false;
         _hasChanges = true;
         TxtUnsaved.Text = "● 已恢复默认，请点保存生效";
@@ -783,7 +736,6 @@ public partial class SettingsPage : Page
             LoadRules();
             UpdateEstimates();
             UpdateDiskUsage();
-            ApplyTheme();
             _loading = false;
             _hasChanges = false;
             TxtUnsaved.Text = "";

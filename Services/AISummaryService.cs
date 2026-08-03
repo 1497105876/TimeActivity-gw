@@ -185,40 +185,50 @@ public class AISummaryService
     // ========== 总结文件保存 ==========
 
     /// <summary>
-    /// 保存 AI 总结到文件，文件名格式：AI_Summary_yyyy-MM-dd.txt
-    /// 保存路径和存储限制从设置读取
+    /// 保存 AI 总结到文件
+    /// 按日期文件夹分：如 2026-08-02/summary_daily_143025.md
+    /// 每次保存都保留新文件不覆盖，受设置最大数量/大小控制
     /// </summary>
-    public static string? SaveSummaryToFile(string summary, DateTime date)
+    public static string? SaveSummaryToFile(string summary, DateTime date, string summaryType = "daily")
     {
         // 保存路径：设置里的 AISummaryPath，空则用程序目录下的 ai_summaries/
         string? configuredPath = DatabaseHelper.GetSetting("AISummaryPath", "");
-        string dir = string.IsNullOrWhiteSpace(configuredPath)
+        string baseDir = string.IsNullOrWhiteSpace(configuredPath)
             ? System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai_summaries")
             : configuredPath;
 
+        // 按日期分子文件夹
+        string dir = System.IO.Path.Combine(baseDir, date.ToString("yyyy-MM-dd"));
         Directory.CreateDirectory(dir);
 
-        string filename = $"summary_{date:yyyy-MM-dd}_{DateTime.Now:HHmmss}.md";
+        // 文件名带类型+时分秒，每次保留不覆盖
+        string filename = $"summary_{summaryType}_{DateTime.Now:HHmmss}.md";
         string filepath = System.IO.Path.Combine(dir, filename);
 
-        string content = $"# TimeActivity AI 每日总结\n\n**日期：{date:yyyy年MM月dd日}**  \n**生成时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}**\n\n---\n\n{summary}";
+        string typeLabel = summaryType switch
+        {
+            "weekly" => "每周总结",
+            "monthly" => "每月总结",
+            _ => "每日总结"
+        };
+        string content = $"# TimeActivity AI {typeLabel}\n\n**日期：{date:yyyy年MM月dd日}**  \n**生成时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}**\n\n---\n\n{summary}";
 
         File.WriteAllText(filepath, content, Encoding.UTF8);
 
-        // 保存后执行存储限制清理
-        CleanOldSummaries(dir);
+        // 保存后执行存储限制清理（扫整个 baseDir）
+        CleanOldSummaries(baseDir);
 
         return filepath;
     }
 
     /// <summary>
-    /// 按设置清理旧的 AI 总结文件
+    /// 按设置清理旧的 AI 总结文件（递归扫描含子文件夹）
     /// </summary>
-    private static void CleanOldSummaries(string dir)
+    private static void CleanOldSummaries(string baseDir)
     {
         try
         {
-            var files = Directory.GetFiles(dir, "summary_*.md")
+            var files = Directory.GetFiles(baseDir, "summary_*.md", SearchOption.AllDirectories)
                 .Select(f => new FileInfo(f))
                 .OrderBy(f => f.CreationTime)
                 .ToList();
@@ -262,6 +272,10 @@ public class AISummaryService
         var procSummary = DatabaseHelper.GetProcessSummaryByRange(weekStart, weekEnd, false);
         var dailyTotals = DatabaseHelper.GetDailyTotalsByRange(weekStart, weekEnd, false);
 
+        int totalSeconds = catSummary.Values.Sum();
+        if (totalSeconds == 0)
+            return "本周没有活动记录。";
+
         string prompt = BuildWeeklyPrompt(weekStart, weekEnd, catSummary, procSummary, dailyTotals);
         return await CallAIInternal(prompt);
     }
@@ -276,6 +290,10 @@ public class AISummaryService
         var catSummary = DatabaseHelper.GetCategorySummaryByRange(monthStart, monthEnd, false);
         var procSummary = DatabaseHelper.GetProcessSummaryByRange(monthStart, monthEnd, false);
         var dailyTotals = DatabaseHelper.GetDailyTotalsByRange(monthStart, monthEnd, false);
+
+        int totalSeconds = catSummary.Values.Sum();
+        if (totalSeconds == 0)
+            return "本月没有活动记录。";
 
         string prompt = BuildMonthlyPrompt(monthStart, monthEnd, catSummary, procSummary, dailyTotals);
         return await CallAIInternal(prompt);

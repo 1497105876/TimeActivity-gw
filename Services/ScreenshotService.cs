@@ -57,6 +57,8 @@ public class ScreenshotService
     public void Start()
     {
         if (_running) return;
+        // 检查设置开关 — 没开截图就不启动
+        if (DatabaseHelper.GetSetting("EnableScreenshot", "false") != "true") return;
         ReloadSettings();
         _running = true;
 
@@ -158,7 +160,7 @@ public class ScreenshotService
 
             string format = DatabaseHelper.GetSetting("ScreenshotFormat", "jpg") ?? "jpg";
             string ext = format == "png" ? "png" : "jpg";
-            string fileName = $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss}.{ext}";
+            string fileName = $"screenshot_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.{ext}";
             string filePath = Path.Combine(_screenshotDir, fileName);
 
             if (format == "png")
@@ -206,32 +208,10 @@ public class ScreenshotService
     public static int GetScreenHeight() => GetSystemMetrics(SM_CYSCREEN);
 
     /// <summary>
-    /// 获取某个时间点最近的一张截图
+    /// 获取某个时间点最近的一张截图（委托 DatabaseHelper 查询）
     /// </summary>
     public static string? GetScreenshotForTime(DateTime time)
     {
-        try
-        {
-            using var conn = new Microsoft.Data.Sqlite.SqliteConnection(DatabaseHelper.ConnectionString);
-            conn.Open();
-            using var cmd = new Microsoft.Data.Sqlite.SqliteCommand(@"
-                SELECT FilePath FROM Screenshots
-                WHERE CapturedAt <= @Time
-                ORDER BY CapturedAt DESC LIMIT 1", conn);
-            cmd.Parameters.AddWithValue("@Time", time.ToString("yyyy-MM-dd HH:mm:ss.fff"));
-
-            var result = cmd.ExecuteScalar();
-            if (result != null && result != DBNull.Value)
-            {
-                string path = (string)result;
-                // 相对路径拼接程序目录
-                if (!Path.IsPathRooted(path))
-                    path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
-                if (File.Exists(path))
-                    return path;
-            }
-        }
-        catch { }
-        return null;
+        return DatabaseHelper.GetScreenshotForTime(time);
     }
 }

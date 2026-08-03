@@ -229,26 +229,6 @@
                             <TextBlock Text="24小时制" VerticalAlignment="Center"/>
                             <CheckBox x:Name="Chk24Hour" Grid.Column="1" VerticalAlignment="Center"/>
                         </Grid>
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="200"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="主题" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="CbxTheme" Grid.Column="1" Width="120" HorizontalAlignment="Left" SelectionChanged="Theme_Changed">
-                                <ComboBoxItem Content="浅色" Tag="light"/>
-                                <ComboBoxItem Content="深色" Tag="dark"/>
-                                <ComboBoxItem Content="跟随系统" Tag="auto"/>
-                            </ComboBox>
-                        </Grid>
-                        <Grid Margin="0,0,0,4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="200"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="统计跳过空闲时段" VerticalAlignment="Center"/>
-                            <CheckBox x:Name="ChkSkipIdle" Grid.Column="1" VerticalAlignment="Center"/>
-                        </Grid>
                     </StackPanel>
                 </Expander>
 

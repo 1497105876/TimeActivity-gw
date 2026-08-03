@@ -230,20 +230,37 @@ public partial class MainWindow : Window
             DateTime lastWeekStart = GetWeekStart(today.AddDays(-7));
             if (!DatabaseHelper.HasAutoSummary(lastWeekStart, "weekly"))
             {
-                Logger.Info($"补生成上周总结：{lastWeekStart:yyyy-MM-dd}");
-                string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
-                if (result != null)
-                    DatabaseHelper.InsertAISummary(lastWeekStart, result, "weekly", "auto");
+                int weekSeconds = DatabaseHelper.GetCategorySummaryByRange(lastWeekStart, lastWeekStart.AddDays(6), false).Values.Sum();
+                if (weekSeconds > 0)
+                {
+                    Logger.Info($"补生成上周总结：{lastWeekStart:yyyy-MM-dd}");
+                    string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
+                    if (result != null)
+                        DatabaseHelper.InsertAISummary(lastWeekStart, result, "weekly", "auto");
+                }
+                else
+                {
+                    // 没有活动数据也存一条，避免切过去显示"正在进行"
+                    DatabaseHelper.InsertAISummary(lastWeekStart, "本周没有活动记录。", "weekly", "auto");
+                }
             }
 
             // 检查上月总结
             DateTime lastMonthStart = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
             if (!DatabaseHelper.HasAutoSummary(lastMonthStart, "monthly"))
             {
-                Logger.Info($"补生成上月总结：{lastMonthStart:yyyy-MM-dd}");
-                string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
-                if (result != null)
-                    DatabaseHelper.InsertAISummary(lastMonthStart, result, "monthly", "auto");
+                int monthSeconds = DatabaseHelper.GetCategorySummaryByRange(lastMonthStart, lastMonthStart.AddMonths(1).AddDays(-1), false).Values.Sum();
+                if (monthSeconds > 0)
+                {
+                    Logger.Info($"补生成上月总结：{lastMonthStart:yyyy-MM-dd}");
+                    string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
+                    if (result != null)
+                        DatabaseHelper.InsertAISummary(lastMonthStart, result, "monthly", "auto");
+                }
+                else
+                {
+                    DatabaseHelper.InsertAISummary(lastMonthStart, "本月没有活动记录。", "monthly", "auto");
+                }
             }
         }
         catch (Exception ex)
@@ -417,10 +434,12 @@ public partial class MainWindow : Window
             {
                 _items.Insert(0, new ActivityDisplayItem
                 {
+                    Icon = IconExtractor.GetIcon(activity.ProcessName),
                     ProcessName = activity.ProcessName,
                     WindowTitle = activity.WindowTitle,
                     Category = activity.Category,
                     StartTime = activity.StartTime,
+                    EndTime = activity.EndTime,
                     DurationText = TimelineRenderer.FormatDuration(activity.Duration)
                 });
                 while (_items.Count > 500)
@@ -470,16 +489,38 @@ public partial class MainWindow : Window
         {
             _items.Add(new ActivityDisplayItem
             {
+                Icon = IconExtractor.GetIcon(a.ProcessName),
                 ProcessName = a.ProcessName,
                 WindowTitle = a.WindowTitle,
                 Category = a.Category,
                 StartTime = a.StartTime,
+                EndTime = a.EndTime,
                 DurationText = TimelineRenderer.FormatDuration(a.Duration)
             });
         }
 
         DrawAll();
         UpdateTodayTotal();
+    }
+
+    /// <summary>
+    /// 切换列表显示模式：使用明细 / 使用统计
+    /// </summary>
+    private void RbListMode_Checked(object sender, RoutedEventArgs e)
+    {
+        if (ActivityList == null || StatsList == null) return;
+
+        var rb = sender as RadioButton;
+        if (rb?.Tag?.ToString() == "stats")
+        {
+            ActivityList.Visibility = Visibility.Collapsed;
+            StatsList.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            ActivityList.Visibility = Visibility.Visible;
+            StatsList.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void UpdateTodayTotal()

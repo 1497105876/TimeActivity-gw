@@ -29,7 +29,7 @@
         </StackPanel>
 
         <!-- 内容区 -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="MainScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- 总览 -->
                 <Border Background="#F8F8F8" CornerRadius="6" Padding="16,10" Margin="0,0,0,12">
@@ -40,15 +40,15 @@
                 </Border>
 
                 <!-- 类别占比（条形图） -->
-                <Border BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
+                <Border x:Name="CategorySection" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="类别占比" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
                         <StackPanel x:Name="CategoryBarsPanel"/>
                     </StackPanel>
                 </Border>
 
-                <!-- 每日趋势 -->
-                <Border BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
+                <!-- 每日趋势（仅周/月模式显示） -->
+                <Border x:Name="TrendSection" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="每日活跃趋势" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
                         <Canvas x:Name="TrendCanvas" Height="120" ClipToBounds="True" SizeChanged="TrendCanvas_SizeChanged"/>
@@ -68,10 +68,10 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <TextBlock x:Name="AITitle" Text="AI 每日总结" FontWeight="Bold" FontSize="14" Foreground="#4A90D9"/>
+                            <TextBlock x:Name="AISummaryTime" Text="" FontSize="12" Foreground="#999" Margin="12,0,0,0" VerticalAlignment="Center"/>
                             <Button x:Name="BtnGenerateAI" Content="生成总结" Width="80" Height="26" FontSize="11" Margin="12,0,0,0" Background="#4A90D9" Foreground="White" Click="BtnGenerateAI_Click"/>
-                            <Button x:Name="BtnSaveAISummary" Content="保存总结" Width="80" Height="26" FontSize="11" Margin="8,0,0,0" Click="BtnSaveAISummary_Click" IsEnabled="False"/>
                         </StackPanel>
-                        <mdxaml:MarkdownScrollViewer x:Name="AISummaryText" Markdown="点击「生成总结」获取 AI 分析..." FontSize="13" Foreground="#555"/>
+                        <mdxaml:MarkdownScrollViewer x:Name="AISummaryText" Markdown="点击「生成总结」获取 AI 分析..." FontSize="13" Foreground="#555" VerticalScrollBarVisibility="Disabled" PreviewMouseWheel="AISummaryText_PreviewMouseWheel"/>
                     </StackPanel>
                 </Border>
             </StackPanel>

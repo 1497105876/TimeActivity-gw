@@ -60,6 +60,7 @@
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
@@ -81,15 +82,38 @@
                                 <WrapPanel x:Name="LegendPanel" Margin="0,6,0,0"/>
                             </StackPanel>
 
-                            <!-- 活动列表 -->
-                            <ListView x:Name="ActivityList" Grid.Row="1" FontSize="13">
+                            <!-- 列表切换 -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,4">
+                                <RadioButton x:Name="RbDetailList" Content="使用明细" IsChecked="True" Margin="0,0,12,0" Checked="RbListMode_Checked" Tag="detail"/>
+                                <RadioButton x:Name="RbStatsList" Content="使用统计" Checked="RbListMode_Checked" Tag="stats"/>
+                            </StackPanel>
+
+                            <!-- 使用明细列表 -->
+                            <ListView x:Name="ActivityList" Grid.Row="2" FontSize="13">
                                 <ListView.View>
                                     <GridView>
-                                        <GridViewColumn Header="开始时间" Width="140" DisplayMemberBinding="{Binding StartTime, StringFormat=HH:mm:ss}"/>
-                                        <GridViewColumn Header="时长" Width="80" DisplayMemberBinding="{Binding DurationText}"/>
+                                        <GridViewColumn Header="" Width="32">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Image Source="{Binding Icon}" Width="16" Height="16" Stretch="Uniform"/>
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
                                         <GridViewColumn Header="进程" Width="120" DisplayMemberBinding="{Binding ProcessName}"/>
+                                        <GridViewColumn Header="标题" Width="300" DisplayMemberBinding="{Binding WindowTitle}"/>
                                         <GridViewColumn Header="类别" Width="70" DisplayMemberBinding="{Binding Category}"/>
-                                        <GridViewColumn Header="窗口标题" Width="400" DisplayMemberBinding="{Binding WindowTitle}"/>
+                                        <GridViewColumn Header="开始" Width="90" DisplayMemberBinding="{Binding StartTime, StringFormat=HH:mm:ss}"/>
+                                        <GridViewColumn Header="结束" Width="90" DisplayMemberBinding="{Binding EndTime, StringFormat=HH:mm:ss}"/>
+                                        <GridViewColumn Header="时长" Width="70" DisplayMemberBinding="{Binding DurationText}"/>
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+
+                            <!-- 使用统计列表（暂时为空） -->
+                            <ListView x:Name="StatsList" Grid.Row="2" FontSize="13" Visibility="Collapsed">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="统计项" Width="200" DisplayMemberBinding="{Binding}"/>
                                     </GridView>
                                 </ListView.View>
                             </ListView>
