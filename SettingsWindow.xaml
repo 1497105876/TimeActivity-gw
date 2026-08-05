@@ -1,0 +1,543 @@
+﻿<Window x:Class="TimeActivity.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="设置" Height="640" Width="820"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize" MinWidth="600" MinHeight="480"
+        Background="#F5F5F5">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 主体：侧边栏 + 内容 -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 侧边栏 -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
+                <StackPanel Margin="0,8">
+                    <ListBox x:Name="NavList" BorderThickness="0" Background="Transparent" SelectedIndex="0"
+                             SelectionChanged="NavList_SelectionChanged">
+                        <ListBoxItem Content="追踪设置" Tag="tracking"/>
+                        <ListBoxItem Content="截图设置" Tag="screenshot"/>
+                        <ListBoxItem Content="分类规则" Tag="rules"/>
+                        <ListBoxItem Content="分类管理" Tag="categories"/>
+                        <ListBoxItem Content="显示设置" Tag="display"/>
+                        <ListBoxItem Content="数据设置" Tag="data"/>
+                        <ListBoxItem Content="AI 设置" Tag="ai"/>
+                        <ListBoxItem Content="系统设置" Tag="system"/>
+                        <ListBoxItem Content="导入/导出" Tag="io"/>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+
+            <!-- 内容区 -->
+            <ScrollViewer Grid.Column="1" Padding="16" x:Name="SettingsScroll" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+
+                    <!-- 追踪设置 -->
+                    <StackPanel x:Name="PanelTracking" Margin="0,0,0,8">
+                        <TextBlock Text="追踪设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="采样间隔" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <ComboBox x:Name="CbxSamplingInterval" Width="100" IsEditable="True" HorizontalAlignment="Left">
+                                            <ComboBoxItem Content="1秒" Tag="1"/>
+                                            <ComboBoxItem Content="3秒" Tag="3"/>
+                                            <ComboBoxItem Content="5秒" Tag="5"/>
+                                            <ComboBoxItem Content="10秒" Tag="10"/>
+                                            <ComboBoxItem Content="30秒" Tag="30"/>
+                                        </ComboBox>
+                                        <TextBlock Text="秒" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="空闲阈值" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <ComboBox x:Name="CbxIdleThreshold" Width="100" IsEditable="True" HorizontalAlignment="Left">
+                                            <ComboBoxItem Content="3分钟" Tag="180"/>
+                                            <ComboBoxItem Content="5分钟" Tag="300"/>
+                                            <ComboBoxItem Content="10分钟" Tag="600"/>
+                                            <ComboBoxItem Content="15分钟" Tag="900"/>
+                                            <ComboBoxItem Content="30分钟" Tag="1800"/>
+                                        </ComboBox>
+                                        <TextBlock Text="分钟" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="启动时自动开始追踪" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkAutoStartTracking" Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 截图设置 -->
+                    <StackPanel x:Name="PanelScreenshot" Margin="0,0,0,8" Visibility="Collapsed">
+                        <TextBlock Text="截图设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="启用截图" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkEnableScreenshot" Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="切换应用时截屏" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkScreenshotOnSwitch" Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="截图间隔" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <ComboBox x:Name="CbxScreenshotInterval" Width="100" IsEditable="True" HorizontalAlignment="Left" SelectionChanged="CbxScreenshotInterval_Changed" TextBoxBase.TextChanged="CbxScreenshotInterval_Changed">
+                                            <ComboBoxItem Content="1分钟" Tag="1"/>
+                                            <ComboBoxItem Content="3分钟" Tag="3"/>
+                                            <ComboBoxItem Content="5分钟" Tag="5"/>
+                                            <ComboBoxItem Content="10分钟" Tag="10"/>
+                                            <ComboBoxItem Content="30分钟" Tag="30"/>
+                                        </ComboBox>
+                                        <TextBlock Text="分钟" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="截图格式" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CbxScreenshotFormat" Grid.Column="1" Width="120" HorizontalAlignment="Left" SelectionChanged="CbxScreenshotInterval_Changed">
+                                        <ComboBoxItem Content="JPEG" Tag="jpg"/>
+                                        <ComboBoxItem Content="PNG" Tag="png"/>
+                                    </ComboBox>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="截图质量" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CbxScreenshotQuality" Grid.Column="1" Width="140" HorizontalAlignment="Left" SelectionChanged="CbxScreenshotInterval_Changed">
+                                        <ComboBoxItem Content="高 (JPEG 80%)" Tag="high"/>
+                                        <ComboBoxItem Content="中 (JPEG 50%)" Tag="medium"/>
+                                        <ComboBoxItem Content="低 (JPEG 30%)" Tag="low"/>
+                                    </ComboBox>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="预估每张大小" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtEstSize" Grid.Column="1" Text="-" VerticalAlignment="Center" Foreground="#888"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="预估每日占用" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtEstDaily" Grid.Column="1" Text="-" VerticalAlignment="Center" Foreground="#888"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="截图保存路径" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TxtScreenshotPath" Grid.Column="1" IsReadOnly="True" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnBrowsePath" Grid.Column="1" Content="浏览..." HorizontalAlignment="Right" Width="60" Click="BtnBrowsePath_Click"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="存储限制" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <CheckBox x:Name="ChkMaxSize" VerticalAlignment="Center" Content="最大" Margin="0,0,8,0" Checked="StorageLimit_Changed" Unchecked="StorageLimit_Changed"/>
+                                        <TextBox x:Name="TxtMaxSize" Width="80" TextChanged="StorageLimit_Changed" PreviewTextInput="NumberOnly_Preview"/>
+                                        <TextBlock Text="MB" VerticalAlignment="Center" Margin="4,0,12,0"/>
+                                        <CheckBox x:Name="ChkMaxAge" VerticalAlignment="Center" Content="最大" Margin="0,0,8,0" Checked="StorageLimit_Changed" Unchecked="StorageLimit_Changed"/>
+                                        <TextBox x:Name="TxtMaxAge" Width="60" TextChanged="StorageLimit_Changed" PreviewTextInput="NumberOnly_Preview"/>
+                                        <TextBlock Text="天" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="当前磁盘占用" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="TxtDiskUsage" Grid.Column="1" Text="-" VerticalAlignment="Center" Foreground="#888"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 分类规则 -->
+                    <Grid x:Name="PanelRules" Margin="0,0,0,8" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="分类规则" FontSize="16" FontWeight="Bold" Margin="0,0,0,12" Grid.Row="0"/>
+
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 左侧：分类列表 -->
+                            <Border Grid.Column="0" Background="White" CornerRadius="4" Padding="8,6">
+                                <DockPanel>
+                                    <TextBlock Text="分类" FontSize="12" FontWeight="Bold" Margin="0,0,0,4" DockPanel.Dock="Top"/>
+                                    <TextBlock Text="拖拽进程到此分类" FontSize="10" Foreground="#AAA" Margin="0,0,0,6" DockPanel.Dock="Top"/>
+                                    <ListView x:Name="CategorySidebar" Background="Transparent" BorderThickness="0"
+                                              AllowDrop="True" Drop="CategorySidebar_Drop"
+                                              SelectionChanged="CategorySidebar_SelectionChanged"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                                    <Border Width="14" Height="14" CornerRadius="3" Margin="0,0,6,0">
+                                                        <Border.Background>
+                                                            <SolidColorBrush Color="{Binding ColorValue}"/>
+                                                        </Border.Background>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Count}" FontSize="10" Foreground="#999" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </DockPanel>
+                            </Border>
+
+                            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="#E0E0E0"/>
+
+                            <!-- 右侧：规则列表 -->
+                            <Border Grid.Column="2" Background="White" CornerRadius="4" Padding="8,6">
+                                <DockPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8" DockPanel.Dock="Top">
+                                        <TextBox x:Name="TxtRuleSearch" Width="160" Padding="4,2"
+                                                 TextChanged="TxtRuleSearch_TextChanged"/>
+                                        <ComboBox x:Name="CbxRuleFilter" Width="100" Margin="8,0,0,0" Padding="4,2"
+                                                  SelectionChanged="CbxRuleFilter_SelectionChanged">
+                                            <ComboBoxItem Content="全部分类" Tag=""/>
+                                        </ComboBox>
+                                        <Button Content="新增规则" Click="BtnAddRule_Click" Margin="8,0,0,0" Padding="8,2" FontSize="12"/>
+                                    </StackPanel>
+
+                                    <ListView x:Name="RulesListView" Background="Transparent" BorderThickness="0"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                        <ListView.View>
+                                            <GridView>
+                                                <GridViewColumn Header="进程名" Width="180" DisplayMemberBinding="{Binding ProcessName}"/>
+                                                <GridViewColumn Header="分类" Width="100">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <ComboBox SelectedItem="{Binding CategoryName}"
+                                                                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=_categoryNames}"
+                                                                      FontSize="11" Padding="2,0"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                                <GridViewColumn Header="类型" Width="50">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <TextBlock Text="{Binding TypeLabel}" FontSize="10" Foreground="{Binding TypeBrush}"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                                <GridViewColumn Header="操作" Width="50">
+                                                    <GridViewColumn.CellTemplate>
+                                                        <DataTemplate>
+                                                            <Button Content="删除" Click="BtnDeleteRule_Click" FontSize="10" Padding="4,1"
+                                                                    IsEnabled="{Binding IsCustom}"/>
+                                                        </DataTemplate>
+                                                    </GridViewColumn.CellTemplate>
+                                                </GridViewColumn>
+                                            </GridView>
+                                        </ListView.View>
+                                    </ListView>
+                                </DockPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- 分类管理 -->
+                    <!-- 分类管理 -->
+                    <StackPanel x:Name="PanelCategories" Margin="0,0,0,8" Visibility="Collapsed">
+                        <TextBlock Text="分类管理" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <StackPanel>
+                                <DataGrid x:Name="CategoriesGrid" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="False"
+                                          HeadersVisibility="Column" GridLinesVisibility="All" MinHeight="100" MaxHeight="300"
+                                          SelectionChanged="CategoriesGrid_Changed">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="分类名" Binding="{Binding Name}" Width="*"/>
+                                        <DataGridTemplateColumn Header="颜色" Width="*">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Click="BtnPickColor_Click" Padding="2">
+                                                        <Button.Content>
+                                                            <Grid Width="60" Height="16">
+                                                                <Rectangle Fill="{Binding Color}" RadiusX="2" RadiusY="2"/>
+                                                                <TextBlock Text="{Binding Color}" FontSize="10" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                            </Grid>
+                                                        </Button.Content>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="排序" Binding="{Binding SortOrder}" Width="60"/>
+                                        <DataGridTemplateColumn Header="操作" Width="60">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="删除" Click="BtnDeleteCategory_Click" FontSize="11" Padding="4,1"
+                                                            IsEnabled="{Binding CanDelete}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <TextBlock Text="预置分类不可删。可新增自定义分类、改颜色和排序。" Margin="0,4,0,0" Foreground="#999" FontSize="11"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 显示设置 -->
+                    <StackPanel x:Name="PanelDisplay" Margin="0,0,0,8" Visibility="Collapsed">
+                        <TextBlock Text="显示设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <TextBlock Text="暂无可配置项" Foreground="#999" Margin="0,4"/>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 数据设置 -->
+                    <StackPanel x:Name="PanelData" Margin="0,0,0,8" Visibility="Collapsed">
+                        <TextBlock Text="数据设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="数据保留天数" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <ComboBox x:Name="CbxDataRetention" Width="100" IsEditable="True" HorizontalAlignment="Left">
+                                            <ComboBoxItem Content="30天" Tag="30"/>
+                                            <ComboBoxItem Content="90天" Tag="90"/>
+                                            <ComboBoxItem Content="180天" Tag="180"/>
+                                            <ComboBoxItem Content="365天" Tag="365"/>
+                                            <ComboBoxItem Content="永久" Tag="0"/>
+                                        </ComboBox>
+                                        <TextBlock Text="天 (0=永久)" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="清空所有数据" VerticalAlignment="Center"/>
+                                    <Button x:Name="BtnClearData" Grid.Column="1" Content="清空..." HorizontalAlignment="Left" Width="80"
+                                            Background="#FFE0E0" BorderBrush="#FFCCCC" Click="BtnClearData_Click"/>
+                                </Grid>
+                                <Grid Margin="0,4,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="备份数据库" VerticalAlignment="Center"/>
+                                    <Button x:Name="BtnBackupDb" Grid.Column="1" Content="备份..." HorizontalAlignment="Left" Width="80"
+                                            Click="BtnBackupDb_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- AI 设置 -->
+                    <StackPanel x:Name="PanelAI" Margin="0,0,0,8" Visibility="Collapsed">
+                        <TextBlock Text="AI 设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="启用 AI 总结" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkEnableAI" Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="AI 模式" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CbxAIMode" Grid.Column="1" Width="180" HorizontalAlignment="Left" SelectionChanged="AIMode_Changed">
+                                        <ComboBoxItem Content="局域网共享 (Ollama)" Tag="lan"/>
+                                        <ComboBoxItem Content="自定义 API" Tag="custom"/>
+                                    </ComboBox>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="服务地址" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TxtApiUrl" Grid.Column="1" Margin="0,0,8,0"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="API Key" VerticalAlignment="Center"/>
+                                    <PasswordBox x:Name="TxtApiKey" Grid.Column="1" Margin="0,0,8,0"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="模型名称" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="TxtAIModel" Grid.Column="1" Margin="0,0,8,0"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="自动生成每日总结" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkAutoSummary" Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Border Background="#F8F8F8" CornerRadius="4" Padding="8,6" Margin="0,8,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="总结文件保存" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="保存路径" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox x:Name="TxtAISummaryPath" Grid.Column="1" Margin="0,0,8,0" FontSize="12"/>
+                                            <Button x:Name="BtnBrowseAISummaryPath" Grid.Column="2" Content="浏览" Width="60" Height="26" FontSize="11" Click="BtnBrowseAISummaryPath_Click"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="最大保存数量 (0=不限)" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox x:Name="TxtAISummaryMaxCount" Grid.Column="1" Width="100" HorizontalAlignment="Left" FontSize="12"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="最大保存大小 MB (0=不限)" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox x:Name="TxtAISummaryMaxSizeMB" Grid.Column="1" Width="100" HorizontalAlignment="Left" FontSize="12"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 系统设置 -->
+                    <StackPanel x:Name="PanelSystem" Margin="0,0,0,8" Visibility="Collapsed">
+                        <TextBlock Text="系统设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="开机自启" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkAutoStart" Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="最小化到托盘" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkMinimizeToTray" Grid.Column="1" VerticalAlignment="Center"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 导入/导出 -->
+                    <StackPanel x:Name="PanelIO" Margin="0,0,0,8" Visibility="Collapsed">
+                        <TextBlock Text="导入/导出" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+                        <Border Background="White" CornerRadius="4" Padding="12,8">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="BtnExport" Content="导出设置" Width="100" Height="30" Margin="0,0,12,0" Click="BtnExport_Click"/>
+                                <Button x:Name="BtnImport" Content="导入设置" Width="100" Height="30" Click="BtnImport_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- 底部固定栏 -->
+        <Border Grid.Row="1" Background="White" Padding="16,8" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtUnsaved" Grid.Column="0" Text="" VerticalAlignment="Center" Foreground="#E57373" FontWeight="Bold"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="BtnRestoreDefault" Content="恢复默认" Width="80" Height="32" Margin="0,0,8,0" Click="BtnRestoreDefault_Click"/>
+                    <Button x:Name="BtnApply" Content="应用" Width="70" Height="32" Margin="0,0,8,0" IsEnabled="False" Click="BtnApply_Click"/>
+                    <Button x:Name="BtnSave" Content="保存设置" Width="100" Height="32" Margin="0,0,8,0"
+                            Background="#4A90D9" Foreground="White" Click="BtnSave_Click"/>
+                    <Button x:Name="BtnCancel" Content="取消" Width="80" Height="32" Click="BtnCancel_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

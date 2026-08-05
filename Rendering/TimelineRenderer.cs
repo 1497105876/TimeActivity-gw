@@ -17,16 +17,30 @@ public class TimelineRenderer
 {
     private readonly CategoryColorHelper _colorHelper;
 
+    /// <summary>
+    /// 颜色查找函数：(进程名, 类别名) => Color
+    /// 默认用分类颜色，MainWindow 可替换为应用颜色模式
+    /// </summary>
+    public Func<string, string, Color> GetColorFunc { get; set; }
+
     public TimelineRenderer(CategoryColorHelper colorHelper)
     {
         _colorHelper = colorHelper;
+        GetColorFunc = (proc, cat) => _colorHelper.GetColor(cat);
+    }
+
+    public void DrawActivities(Canvas canvas, double width, double height,
+        List<ActivityRecord> activities, double viewStart, double visibleSeconds)
+    {
+        DrawActivities(canvas, width, height, activities, viewStart, visibleSeconds, null, null);
     }
 
     /// <summary>
-    /// 绘制主时间轴色块
+    /// 绘制主时间轴色块（带高亮）
     /// </summary>
     public void DrawActivities(Canvas canvas, double width, double height,
-        List<ActivityRecord> activities, double viewStart, double visibleSeconds)
+        List<ActivityRecord> activities, double viewStart, double visibleSeconds,
+        HashSet<string>? highlightedApps, HashSet<string>? highlightedCategories)
     {
         canvas.Children.Clear();
         canvas.Height = height;
@@ -64,12 +78,24 @@ public class TimelineRenderer
             double x = ((clipStart - viewStart) / visibleSeconds) * width;
             double w = Math.Max((durSec / visibleSeconds) * width, 2);
 
-            var color = _colorHelper.GetColor(act.Category);
+            var color = GetColorFunc(act.ProcessName, act.Category);
+
+            // 高亮逻辑：有高亮选中时，未选中的变暗
+            bool hasHighlight = (highlightedApps != null && highlightedApps.Count > 0) ||
+                                (highlightedCategories != null && highlightedCategories.Count > 0);
+            bool isHighlighted = false;
+            if (hasHighlight)
+            {
+                isHighlighted = (highlightedApps != null && highlightedApps.Contains(act.ProcessName)) ||
+                                (highlightedCategories != null && highlightedCategories.Contains(act.Category));
+            }
+
             var block = new Rectangle
             {
                 Width = w,
                 Height = height,
                 Fill = new SolidColorBrush(color),
+                Opacity = hasHighlight && !isHighlighted ? 0.2 : 1.0,
                 Tag = act
             };
             Panel.SetZIndex(block, z++);
@@ -145,13 +171,5 @@ public class TimelineRenderer
         return 720;
     }
 
-    /// <summary>
-    /// 格式化时长显示
-    /// </summary>
-    public static string FormatDuration(int seconds)
-    {
-        if (seconds < 60) return $"{seconds}s";
-        if (seconds < 3600) return $"{seconds / 60}m{seconds % 60}s";
-        return $"{seconds / 3600}h{(seconds % 3600) / 60}m";
-    }
+    // FormatDuration 已移到 TimeFormatHelper 统一管理
 }

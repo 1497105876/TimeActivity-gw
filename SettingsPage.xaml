@@ -187,7 +187,7 @@
                 <!-- 分类规则 -->
                 <Expander Header="分类规则" IsExpanded="False" Margin="0,0,0,8" Background="White" Padding="12,8">
                     <StackPanel Margin="0,8,0,0">
-                        <DataGrid x:Name="RulesGrid" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True"
+                        <DataGrid x:Name="RulesGrid" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="False"
                                   HeadersVisibility="Column" GridLinesVisibility="All" MinHeight="120" MaxHeight="300"
                                   SelectionChanged="RulesGrid_Changed">
                             <DataGrid.Columns>
@@ -196,25 +196,54 @@
                                 <DataGridComboBoxColumn Header="分类" Width="*"
                                         ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Page}, Path=_categoryNames}"
                                         SelectedItemBinding="{Binding CategoryName}"/>
+                                <DataGridTemplateColumn Header="操作" Width="60">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="删除" Click="BtnDeleteRule_Click" FontSize="11" Padding="4,1"
+                                                    IsEnabled="{Binding IsCustom}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBlock Text="提示：进程名留空表示按标题关键词匹配。改了规则后点保存生效。" Margin="0,4,0,0" Foreground="#999" FontSize="11"/>
+                        <TextBlock Text="提示：进程名留空表示按标题关键词匹配。预置规则不可删，改了分类后点保存生效。" Margin="0,4,0,0" Foreground="#999" FontSize="11"/>
                     </StackPanel>
                 </Expander>
 
                 <!-- 分类管理 -->
                 <Expander Header="分类管理" IsExpanded="False" Margin="0,0,0,8" Background="White" Padding="12,8">
                     <StackPanel Margin="0,8,0,0">
-                        <DataGrid x:Name="CategoriesGrid" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="True"
+                        <DataGrid x:Name="CategoriesGrid" AutoGenerateColumns="False" CanUserAddRows="True" CanUserDeleteRows="False"
                                   HeadersVisibility="Column" GridLinesVisibility="All" MinHeight="100" MaxHeight="250"
                                   SelectionChanged="CategoriesGrid_Changed">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="分类名" Binding="{Binding Name}" Width="*"/>
-                                <DataGridTextColumn Header="颜色" Binding="{Binding Color}" Width="*"/>
+                                <DataGridTemplateColumn Header="颜色" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Click="BtnPickColor_Click" Padding="2">
+                                                <Button.Content>
+                                                    <Grid Width="60" Height="16">
+                                                        <Rectangle Fill="{Binding Color}" RadiusX="2" RadiusY="2"/>
+                                                        <TextBlock Text="{Binding Color}" FontSize="10" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    </Grid>
+                                                </Button.Content>
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="排序" Binding="{Binding SortOrder}" Width="60"/>
+                                <DataGridTemplateColumn Header="操作" Width="60">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Content="删除" Click="BtnDeleteCategory_Click" FontSize="11" Padding="4,1"
+                                                    IsEnabled="{Binding CanDelete}"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBlock Text="颜色用十六进制，如 #4A90D9" Margin="0,4,0,0" Foreground="#999" FontSize="11"/>
+                        <TextBlock Text="预置分类不可删。可新增自定义分类、改颜色和排序。" Margin="0,4,0,0" Foreground="#999" FontSize="11"/>
                     </StackPanel>
                 </Expander>
 

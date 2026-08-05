@@ -30,6 +30,7 @@
             <Button x:Name="BtnStart" Content="开始追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStart_Click"/>
             <Button x:Name="BtnStop" Content="停止追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStop_Click" IsEnabled="False"/>
             <Button x:Name="BtnRefresh" Content="刷新" Width="80" Height="32" Margin="0,0,8,0" Click="BtnRefresh_Click"/>
+            <Button x:Name="BtnSettings" Content="⚙ 设置" Width="80" Height="32" Margin="0,0,8,0" Click="BtnSettings_Click"/>
         </StackPanel>
 
         <!-- 主内容区：Tab 切换 -->
@@ -42,7 +43,7 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- 日期切换 + 缩放信息 -->
+                    <!-- 日期切换 + 缩放信息 + 颜色模式 -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
                         <Border Background="#F0F0F0" CornerRadius="4">
                             <StackPanel Orientation="Horizontal">
@@ -53,6 +54,13 @@
                             </StackPanel>
                         </Border>
                         <TextBlock x:Name="ZoomText" Text="缩放：1x" VerticalAlignment="Center" Margin="16,0,0,0" FontSize="11" Foreground="#999"/>
+                        <Border Background="#F0F0F0" CornerRadius="4" Margin="12,0,0,0" Padding="8,2">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="配色：" FontSize="11" Foreground="#999" VerticalAlignment="Center"/>
+                                <RadioButton x:Name="RbColorCategory" Content="类别" IsChecked="True" Margin="4,0" FontSize="11" Checked="ColorMode_Changed"/>
+                                <RadioButton x:Name="RbColorApp" Content="应用" Margin="4,0" FontSize="11" Checked="ColorMode_Changed"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
                     <!-- 时间轴 + 活动列表 -->
@@ -85,7 +93,7 @@
                             <!-- 列表切换 -->
                             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,4">
                                 <RadioButton x:Name="RbDetailList" Content="使用明细" IsChecked="True" Margin="0,0,12,0" Checked="RbListMode_Checked" Tag="detail"/>
-                                <RadioButton x:Name="RbStatsList" Content="使用统计" Checked="RbListMode_Checked" Tag="stats"/>
+                                <RadioButton x:Name="RbStatsList" Content="使用占比" Checked="RbListMode_Checked" Tag="stats"/>
                             </StackPanel>
 
                             <!-- 使用明细列表 -->
@@ -109,14 +117,25 @@
                                 </ListView.View>
                             </ListView>
 
-                            <!-- 使用统计列表（暂时为空） -->
-                            <ListView x:Name="StatsList" Grid.Row="2" FontSize="13" Visibility="Collapsed">
-                                <ListView.View>
-                                    <GridView>
-                                        <GridViewColumn Header="统计项" Width="200" DisplayMemberBinding="{Binding}"/>
-                                    </GridView>
-                                </ListView.View>
-                            </ListView>
+                            <!-- 使用占比列表（左右两列） -->
+                            <Grid x:Name="StatsListPanel" Grid.Row="2" Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="4"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- 左列：应用统计 -->
+                                <DockPanel Grid.Column="0">
+                                    <TextBlock Text="应用统计" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4"/>
+                                    <ListView x:Name="AppStatsList" FontSize="12" BorderThickness="0" PreviewMouseRightButtonDown="AppStatsList_PreviewMouseRightButtonUp"/>
+                                </DockPanel>
+                                <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#E0E0E0"/>
+                                <!-- 右列：类别统计 -->
+                                <DockPanel Grid.Column="2">
+                                    <TextBlock Text="类别统计" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4"/>
+                                    <ListView x:Name="CategoryStatsList" FontSize="12" BorderThickness="0" PreviewMouseRightButtonDown="CategoryStatsList_PreviewMouseRightButtonUp"/>
+                                </DockPanel>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>
@@ -125,11 +144,6 @@
             <!-- Tab 2: 统计报表 -->
             <TabItem Header="统计报表">
                 <Frame x:Name="StatsFrame" NavigationUIVisibility="Hidden"/>
-            </TabItem>
-
-            <!-- Tab 3: 设置 -->
-            <TabItem Header="设置">
-                <Frame x:Name="SettingsFrame" NavigationUIVisibility="Hidden"/>
             </TabItem>
         </TabControl>
 

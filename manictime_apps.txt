@@ -1,0 +1,1177 @@
+﻿Ar_CommonGroup 搴旂敤鎬绘暟: 1170
+
+鍞竴杩涚▼鍚? 965
+
+================================================================================
+ManicTime 鎵€鏈夊簲鐢紙CommonId | 杩涚▼鍚?| 鏄剧ず鍚?| 棰滆壊锛?
+================================================================================
+    919  mmc.exe                                                                                  #DC0D0A
+   2159  nekoparavol3.exe.nocrack                        cs2                                      #C04936
+   2221  dotnet.exe                                     .NET                                      #7551F7
+   1174  01-ps-cs6.tmp                                  01-Ps-CS6                                 #A8A891
+   1419  1.鍘熺甯х巼瑙ｉ攣.exe                                   1                                         #0D4B74
+   1880  100orange.exe                                  100% Orange Juice!                        #FB9E00
+   2035  10128_1774495325438_app.jar                    10128_1774495325438_app.jar               #5A5AF9
+    956  123pan.exe                                     123pan                                    #0056F6
+   1825  mmc.exe                                        123SyncCloud Maintenance Service 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   1827  mmc.exe                                        123SyncCloud Upgrade Service 鐨勫睘鎬?鏈湴璁＄畻鏈?   #DC0D0A
+    955  123pan_2.3.6.exe                               123浜戠洏                                     #0056F6
+   1659  123pan_2.6.2.exe                               123浜戠洏                                     #0056F6
+    685  1977-2023-07-06031117-1688627477065.exe        1977-2023-07-06031117-1688627477065       #710D00
+   1997  26820_1773812070625_app.jar                    26820_1773812070625_app.jar               #5A5AF9
+    267  360drvmgr.exe                                  360椹卞姩澶у笀                                   #0076F4
+   1888  3dviewer.exe                                   3D 鏌ョ湅鍣?                                   #4595F8
+   1889  3dsmax.exe                                     3ds Max                                   #4BC1ED
+    128  5117-2024-11-04100910-1730686150790.tmp        5117-2024-11-04100910-1730686150790       #D3287B
+    734  7z2409-x64.exe                                 7-Zip                                     #EED774
+    735  7zfm.exe                                       7-Zip                                     #5857D0
+    970  7zg.exe                                        7-Zip                                     #6798AE
+    563  un_a.exe                                       7k7k娓告垙娴忚鍣?                                #F2B707
+   1846  鐗规垬鑻遍泟鐧诲綍鍣?exe                                    7k7k娓告垙娴忚鍣?                                #F2B707
+   1302  8bde936ef1.exe                                 8bde936ef1                                #007F00
+    627  _iu14d2n.tmp                                   _iu14D2N                                  #CFC4E1
+   1295  a little to the left.exe                       A Little To The Left                      #D24D39
+    176  nahimicnotifsys.exe                            A-Volute NS                               #0D4B74
+    353  a8003.tmp                                      A8003                                     #0B3B6D
+   1020  a84 v1.01.1.tmp                                A84 v1.01.1                               #517AF8
+   1123  mmc.exe                                        AccGateWay_OutBound_Rule 灞炴€?              #DC0D0A
+    930  adgsetup.exe                                   AdGuard                                   #7AC982
+    929  adguard-7.20.2-.4988.exe                       AdGuard                                   #7AC982
+    931  adguard.exe                                    AdGuard for Windows                       #7AC982
+   1172  adobecreativecloudcleanertool.exe              Adobe Creative Cloud Cleaner Tool         #F41616
+   1171  creative cloud uninstaller.exe                 Adobe Creative Cloud Uninstaller          #F71000
+    351  illustrator.exe                                Adobe Illustrator 2022                    #190000
+    349  set-up.exe                                     Adobe Installer                           #12E3FD
+     71  photoshop.exe                                  Adobe Photoshop 2023                      #000E1B
+    359  adobe premiere pro.exe                         Adobe Premiere Pro 2022                   #0000CC
+   2322  archpr.exe                                     Advanced Archive Password Recovery        #E88B00
+    624  advanced archive password recovery 4.54.tmp    Advanced Archive Password Recovery 4.54   #603AB1
+    856  aether.exe                                     Aether                                    #D6DA8F
+   2137  ah_comm_scan.exe                               ah_comm_scan                              #902800
+   1906  ahk2exe.exe                                    Ahk2Exe                                   #138CF7
+    927  ai-syoujyo.exe                                 AI-Syoujyo                                #1E87AA
+    318  aida64.exe                                     AIDA64 Extreme                            #5D0000
+    861  mmc.exe                                        AIService 鐨勫睘鎬?鏈湴璁＄畻鏈?                      #DC0D0A
+    993  ai浜鸿劯鏇挎崲宸ュ叿绂荤嚎鐗坴5.3.exe                            AI浜鸿劯鏇挎崲宸ュ叿绂荤嚎鐗圴5                             #FD0000
+    673  webpiclaunch.exe                               AI鐪嬪浘                                      #0000FE
+   2377  alacritty.exe                                  alacritty                                 #7DBFE3
+   2507  algermusicplayer-5.1.0-win.exe                 AlgerMusicPlayer                          #697CAA
+   2508  algermusicplayer.exe                           AlgerMusicPlayer                          #697CAA
+    943  altsnap.exe                                    AltSnap                                   #DBB7F5
+    443  mmc.exe                                        AMD Radeon(TM) 780M 灞炴€?                   #DC0D0A
+    437  amdvga-o2l30a7f6ebeqte0.tmp                    AMDVGA-O2L30A7F6EBEQTE0                   #57A34A
+    784  anaconda3-2024.10-1-windows-x86_64.exe         Anaconda3 2024.10-1 (64-bit)              #004A03
+    958  android.exe                                    android                                   #0056F6
+   1152  android-studio-2025.1.2.11-windows.exe         Android Studio                            #136AF5
+   1153  studio64.exe                                   Android Studio                            #136AF5
+    937  angrybirdsspace.exe                            Angry Birds Space                         #6B0017
+     69  ace-helper.exe                                 Anti-Cheat Expert                         #007FFE
+    470  ace-tray.exe                                   Anti-Cheat Expert                         #007AED
+    729  uninstall64.exe                                Anti-Cheat Expert                         #0E71DA
+    790  uninstaller.exe                                Anti-Cheat Expert                         #007AED
+   1435  xc0g.0.exe                                     Anti-Cheat Expert                         #007AED
+    960  apifox-2.7.11.exe                              Apifox                                    #EF002B
+    961  apifox.exe                                     Apifox                                    #EF002B
+     35  applicationframehost.exe                       Application Frame Host                    #0D4B74
+    220  modernflyoutshost.exe                          Application Frame Host                    #0D4B74
+   2563  appreadwritecounter.exe                        AppReadWriteCounter                       #1000F1
+   2321  archivepasswordtesttoolgui.exe                 ArchivePasswordTestToolGUI                #69699F
+    626  archpr.exe                                     ARCHPR                                    #E88B00
+    994  asklink.exe                                    AskLink                                   #3163FA
+    281  asklink.exe                                    AskLink Remote                            #3163FA
+    411  atelierresleriana.exe                          AtelierResleriana                         #00FEFE
+    455  au_.exe                                        Au_                                       #C152D2
+   1791  audioeffect.exe                                Audio in Effect                           #CCEF5A
+   1792  闊充箰鎾斁鍣╝udioplayer.exe                           Audio Player                              #D2F33C
+    658  audiorepeater.exe                              Audio Repeater                            #7F0000
+    661  audiorepeater_ks.exe                           Audio Repeater (Kernel Streaming)         #7F0000
+    261  audio-o2l3047fgss3tte0.tmp                     audio-O2L3047FGSS3TTE0                    #5971E6
+     94  automacrorecorder.exe                          Auto Macro Recorder                       #0085DE
+     85  autoclicker.exe                                AutoClicker                               #FC6500
+   2129  adskaccessuihost.exe                           Autodesk Access User Interface            #95A9EA
+   1905  autohotkeyu64.exe                              AutoHotkey                                #2AF32A
+   1904  autohotkeyux.exe                               AutoHotkey                                #436D3D
+   1903  autohotkey_2.0.19_setup.exe                    AutoHotkey Setup                          #436D3D
+    264  automatic_type.exe                             automatic_type                            #0D4B74
+   1630  autopanogiga_x64.exe                           Autopano Giga                             #0096FA
+   1625  autopanogiga_x64_402_2015-06-01.exe            AutopanoGiga_x64_402_2015-06-01           #F18000
+    218  apphost.uwp.exe                                Avira Phantom VPN                         #4294F8
+    922  b95 v2.4.55.tmp                                B95 v2.4.55                               #0CD5EC
+    592  baidun armor_3.2.1_setup.tmp                   Baidun Armor_3.2.1_Setup                  #CB0306
+    593  baidunarmorgui.exe                             BaiDunArmorGUI                            #EC2700
+   1769  baidunetdiskimageviewer.exe                    BaiduNetdiskImageViewer                   #0085A7
+    855  baidunetdiskunite.exe                          BaiduNetdiskUnite                         #00A8FD
+    347  baidunetdisk.exe                               BaiduYunGuanjia Application               #00A8FD
+   2156  鎵撳紑鎴?exe                                        baishi                                    #005091
+    633  tslgame_be.exe                                 BattlEye Launcher                         #23363E
+   1425  bepinex.splashscreen.gui.exe                   BepInEx.SplashScreen                      #6F493C
+    944  bettergi.exe                                   BetterGI                                  #CFB678
+   1193  bettergi.onlineinst.r183.exe                   BetterGI                                  #F0871F
+   1359  bettergi.update (2).exe                        BetterGI                                  #F0871F
+   1049  bettergi.update.exe                            BetterGI                                  #F0871F
+   1894  bettergi.update.instbak                        BetterGI                                  #17A167
+   1392  beyondeditor.exe                               BeyondEditor                              #00FEFE
+    628  bhdclient-win64-shipping.exe                   BHDClient-Win64-Shipping                  #E2D98B
+   2407  biglybt.exe                                    BiglyBT                                   #7DB2F7
+   2406  biglybt_installer64_withjava21.exe             BiglyBT                                   #7DB2F7
+   2408  uninstall.exe                                  BiglyBT Uninstaller                       #558A23
+   1853  bitcomet.exe                                   BitComet                                  #EC2700
+   2403  bitcomet_setup.tmp                             BitComet                                                      #8B8BF4
+   2404  bitcomet_x64.exe                               BitComet 64-bit                           #EC2700
+   2412  bitejingling.tmp                               bitejingling                              #BA9875
+   2413  bitspirit.exe                                  BitSpirit                                 #1B7CA0
+   1191  blender.exe                                    Blender                                   #EE8413
+   1046  bloonstd6.exe                                  BloonsTD6                                 #A14A17
+    694  bluetooth audio reveicer.exe                   Bluetooth Audio Receiver                  #265082
+    157  bongo cat mver.exe                             Bongo Cat Mver                            #A60018
+   1087  bongo-cat.exe                                  BongoCat                                  #AA0019
+   1871  bongocat.exe                                   BongoCat                                  #FB3200
+   1086  bongocat_0.6.1_x64-setup.exe                   BongoCat                                  #D77265
+    158  bongocatui.exe                                 BongoCatUI                                #A60018
+   1157  browndust2starter.exe                          Browndust 2 Starter                       #3D6B91
+   1158  browndust ii.exe                               BrownDust II                              #1CB4EC
+   1156  瀹樻柟瀹夎鍣?tmp                                      Browndust2                                                    #21A554
+   2578  c138 build10651429.tmp                         C138 Build10651429                        #CB974F
+    237  c34 v20240105.tmp                              C34 v20240105                             #2C97FA
+    238  c34a v20230117.tmp                             C34A v20230117                            #69A116
+    367  mmc.exe                                        C:\Program Files (x86)\Lenovo\LeAppStore 灞炴€? #DC0D0A
+   1790  mmc.exe                                        C:\Users\highness\Desktop\鎵撳紑鎴慭zj\aria2c.exe\  #DC0D0A
+    904  camera-o2l3027fnukqxte0.tmp                    camera-O2L3027FNUKQXTE0                   #5F84EC
+    228  castlebreak_.exe                               CastleBreak_                              #2A77BA
+   1845  cefflashbrowser.exe                            CefFlashBrowser                           #0079EA
+   1649  certutil.exe                                   CertUtil.exe                              #7F7F00
+   2065  cgplayer.exe                                   CGPlayer                                  #3291EA
+    152  chatbot.exe                                    ChatBot                                   #CD5B55
+    212  chatgpt.exe                                    ChatGPT                                   #3F5C65
+    938  cheatengine-i386.exe                           cheatengine-i386                          #003E5D
+   1301  packettracer.exe                               Cisco Packet Tracer                       #006000
+   1300  ciscopackettracer8.1.1.0022.tmp                CiscoPacketTracer8.1.1.0022               #C6D49A
+   2052  flclash.exe                                    clash                                     #0000B6
+    167  clash for windows.exe                          Clash for Windows                         #253F65
+   2050  clash-verge.exe                                Clash Verge                               #FE00FE
+   2049  clash.verge_2.4.7_x64-setup.exe                Clash Verge                               #FE00FE
+    166  cloudflare warp.exe                            Cloudflare WARP                           #8B450B
+   1136  cocogoat-control.exe                           cocogoat-control                          #0285F7
+   1440  wadfngrv.exe                                   Cok Auto Recorder                         #006A98
+    151  dllhost.exe                                    COM Surrogate                             #0D4B74
+    575  copilotnative.exe                              CopilotNative                             #0C5481
+   1979  setup.exe                                      Corel Setup Engine                        #187F3A
+   1886  mmc.exe                                        Cpolar Service 鐨勫睘鎬?鏈湴璁＄畻鏈?                 #DC0D0A
+   1192  cpuz.exe                                       CPU-Z Application                         #5100E8
+    439  cpuz_x64.exe                                   CPU-Z Application                         #5100E8
+    586  4930-2024-12-02051506-1733130906575.tmp        CPUID CPU-Z                                                   #BB02CF
+    506  crashreportclient.exe                          CrashReportClient                         #1B26CB
+    356  creative cloud.exe                             Creative Cloud Desktop                    #E20F00
+    165  credentialuibroker.exe                         Credential Manager UI Host                #0D4B74
+   1874  crushcrush.exe                                 CrushCrush                                #1B9EA7
+     81  csrss                                          csrss                                     #DAA000
+   1650  cultivation.exe                                Cultivation                               #DF6BC7
+   1964  curseforge.exe                                 CurseForge                                #E8912E
+   1963  owinstaller.exe                                Curseforge Installer                      #0E5E87
+    872  d.jlp001.tmp                                   D.JLP001                                  #19CDBF
+    914  daysgone.exe                                   DaysGone                                  #FE00FE
+   1312  dcontrol                                       dControl                                  #DAA000
+    866  doa6.exe                                       DEAD OR ALIVE 6                           #8F0000
+     34  deltaforceclient-win64-shipping.exe            DeltaForceClient-Win64-Shipping           #1E2E34
+   1162  deltaforcesingle-win64-shipping.exe            DeltaForceSingle-Win64-Shipping           #261200
+   1870  desktopmate.exe                                DesktopMate                               #005CDE
+   2245  die.exe                                        Detect It Easy                            #974B00
+   2247  diel.exe                                       Detect It Easy                            #F18400
+    903  mmc.exe                                        Device Manager                            #DC0D0A
+    508  df_uninst.exe                                  df_uninst                                 #193340
+   1828  mmc.exe                                        Diagnostic Policy Service 鐨勫睘鎬?鏈湴璁＄畻鏈?      #DC0D0A
+     18  dingtalk.exe                                   DingTalk                                  #0073F8
+   2231  dingtalkrevokemsgpatcher.exe                   DingTalkRevokeMsgPatcher.WinForm          #008EF3
+    647  directx repair.exe                             DirectX Repair                            #00007F
+    438  display driver uninstaller.exe                 Display Driver Uninstaller                #0000FE
+   2032  displayx.exe                                   DisplayX                                  #0031B8
+   1141  dldllhsj.exe                                   DLDLLHSJ                                  #125FD3
+   1132  dldllhsjcps.exe                                DLDLLHSJCPS                               #0454D3
+    639  dnmultiplayerex.exe                            dnmultiplayerex                           #936E00
+    416  doax_vv.exe                                    DOAX_VV                                   #F48600
+    415  doax_vv_launcher.exe                           DOAX_VV_Launcher                          #F48600
+   1728  docker desktop.exe                             Docker Desktop                            #208EE8
+   1727  docker desktop installer.exe                   Docker Desktop Installer                  #208EE8
+   1067  doubao.exe                                     Doubao                                    #007EE6
+   1066  doubao_client_dbkhd_12_sem_chat_pinp_windows_v1060006_c6fb_1750397280.exe  Doubao Installer                          #007EE6
+   2329  repair_2026_06_01_11_19_26.exe                 Doubao Repair                             #007EE6
+   2354  repair_2026_06_05_17_14_08.exe                 Doubao Repair                             #007EE6
+   2365  repair_2026_06_09_13_21_49.exe                 Doubao Repair                             #007EE6
+   2416  repair_2026_06_17_09_20_15.exe                 Doubao Repair                             #007EE6
+   2425  repair_2026_06_17_13_23_57.exe                 Doubao Repair                             #007EE6
+   2437  repair_2026_06_19_17_59_02.exe                 Doubao Repair                             #007EE6
+   2473  repair_2026_06_24_18_08_09.exe                 Doubao Repair                             #007EE6
+   2518  repair_2026_07_05_13_12_49.exe                 Doubao Repair                             #007EE6
+   2526  repair_2026_07_08_16_11_59.exe                 Doubao Repair                             #007EE6
+    576  doudouai.exe                                   DoudouAI                                  #F78A1E
+    376  app_package_13331f76ef.exe                     douyin                                    #00FEFE
+    989  app_package_28d33c14ba.exe                     douyin                                    #00FEFE
+    485  app_package_81dc1dd483.exe                     douyin                                    #00FEFE
+   1003  app_package_8ee0be76cf.exe                     douyin                                    #00FEFE
+    577  douyin-v5.3.1-win32-ia32-lenovoad.exe          douyin                                    #00FEFE
+    171  douyin.exe                                     douyin                                    #00FEFE
+    193  douyin_tray.exe                                douyin                                    #00FEFE
+    309  kaishiyouxi.exe                                douyljq                                   #D7A51C
+    754  dragonheir.exe                                 Dragonheir                                #E04A00
+    945  draw.io-13.9.9-windows-installer.exe           draw.io                                   #F38500
+    947  draw.io-27.0.2-windows-installer.exe           draw.io                                   #F38500
+    946  draw.io.exe                                    draw.io                                   #F38500
+   2306  installer.exe                                  draw.io                                   #F38500
+    959  miusbdriver.exe                                Driver installer                          #FA2BCF
+    448  lenovodm.exe                                   DriverGenius                              #0054FC
+    181  dwm                                            dwm                                       #DAA000
+   1442  vscmain.exe                                    e2eSoft VSC - Virtual Sound Card          #004C00
+   1068  ecmenu_x64.exe                                 EcMenu_x64                                #3A94E8
+   2448  mmc.exe                                        edge 灞炴€?                                  #DC0D0A
+   2080  edrawmax-1.exe                                 Edraw Max                                 #007CF9
+   2003  edrawmax.exe                                   Edraw Max                                 #007CF9
+   1549  eldenring.exe                                  ELDEN RING鈩?                              #132F2F
+   2287  electron.exe                                   Electron                                  #53C1DA
+    441  unlockit.exe                                   EMCO UnLock IT                            #953B00
+    168  enableloopback.exe                             EnableLoopback                            #478826
+   1897  endfield.exe                                   Endfield                                  #B8AE00
+    552  epicgameslauncher.exe                          EpicGamesLauncher                         #0000FE
+   1774  etalien-setup-v1.14.10.tmp                     ETALIEN-Setup-v1.14.10                    #94F3A9
+     55  everything.exe                                 Everything                                #7F3F00
+   1271  exe4j.exe                                      exe4j Wizard                              #0083F6
+    199  f5013 v1.1.0.tmp                               F5013 v1.1.0                              #FCB177
+   2548  fabric-server-mc.26.1-loader.0.19.3-launcher.1.1.1.jar  fabric-server-mc.26.1-loader.0.19.3-launcher.1.1.1.jar  #5A5AF9
+    554  fevergamesinstaller.exe                        Fever Games                               #8B0F15
+    285  ffxiv_textools.exe                             FFXIV_TexTools                            #001EE8
+    200  kaishiyouxi.exe                                fghjaz                                    #C5B500
+    239  寮€濮?鍚姩.exe                                      fghjaz                                    #C5B500
+    103  pickerhost.exe                                 File Picker UI Host                       #0D4B74
+   1071  file types editor.exe                          File Types Editor                         #09CBFB
+   1267  filezilla.exe                                  FileZilla                                 #F60000
+   1266  filezilla_3.69.3_win64_sponsored2-setup.exe    FileZilla                                 #F60000
+   1263  filezilla-server-gui.exe                       FileZilla Server                          #AB0000
+   1262  filezilla_server_1.11.0_win64-setup.exe        FileZilla Server                          #AB0000
+   1337  first blood.exe                                first blood                               #EBCF57
+   2051  flclash-0.8.92-windows-amd64-setup.tmp         FlClash                                                       #32F7DB
+   1080  klearmaxforphoto.exe                           FliFlik KlearMax for Photo                #FD0054
+    301  frameview_x64.exe                              FrameView                                 #DDC16A
+   2410  fdm.exe                                        Free Download Manager                     #0087DC
+   2409  fdm_x64_setup_6.22.tmp                         Free Download Manager                                         #6E7AE8
+   2411  _unins.tmp                                     Free Download Manager                                         #763A7A
+   1143  mmc.exe                                        FxSound Audio Enhancer 灞炴€?                #DC0D0A
+    867  g01d moda_v1.41.tmp                            G01D MODA_v1.41                           #7CAC31
+   1188  galaxy_studio.exe                              galaxy_studio                             #00B0F0
+   1679  galhome.exe                                    GalHome                                   #F56618
+   1254  galhome-win64-shipping.exe                     GalHome-Win64-Shipping                    #737EA0
+   1268  game.exe                                       Game                                      #3C9306
+    412  gameinputsvc                                   GameInputSvc                              #DAA000
+   1829  mmc.exe                                        Gaming Services 鐨勫睘鎬?鏈湴璁＄畻鏈?                #DC0D0A
+     50  geek64.exe                                     Geek-Uninstaller                          #008BCC
+    458  mmc.exe                                        Generic Monitor 灞炴€?                       #DC0D0A
+   2057  genshin wish export.exe                        Genshin Wish Export                       #F38900
+   1864  genshinimpact.exe                              GenshinImpact                             #FBFB00
+   2568  git-credential-helper-selector.exe             git-credential-helper-selector            #0D4B74
+    844  git-credential-manager.exe                     git-credential-manager                    #A41800
+    559  autoupgrader.exe                               GI鍔犻€熷櫒                                     #1423F3
+    147  giacceler.exe                                  GI鍔犻€熷櫒                                     #0000FA
+    703  chrome.exe                                     Google Chrome                             #EBB000
+   2039  chrome.exe                                     Google Chrome for Testing                 #E83C30
+    886  gta5.exe                                       Grand Theft Auto V                        #235501
+   1651  gctools-v1.18.0.exe                            GrasscutterTools                          #008C09
+     14  guilongchao.exe                                GUILONGCHAO                               #67AFEE
+   1480  gunfire reborn.exe                             Gunfire Reborn                            #9A7B00
+   2291  gw-music-0.1.0-setup.exe                       GW Music                                  #222233
+   2292  gw-music.exe                                   GW Music                                  #222233
+   2293  un_a.exe                                       GW Music                                  #222233
+   1516  handbrake.exe                                  HandBrake                                 #A16B00
+    653  鏍￠獙鏂囦欢(hash).exe                                 Hash                                      #0000FD
+    483  hdr-o1y5037fyzvz0cf0.tmp                       HDR-O1Y5037FYZVZ0CF0                      #1B39E0
+    484  hdr-oble027fl0zt3cf0.tmp                       hdr-OBLE027FL0ZT3CF0                      #201FCB
+   1170  mmc.exe                                        HID                                       #DC0D0A
+    223  hidevolumeosd.exe                              HideVolumeOSD                             #805610
+    230  hidevolumeosd-1.4 (2).tmp                      HideVolumeOSD                                                 #94E096
+    222  hidevolumeosd-1.4.tmp                          HideVolumeOSD                                                 #7BA834
+    558  hllepicgamesstore-win64-shipping.exe           HLLEpicGamesStore-Win64-Shipping          #FE00FE
+   1758  hogwartslegacy.exe                             HogwartsLegacy                            #001F31
+   1399  honeyselect2.exe                               HoneySelect2                              #555278
+   1400  honeyselect2vr.exe                             HoneySelect2VR                            #555278
+    464  hp.omen.omencommandcenter.exe                  HP.OMEN.OMENCommandCenter                 #7F0200
+   1169  hpjyhd.exe                                     hpjyhd                                    #C4840F
+   1073  hh.exe                                         HTML Help                                 #7F7F00
+   2485  mmc.exe                                        Huorong Internet Security Daemon 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   1243  hypnoapp2.exe                                  HypnoApp2                                 #1CD559
+    968  icofx3.exe                                     icofx                                     #158FD6
+   1725  iemonitor.exe                                  IEMonitor Application                     #11A304
+   1401  initsetting.exe                                IllusionLaunchers                         #B73B58
+   1150  ilspy.exe                                      ILSpy                                     #0555B7
+   2374  ima.copilot-win-x64-10000074-2.5.4(4436).exe   ima installer                             #537DFC
+   2375  ima.copilot.exe                                ima.copilot                               #003FFD
+   1958  imhex-gui.exe                                  imhex-gui                                 #304980
+   2510  compil32.exe                                   Inno Setup                                #00A8FD
+    284  install_textools.exe                           Install_TexTools                          #001EE8
+    779  mmc.exe                                        Integrated Camera 灞炴€?                     #DC0D0A
+    480  mmc.exe                                        Integrated Monitor                        #DC0D0A
+    460  mmc.exe                                        Integrated Monitor 灞炴€?                    #DC0D0A
+     51  idea64.exe                                     IntelliJ IDEA Community Edition           #004080
+   1397  idman.exe                                      Internet Download Manager (IDM)           #0A9C00
+   1396  idm1.tmp                                       Internet Download Manager installer       #513602
+   2423  idman642build10.exe_v=lt&filename=idman642build10.exe  Internet Download Manager installer       #00E900
+   1620  uninstall.exe                                  Internet Download Manager installer       #00E900
+   1945  inzoi.part01.exe                               inZOI                                     #E4BA00
+   1571  mmc.exe                                        IP 鍦板潃                                     #DC0D0A
+   2488  isaac-ng.exe                                   isaac-ng                                  #040000
+    308  j04a v20241029.tmp                             J04A v20241029                            #A73AE8
+   1532  jadx-gui-1.5.3.exe                             jadx-gui                                  #E93A00
+    343  java.exe                                       JAVA                                      #004080
+   1523  java.exe                                       Java(TM) Platform SE 17.0.10              #3D4E5A
+   1798  javaw.exe                                      Java(TM) Platform SE 17.0.6               #3D4E5A
+   2562  java.exe                                       Java(TM) Platform SE 21.0.11              #3D4E5A
+   1151  javaw.exe                                      Java(TM) Platform SE 24.0.1               #3D4E5A
+   2552  java.exe                                       Java(TM) Platform SE 25.0.3               #3D4E5A
+    126  jianyingpro.exe                                JianyingPro                               #05EAF7
+    307  vedetector.exe                                 JianyingPro                               #17AB5B
+   1966  kairo.exe                                      Kairo                                     #155EB8
+   2155  kaishiyouxi.exe                                KaiShiYouXi                               #020358
+   1797  kedou_latest.tmp                               kedou                                                         #6C9329
+   2535  keepassxc.exe                                  KeePassXC                                 #8CD05F
+   1629  keygen.exe                                     keygen                                    #770000
+   1882  kidnappedgirl.exe                              KidnappedGirl                             #03060C
+   1918  qbittorrentee(qb涓嬭浇鍣ㄥ寮虹増).exe                    Kingsoft Internet Security                #0069E1
+   1631  koloreyes_win32.exe                            Kolor Eyes                                #B2590B
+   1622  koloreyes_win32_162_2016-03-29.exe             KolorEyes_win32_162_2016-03-29            #F18000
+   2570  mmc.exe                                        KPICService_Web 鐨勫睘鎬?鏈湴璁＄畻鏈?                #DC0D0A
+   1187  krokiet 7.0 涓枃.exe                             Krokiet 7                                 #0D4B74
+    116  kugou.exe                                      KuGou                                     #0059EA
+    920  l.jlp001.tmp                                   L.JLP001                                  #1FE27C
+    557  launch_hll.exe                                 Launch_HLL                                #004A87
+   1703  a缁樹笘鍚姩鍣?exe                                     Launcher                                  #E02B4C
+    500  launcher.exe                                   Launcher                                  #A18000
+    637  ldplayer9_ld_403502_ld.exe                     LDplayer9_ld_403502_ld                    #896E0C
+    649  ldplayerpartner.exe                            ldplayerpartner                           #9E7400
+    667  ldremote.exe                                   ldremote                                  #0032FA
+    666  ldremoteinst_cn_104_1.3.21.0.exe               ldremoteinst_cn_104_1.3.21                #0031F6
+    322  lzuninstall000.exe                             Legion Zone鍗歌浇绋嬪簭                           #121200
+    430  lzinstall.exe                                  Legion Zone瀹夎绋嬪簭                           #121200
+    427  lzsetup.exe                                    Legion Zone瀹夎绋嬪簭                           #121200
+      6  legionzone.exe                                 LegionZone                                #121200
+    835  mmc.exe                                        LeiDian 鐨勫睘鎬?鏈湴璁＄畻鏈?                        #DC0D0A
+   2233  mmc.exe                                        Lenovo Driver Service 鐨勫睘鎬?鏈湴璁＄畻鏈?          #DC0D0A
+    320  lenovo legion toolkit.exe                      Lenovo Legion Toolkit                     #1000F8
+    319  lenovolegiontoolkitsetup.tmp                   Lenovo Legion Toolkit                                         #260B84
+    426  _unins.tmp                                     Lenovo Legion Toolkit                                         #ADB744
+   1186  quickfixdiskcleanup.exe                        Lenovo Quick Fix - Disk Cleanup           #0E57F5
+    482  quickfixdriverinject.exe                       Lenovo Quick Fix - Win7 Driver Inject     #0E55EE
+    481  椹卞姩娉ㄥ叆宸ュ叿.exe                                     Lenovo Quick Fix - Win7 Driver Inject     #0E55EE
+   1246  segametool.exe                                 Lenovo Smart Engine Plugin                #0D4B74
+    746  mmc.exe                                        LenovoSmartService 鐨勫睘鎬?鏈湴璁＄畻鏈?             #DC0D0A
+   2168  soffice.bin                                    LibreOffice                               #ED9FD9
+   1883  lightapp.exe                                   LightApp                                  #65C0F2
+     83  listary.exe                                    Listary                                   #0091F9
+    932  listary 6.3.0.59.tmp                           Listary                                                       #610649
+    598  lm studio.exe                                  LM Studio                                 #7454F3
+    138  lockapp.exe                                    LockApp.exe                               #0D4B74
+    870  logviewpro.exe                                 LogViewer Pro                             #0066F7
+   2591  loomy-setup-ch-cg-vid-4r837pgeoy (1).exe       Loomy                                     #19B76B
+   2590  loomy-setup-ch-cg-vid-4r837pgeoy.exe           Loomy                                     #19B76B
+   2592  loomy.exe                                      Loomy                                     #19B76B
+    369  lsf_cleanup.exe                                Lsf_Cleanup                               #D3AB0C
+    935  luminar neo.exe                                Luminar                                   #825800
+   2586  mmc.exe                                        lusrmgr                                   #DC0D0A
+   1677  luvsic.exe                                     LuvSic                                    #5B4833
+   2232  mmc.exe                                        LZService 鐨勫睘鎬?鏈湴璁＄畻鏈?                      #DC0D0A
+    548  m172 build.16849983.tmp                        M172 Build.16849983                       #9D0152
+   1564  m3u8 downloader.exe                            M3U8涓嬭浇鍣?                                  #3C5263
+   1195  machinarium.exe                                Machinarium                               #C47E0E
+     92  macrolauncher.exe                              MacroRecorder                             #C75821
+   1478  maiden and lord.exe                            Maiden And Lord                           #F0574F
+    132  main.exe                                       Main                                      #FD7070
+     26  manictime.exe                                  ManicTime                                 #F50000
+    256  manictime                                      ManicTime                                 #DAA000
+      2  manictimeclient.exe                            ManicTime                                 #F50000
+   1279  marktext-setup.exe                             MarkText                                  #007D9C
+   1280  marktext.exe                                   MarkText                                  #007D9C
+   1476  mastergo-1.10.5.exe                            MasterGo                                  #3468DA
+   1477  mastergo.exe                                   MasterGo                                  #3468DA
+    797  mclauncherupdater.exe                          MCLauncherUpdater                         #82654F
+    631  mediaplayers.exe                               Media Player                              #00497E
+   1520  mediacoder.exe                                 MediaCoder                                #CD6A01
+   1519  mediacoder-pro-x64.tmp                         MediaCoder-Pro-x64                        #0C104E
+   1879  mediago-setup-win32-x64-3.0.1.exe              mediago                                   #094283
+     29  mediago.exe                                    mediago                                   #094283
+   1950  mmc.exe                                        MediaTek Wi                               #DC0D0A
+     77  menumgr_1.1_20130514.exe                       MenuMgr_1                                 #4AF5A8
+   1944  metasoulmate-win64-shipping.exe                MetaSoulmate-Win64-Shipping               #5083B3
+   2073  [win10].net framework 4.8.1.exe                Microsoft .NET Framework 4.8.1            #00007F
+   1160  dotnet-sdk-8.0.401-win-x64.exe                 Microsoft .NET SDK 8.0.401 (x64)          #00E5E5
+    115  webviewhost.exe                                Microsoft 365 (Office)                    #6600CC
+    219  officec2rclient.exe                            Microsoft 365 and Office                  #6600CC
+    890  mmc.exe                                        Microsoft Account Sign                    #DC0D0A
+    110  time.exe                                       Microsoft Clock                           #008DFA
+   1294  mmc.exe                                        Microsoft Defender 闃茬梾姣掓湇鍔?鐨勫睘鎬?鏈湴璁＄畻鏈?       #DC0D0A
+   1990  dxdiag.exe                                     Microsoft DirectX 璇婃柇宸ュ叿                    #0000E5
+      1  msedge.exe                                     Microsoft Edge                            #0C3762
+   1310  mmc.exe                                        Microsoft Edge Elevation Service (MicrosoftEdgeElevationService) 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+    567  microsoftedgeupdate.exe                        Microsoft Edge Update                     #0000E5
+   1311  mmc.exe                                        Microsoft Edge Update Service (edgeupdatem) 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   1653  msedgewebview2.exe                             Microsoft Edge WebView2                   #0B3158
+     89  excel.exe                                      Microsoft Excel                           #3D783F
+    134  gethelp.exe                                    Microsoft Get Help                        #0D4B74
+    889  mmc.exe                                        Microsoft Office Click-to-Run Service 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+     52  onenote.exe                                    Microsoft OneNote                         #9415CA
+     53  onenotem.exe                                   Microsoft OneNote                         #9415CA
+    683  phoneexperiencehost.exe                        Microsoft Phone Link                      #165A7F
+    124  powerpnt.exe                                   Microsoft PowerPoint                      #EC1633
+   2359  dtswizard.exe                                  Microsoft SQL Server                      #5686F0
+   1999  landingpage.exe                                Microsoft SQL Server                      #CC6600
+   2002  profiler.exe                                   Microsoft SQL Server                      #31B42B
+   2000  scenarioengine.exe                             Microsoft SQL Server                      #CC6600
+   2016  ssms.exe                                       Microsoft SQL Server                      #E8A600
+   1998  ssms-setup-chs.exe                             Microsoft SQL Server Management Studio - 17.3  #CF6FCA
+     42  winstore.app.exe                               Microsoft Store                           #4492F1
+   2294  mmc.exe                                        Microsoft Store 瀹夎鏈嶅姟 鐨勫睘鎬?鏈湴璁＄畻鏈?           #DC0D0A
+   1626  vcredist_x64_vs2010.exe                        Microsoft Visual C++ 2010  x64 Redistributable  #7F7F00
+   1175  vcredist_x86.exe                               Microsoft Visual C++ 2013 Redistributable (x86) - 12.0.40664  #00E5E5
+    296  vc_redist.x64.exe                              Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.42.34433  #00E5E5
+    292  vc_redist.x86.exe                              Microsoft Visual C++ 2015-2022 Redistributable (x86) - 14.40.33810  #00E5E5
+   2001  vsta_ls.exe                                    Microsoft Visual Studio Tools for Applications 2015 Language Support  #622F6F
+   2130  vsta_ls.exe                                    Microsoft Visual Studio Tools for Applications 2015 璇█鏀寔  #622F6F
+    917  mmc.exe                                        Microsoft Windows                         #DC0D0A
+   1784  鍚姩鍣ㄨ繍琛屼緷璧?dotnet-6.0.11.exe                      Microsoft Windows Desktop Runtime - 6.0.11 (x64)  #00E5E5
+   1702  windowsdesktop-runtime-6.0.36-win-x64.exe      Microsoft Windows Desktop Runtime - 6.0.36 (x64)  #00E5E5
+    190  windowsdesktop-runtime-8.0.10-win-x64.exe      Microsoft Windows Desktop Runtime - 8.0.10 (x64)  #00E5E5
+     23  winword.exe                                    Microsoft Word                            #0043ED
+    617  vsdebugconsole.exe                             Microsoft 庐 Visual Studio 庐               #543776
+   2544  wscript.exe                                    Microsoft 庐 Windows Script Host           #7F0000
+    445  mmc.exe                                        Microsoft 鍩烘湰鏄剧ず閫傞厤鍣?灞炴€?                     #DC0D0A
+    337  helppane.exe                                   Microsoft 甯姪鍜屾敮鎸?                          #00A5DD
+   1638  mmc.exe                                        Microsoft 绠＄悊鎺у埗鍙?                          #DC0D0A
+    591  setup.exe                                      Microsoft庐 .NET Framework                 #0052F8
+    149  devenv.exe                                     Microsoft庐 Visual Studio庐                 #604F7E
+   2596  servicehub.threadedwaitdialog.exe              Microsoft庐 Visual Studio庐                 #0D4B74
+     54  screenclippinghost.exe                         Microsoft庐 Windows庐 Operating System      #0D4B74
+     17  searchhost.exe                                 Microsoft庐 Windows庐 Operating System      #0D4B74
+   1415  textinputhost.exe                              Microsoft庐 Windows庐 Operating System      #0D4B74
+    286  webexperiencehostapp.exe                       Microsoft庐 Windows庐 Operating System      #264F83
+    142  widgets.exe                                    Microsoft庐 Windows庐 Operating System      #0D4B74
+    824  dfrgui.exe                                     Microsoft庐 椹卞姩鍣ㄤ紭鍖栫▼搴?                       #C80003
+    847  minecraft.exe                                  Minecraft                                 #0D4B74
+    799  minecraft.windows.exe                          Minecraft                                 #6D3917
+   2503  mineradio-1.1.1-setup.exe                      Mineradio                                 #5AB5D8
+   2504  mineradio.exe                                  Mineradio                                 #B98938
+    704  guimain.exe                                    mingw-get                                 #B04A4A
+    702  mingw-get-setup.exe                            mingw-get                                 #B04A4A
+    229  minimalism.exe                                 Minimalism                                                        #044B33
+    833  mintty.exe                                     mintty                                    #6C4D69
+    879  mmc.exe                                        MiPlayCastService 鐨勫睘鎬?鏈湴璁＄畻鏈?              #DC0D0A
+    859  mmc.exe                                        MiService 鐨勫睘鎬?鏈湴璁＄畻鏈?                      #DC0D0A
+   2573  miserviceprivacy.exe                           MiServicePrivacy                          #0071EB
+    549  miside voice editor.exe                        Miside Voice Editor                       #261C61
+    619  misidefull.exe                                 MiSideFull                                #0042C7
+    815  miuserlogon.exe                                MiUserLogon                               #DF5C00
+   2572  miusewizard.exe                                MiUseWizard                               #DF5C00
+    265  mixedrealityportal.exe                         Mixed Reality Portal                      #045A85
+   1518  mkvcleaver.exe                                 MKVCleaver                                #0368C2
+   1517  mkvtoolnix-gui.exe                             MKVToolNix                                #6E0000
+    457  setuphost.exe                                  Modern Setup Host                         #5480BE
+   1306  moekoe music.exe                               MoeKoe Music                              #D51E34
+   1305  moekoe_music_setup_v1.4.8 (1).exe              MoeKoe Music                              #D51E34
+   1943  molili.exe                                     Molili                                    #0000FE
+   1867  mmc.exe                                        MongoDB Server (MongoDB) 鐨勫睘鎬?鏈湴璁＄畻鏈?       #DC0D0A
+   1655  mongodbcompass.exe                             MongoDBCompass                            #007957
+   1576  moo0 audiorecorder v1.49 installer.exe         Moo0 Installer                            #D0F13F
+   1687  mosquitto-2.0.22-install-windows-x64 (1).exe   mosquitto-2.0                             #D77265
+   1983  aresonmousetest.exe                            Mouse Test 2007 Application               #7F7F00
+   1572  mp3recorder_setup.tmp                          mp3recorder_setup                         #E0F380
+   1643  mp3tag-3.23.0.0.exe                            Mp3tag                                    #F8AB26
+   1644  mp3tag.exe                                     Mp3tag                                    #0000BF
+   1521  mplayer.exe                                    MPlayer - The Movie Player                #5291EF
+     43  mpv.exe                                        mpv                                       #630063
+   1685  mqttx-setup-1.12.1-x64.exe                     MQTTX                                     #15F497
+   1686  mqttx.exe                                      MQTTX                                     #15F497
+   1935  mspcmanager.exe                                MSPCManager                               #064576
+   1444  nemu-downloader.exe                            MuMu Player Installer                     #8D5B48
+   1445  mumuplayer.exe                                 MuMuPlayer                                #0088F0
+   2506  musicplayer2.exe                               MusicPlayer2                              #FEFE00
+   2509  musicplayer2-gw-setup-1.0.0.tmp                MusicPlayer2                                                  #225E70
+   2515  musicplayer2-gw-setup-1.1.0.tmp                MusicPlayer2                                                  #281784
+   2516  musicplayer2-gw-setup-1.3.0.tmp                MusicPlayer2                                                  #506C1D
+   2519  musicplayer2-gw-setup-1.8.0.tmp                MusicPlayer2                                                  #43E291
+   2521  musicplayer2-gw-setup-2.0.0.tmp                MusicPlayer2                                                  #7B5DDB
+   2522  musicplayer2-gw-setup-2.1.0.tmp                MusicPlayer2                                                  #AB0455
+    607  mysqlinstaller.exe                             MySQL Installer                           #00B2F3
+   1032  mmc.exe                                        MySQL80 鐨勫睘鎬?鏈湴璁＄畻鏈?                        #DC0D0A
+    840  mytime_setup_1.29.exe                          mytime_setup_1                            #CDA13D
+    313  n0vadesktop.exe                                N0vaDesktop.exe                           #54BABC
+     41  nahimic3.exe                                   Nahimic                                   #265082
+   1731  mmc.exe                                        Nahimic service 鐨勫睘鎬?鏈湴璁＄畻鏈?                #DC0D0A
+    209  nahimicrestoretool_1.0.7.exe                   NahimicRestoreTool                        #22F3D5
+    905  natsurainko.fluentlauncher.exe                 Natsurainko.FluentLauncher                #794523
+    611  navicat.exe                                    Navicat Premium                           #B49000
+    610  navicat160_premium_cs_x64.tmp                  Navicat Premium 16                                            #E90858
+   1027  nbcode64.exe                                   nbcode64                                  #AB5200
+   2264  neoforge-21.1.230-installer.jar                neoforge-21.1.230-installer.jar           #5A5AF9
+   1264  net.exe                                        Net Command                               #0D4B74
+   1145  netlimiter-5.3.18.0.exe                        NetLimiter                                #3777CB
+   1129  netlimiter-5.3.25.0.exe                        NetLimiter                                #3777CB
+   1130  nlclientapp.exe                                NetLimiter                                #3777CB
+   1146  nlsvc.exe                                      NetLimiter                                #0D4B74
+   1961  mmc.exe                                        NetLimiter Service 鐨勫睘鎬?鏈湴璁＄畻鏈?             #DC0D0A
+    114  nexusfont.exe                                  nexusfont                                 #7D4D32
+   2092  ngr-win64-shipping.exe                         NGR-Win64-Shipping                        #007FFE
+     98  multisim.exe                                   NI Circuit Design Suite 14.0              #6B58E2
+   1562  firefox.exe                                    Nightly                                   #174F87
+   1173  node.exe                                       Node.js                                   #5A8A46
+    899  nosuchplace.exe                                NoSuchPlace                               #010001
+     15  notepad.exe                                    Notepad                                   #1795BC
+    459  nvcontainer                                    nvcontainer                               #DAA000
+    302  nvdisplay.container                            NVDisplay                                 #DAA000
+    188  nvidia app.exe                                 NVIDIA App                                #3A5C00
+    192  nvidia overlay.exe                             NVIDIA app                                #3A5C00
+    304  nvcplui.exe                                    NVIDIA Control Panel                      #000800
+   2428  mmc.exe                                        NVIDIA GeForce GTX 1060 灞炴€?               #DC0D0A
+    432  mmc.exe                                        NVIDIA GeForce RTX 4060 Laptop GPU 灞炴€?    #DC0D0A
+    392  nvidiainspector.exe                            NVIDIA Inspector                          #5C7B00
+    300  setup.exe                                      NVIDIA Install Application                #3D9300
+   1176  581.08-notebook-win10-win11-64bit-international-dch-whql.exe  NVIDIA Package Launcher                   #3A5C00
+   1536  cuda_12.4.1_551.78_windows.exe                 NVIDIA Package Launcher                   #3A5C00
+    327  nvidia_app_v11.0.1.163.exe                     NVIDIA 搴旂敤绋嬪簭                               #3A5C00
+    456  nvidia_app_v11.0.1.184.exe                     NVIDIA 搴旂敤绋嬪簭                               #3A5C00
+    391  nvidia_gpu_stats.exe                           nvidia_gpu_stats                          #0D4B74
+   1663  game.exe                                       nwjs                                      #EC7A00
+   1890  nzmclient.exe                                  NZMClient                                 #FD0000
+    395  obsnotifier.exe                                OBS Notifier                              #740575
+    587  9501-2024-12-30035851-1735545531478.exe        OBS Studio                                #111ECF
+    179  obs64.exe                                      OBS Studio                                #C5F0DD
+    724  ok autorobot.exe                               OK AutoRobot                              #9DF7B0
+   2564  ollama.exe                                     ollama                                    #0D4B74
+   2541  ollamasetup.exe                                Ollama                                                        #777F4A
+   2542  ollamasetup.tmp                                Ollama                                                        #4BE6F1
+   2543  ollama app.exe                                 ollama app                                #0D4B74
+    177  aiassisent.exe                                 One Micro Bot - AI Assistant              #007FFE
+   1980  mmc.exe                                        OneSyncSvc_71f09 鐨勫睘鎬?鏈湴璁＄畻鏈?               #DC0D0A
+    794  onething-1c150132cad6bbf0b74d303ec7abe89f-package.exe  OneThingPcLite                            #210EF0
+    372  onething-1ee3324ada65dcba440d089e3d8dcdcb-package.exe  OneThingPcLite                            #210EF0
+    599  onething-4160ce9ff9cd3245e5bc6980221c30a8-package.exe  OneThingPcLite                            #210EF0
+    600  onething-531553165ed938be19c61ea8007a7ad5-package.exe  OneThingPcLite                            #210EF0
+    197  onething-85ae095a63207b934f0f8d1fc10005e1-package.exe  OneThingPcLite                            #210EF0
+   1028  onething-dc647577207db4361139f95463181fb2-package.exe  OneThingPcLite                            #210EF0
+     57  onethingpclite.exe                             OneThingPcLite                            #0000FE
+   1960  onethingpclite_0.0.1.1_setup_pc-onethingcloud(1).exe  OneThingPcLite                            #210EF0
+    793  onethingpclite_0.0.1.1_setup_pc-onethingcloud.exe  OneThingPcLite                            #210EF0
+    697  onethingpclite_0.0.2.6_setup_pc-onethingcloud.exe  OneThingPcLite                            #210EF0
+   1924  java.exe                                       OpenJDK Platform 17.0.18                  #5A5AF9
+   1706  java.exe                                       OpenJDK Platform 21                       #5A5AF9
+    941  javaw.exe                                      OpenJDK Platform 21                       #5A5AF9
+   1912  java.exe                                       OpenJDK Platform 23.0.1                   #5A5AF9
+    942  javaw.exe                                      OpenJDK Platform 23.0.1                   #5A5AF9
+   2431  java.exe                                       OpenJDK Platform 25.0.1                   #5A5AF9
+   1909  java.exe                                       OpenJDK Platform 8                        #5A5AF9
+   1062  javaw.exe                                      OpenJDK Platform 8                        #5A5AF9
+    991  packettracer6.exe                              PacketTracer6                             #9B7C00
+    434  mspaint.exe                                    Paint                                     #147092
+   1628  panotourpro_x64.exe                            Panotour Pro                              #0084DD
+   1624  panotourpro_x64_258_2017-06-28.exe             PanotourPro_x64_258_2017-06-28            #F18000
+    560  pc_etalien-setup-v0.4.7.tmp                    pc_ETALIEN-Setup-v0.4.7                   #D95528
+    818  pcclipboard.exe                                PcClipboard                               #0D4B74
+    113  pchealthcheck.exe                              PCHealthCheck                             #1A93E4
+    849  pcl-1.15.0-allinone-win64 (1).exe              PCL-1.15                                  #54FD00
+    716  pcstore.exe                                    PCStore                                   #08547D
+    331  pdfconverter.exe                               PDFgear                                   #A80C0F
+     22  pdfeditor.exe                                  PDFgear                                   #A80C0F
+    589  9896-2025-01-02095334-1735782814548.tmp        PDFgear                                                       #3A9D8C
+    170  pdflauncher.exe                                PDFLauncher                               #A80C0F
+   2274  personnelmanagementsystem.exe                  PersonnelManagementSystem                 #0D4B74
+   1989  pgadmin4.exe                                   pgAdmin 4                                 #7CBBEF
+   1988  edb_pgjdbc.exe                                 pgJDBC                                    #B46F00
+     40  photos.exe                                     Photos                                    #0D4B74
+    940  plain craft launcher 2.exe                     Plain Craft Launcher                      #0063D5
+   1847  plantsvszombies.exe                            Plants vs. Zombies                        #00BF00
+    939  plantsvszombiesrh.exe                          PlantsVsZombiesRH                         #7D4B00
+   1985  player2.exe                                    Player2                                   #0300D8
+   2422  un_a.exe                                       Player2                                   #F37171
+   1472  portal2.exe                                    portal2                                   #227A9A
+   1986  postgresql-17.2-3-windows-x64.exe              PostgreSQL                                #B46F00
+    164  pad.console.host.exe                           Power Automate                            #0063BB
+    111  pad.console.host.exe                           PowerAutomateDesktopStub                  #0D4B74
+   1022  prevhost.exe                                   Preview Handler Surrogate Host            #0D4B74
+   1697  processhacker.exe                              Process Hacker                            #416508
+   1696  processhacker-2.39-setup.tmp                   processhacker-2.39-setup                  #855AC7
+    358  pcaui.exe                                      Program Compatibility Assistant User Interface  #0D4B74
+   1147  madara.exe                                     Project X                                 #2A5652
+   1669  project1.exe                                   Project1                                  #0D4B74
+   1670  ps鍏ㄥ鎻掍欢涓€閿畨瑁呭寘pro 4.4.3.tmp                       Ps鍏ㄥ鎻掍欢涓€閿畨瑁呭寘Pro 4.4.3                      #8399CC
+   1632  ptgui.exe                                      PTGui                                     #0065FC
+   1635  ptguiviewer.exe                                PTGui                                     #6F90BA
+   1637  ptgui13.3setup.exe                             PTGui13                                   #D77265
+   1639  ptgui_13.3_trial_setup.exe                     PTGui_13                                  #D77265
+   1623  ptgui_pro_12_x64_setup.tmp                     PTGui_Pro_12_X64_Setup                    #A568B3
+   2577  pvz2.exe                                       PvZ2                                      #B05800
+   2525  pvz2_ge_setup(v0.10.0).exe                     PvZ2_Gardendless                          #B05800
+   2100  pycharm-2026.1.exe                             PyCharm                                   #00617A
+   2101  pycharm64.exe                                  PyCharm                                   #00617A
+    299  pycharm64.exe                                  PyCharm Community Edition                 #00657F
+    972  python.exe                                     Python                                    #6EB1E8
+    785  pythonw.exe                                    Python                                    #6EB1E8
+   1481  python-3.10.6-amd64.exe                        Python 3.10.6 (64-bit)                    #6EB1E8
+    620  q102 v1.0.tmp                                  Q102 v1.0                                 #C584E6
+   2154  q5002 all6.tmp                                 Q5002 All6                                #D46E41
+   1920  qbittorrent.exe                                qBittorrent                               #3D91F0
+   1919  qbittorrent_5.1.0_qt6_lt20_x64_setup.exe       qBittorrent                               #D77265
+   2115  qclaw-setup-0.2.10-5001-407.exe                QClaw                                     #B23120
+   2116  qclaw.exe                                      QClaw                                     #B23120
+   1740  qemu-system-x86_64.exe                         qemu-system-x86_64                        #0D4B74
+   1126  mmc.exe                                        QoS 绛栫暐                                    #DC0D0A
+    108  qq-9.9.16-29271-win64.exe                      QQ                                        #BE8409
+      7  qq.exe                                         QQ                                        #ED2731
+    860  mmc.exe                                        QQLiveService 鐨勫睘鎬?鏈湴璁＄畻鏈?                  #DC0D0A
+    543  qqlivex.exe                                    QQLiveX                                   #008FEF
+     70  qqscreenshot.exe                               QQScreenshot                              #0D4B74
+    579  4491-2024-12-23051453-1734945293150.exe        QQ闊充箰                                      #816F00
+    342  qmdriverhelperx64.exe                          QQ闊充箰                                      #7F6E00
+     61  qqmusic.exe                                    QQ闊充箰                                      #7F6E00
+   1683  qqmusicup.exe                                  QQ闊充箰                                      #26E4E4
+   2449  mmc.exe                                        QQ闊充箰涓嶈仈缃?灞炴€?                               #DC0D0A
+    684  qtscrcpy.exe                                   QtScrcpy                                  #6F8037
+   1976  quark.exe                                      QuarkYQ                                   #004BE2
+    447  lenovo modern imcontroller 鏈嶅姟鍗歌浇宸ュ叿.exe          QuickFix                                  #0032E8
+    400  quickfixdesktoprightmenumodificationtool.exe   QuickFix                                  #0E57F6
+   1185  quickfixsystemdiskspaceclearingtool.exe        QuickFix                                  #155BF2
+   1971  quickfixwechatmultiopentool.exe                QuickFix                                  #004EF7
+    399  win11妗岄潰鍙抽敭鑿滃崟淇敼宸ュ叿.exe                            QuickFix                                  #0E57F6
+   1059  rvrvpngui.exe                                  Radmin VPN                                #00B4F1
+   1917  radmin_lan_2.0.4899.9.exe                      Radmin VPN                                                    #00B4F1
+   1058  radmin_lan_1.4.4642.1.tmp                      Radmin_LAN_1.4.4642.1                     #FAE903
+   1439  rcd_ruanxing.tmp                               rcd_ruanxing                              #2EDA0B
+   1574  rcd_ruanxing5.64.tmp                           rcd_ruanxing5.64                          #94016A
+   1647  realityscan.exe                                RealityScan                               #0F090F
+   2067  mmc.exe                                        Realtek PCIe GbE Family Controller 灞炴€?    #DC0D0A
+   1579  mmc.exe                                        Redmi K70 Ultra 灞炴€?                       #DC0D0A
+    306  mmc.exe                                        Redmi Note 12 5G 灞炴€?                      #DC0D0A
+   1959  renamer.exe                                    ReNamer                                   #0000F1
+   1257  renpyinjector-x64.exe                          RenpyInjector                             #0D4B74
+   1255  renpythief.exe                                 RenpyThief                                #895501
+   1801  res-downloader.exe                             res-downloader                            #9D7000
+   1800  res-downloader_3.1.2_win_amd64.exe             res-downloader                            #9D7000
+   1484  revokemsgpatcher.exe                           RevokeMsgPatcher                          #903F34
+   1074  right click editor ie.exe                      Right Click Editor IE                     #26C0F8
+   1070  right click enhancer.exe                       Right Click Enhancer                      #00B4FB
+   1069  right-click-enhancer-setup.exe                 Right Click Enhancer                      #31AEED
+    266  鍏ユⅵ宸ュ叿绠?exe                                      RM Toolbox                                #2865F3
+    934  moo0宸ュ叿绠?exe                                    Rolan                                     #942C2C
+   2326  roselink.exe                                   RoseLink                                  #080505
+   2350  roselink-setup (1).tmp                         RoseLink                                                      #97B1F0
+   2325  roselink-setup.tmp                             RoseLink                                                      #BE8991
+    723  runtimebroker.exe                              Runtime Broker                            #0D4B74
+   2551  rustup.exe                                     rustup                                    #0D4B74
+   1487  rytunex.exe                                    RyTuneX                                   #BA0044
+   1486  rytunexsetup.exe                               RyTuneX Setup                             #BA0044
+   1781  s181 v1.0.0.4.tmp                              S181 v1.0.0.4                             #430286
+    714  s278 v1.0.0.tmp                                S278 v1.0.0                               #AA07EA
+    918  s282 v1.0.0.tmp                                S282 v1.0.0                               #409E36
+    864  s32b v1.22mod.tmp                              S32B v1.22MOD                             #A709E4
+   2120  sakuralauncher.exe                             SakuraFrp Windows 鍚姩鍣ㄧ晫闈?                  #FEFE00
+   2119  sakuralauncher.tmp                             SakuraFrp 鍚姩鍣?                                                #44D4BC
+   2135  secbox-amd64-installer-latest.exe              secbox                                    #01158B
+   2136  secbox.exe                                     secbox                                    #01158B
+    316  segametool.exe                                 SEGameTool                                #0D4B74
+   1072  send to manager.exe                            Send to Manager                           #09CBFB
+   1947  server.jar                                     server.jar                                #5A5AF9
+   1079  setup.tmp                                      Setup                                     #72CD23
+   1177  setup.exe                                      setup                                     #E1ED39
+   2585  sihost.exe                                     Shell Infrastructure Host                 #0D4B74
+   1932  shexview.exe                                   ShellExView                               #7F007F
+   1982  榧犳爣鍗曞嚮鍙樺弻鍑绘祴璇曞櫒v2.0.exe                             ShuBiaoJiShuQi                            #F4A300
+    555  sky.exe                                        Sky                                       #D05A15
+    691  sk鍔╂墜2.0.0.9.exe                                SK鍔╂墜2.0.0                                 #710D00
+     87  slbrowser.exe                                  SLBrowser                                 #0268A4
+    370  mmc.exe                                        SLBService 鐨勫睘鎬?鏈湴璁＄畻鏈?                     #DC0D0A
+    150  snipaste.exe                                   Snipaste                                  #951F1F
+    312  sgwcontracts.exe                               Sniper Ghost Warrior Contracts            #EB050C
+    196  snippingtool.exe                               Snipping Tool                             #A82E01
+    654  setup64.exe                                    Software setup application                #00007F
+   2167  solitaire.exe                                  Solitaire & Casual Games                  #008DFA
+   2569  mmc.exe                                        SonarQube 鐨勫睘鎬?鏈湴璁＄畻鏈?                      #DC0D0A
+    184  speedifyinstaller.exe                          Speedify                                  #00AEED
+    185  speedifyui.exe                                 Speedify                                  #00AEED
+    710  splitfiction.exe                               SplitFiction                              #0D0E1A
+   1575  wadfngrv.exe                                   Spy Voice Recorder                        #915901
+   2234  mmc.exe                                        SQL Server Analysis Services (MSSQLSERVER) 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   2235  mmc.exe                                        SQL Server Analysis Services CEIP (MSSQLSERVER) 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   2272  mmc.exe                                        SQL Server Browser 灞炴€?                    #DC0D0A
+   2236  mmc.exe                                        SQL Server CEIP service (MSSQLSERVER) 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   2237  mmc.exe                                        SQL Server Integration Services 14.0 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   2238  mmc.exe                                        SQL Server Integration Services Scale Out Master 14.0 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   2239  mmc.exe                                        SQL Server VSS Writer 鐨勫睘鎬?鏈湴璁＄畻鏈?          #DC0D0A
+   1654  update.exe                                     Squirrel                                  #0D4B74
+    686  sskassit.exe                                   SSKAssit                                  #700D00
+   1987  stackbuilder.exe                               StackBuilder                              #1D5D6E
+   1140  star.exe                                       Star                                      #FEFE00
+    396  starrail.exe                                   Star Rail                                 #F75C6C
+   1138  start_for_wegame.exe                           START                                     #00F6F6
+   1139  stgameopt.exe                                  START                                     #00F6F6
+   1063  start_protected_game.exe                       start_protected_game                      #004A87
+     62  startgame.exe                                  StartGame                                 #231727
+    354  steam.exe                                      Steam                                     #05A5F6
+      5  steamwebhelper.exe                             Steam Client WebHelper                    #05A5F6
+   1690  vrwebhelper.exe                                SteamVR WebHelper                         #001E5B
+     48  stellarhub.exe                                 StellarHub                                #107CF7
+    693  bluetooth audio receiver installer.exe         Store Installer                           #0F79D5
+   2593  chatgpt installer.exe                          Store Installer                           #0F79D5
+   2243  detect-it-easy installer.exe                   Store Installer                           #0F79D5
+    217  microsoft designer installer.exe               Store Installer                           #0F79D5
+    901  natsurianko.fluentlauncher installer.exe       Store Installer                           #0F79D5
+   1876  studentage.exe                                 StudentAge                                #0072F5
+    936  studioneov2.exe                                StudioNEOV2                               #001980
+   1563  sundy闊宠棰戞牸寮忚浆鎹㈠伐鍏?exe                             Sundy闊宠棰戞牸寮忚浆鎹㈠伐鍏?                           #62984D
+   2579  superliminalsteam.exe                          SuperliminalSteam                         #E0AB1A
+    202  sysclup.exe                                    SysClup Module                            #009CF6
+   1214  autoruns64.exe                                 Sysinternals autoruns                     #003F70
+    361  mmc.exe                                        SysMain 鐨勫睘鎬?鏈湴璁＄畻鏈?                        #DC0D0A
+    801  systemsettingsbroker.exe                       System Settings Broker                    #0082EC
+   1084  flet.exe                                       taichi                                    #24D00A
+   1247  澶瀬.exe                                         taichi                                    #DB5E86
+   1717  tailscale-ipn.exe                              Tailscale                                 #FC9700
+   1436  youhoua.exe                                    tampermonkey                              #F1E616
+    530  taslogin.exe                                   TASLogin Application                      #FEFE00
+   1166  taslogin64.exe                                 TASLogin Application                      #FEFE00
+    414  tblive.exe                                     tblive                                    #0D4B74
+    692  tc games.exe                                   TC Games                                  #C152D2
+    690  tc_games_3_0_update_4314547.exe                TC_Games_3_0_Update_4314547               #C152D2
+     66  qqlivesetup_20_841.exe                         TencentVideo                              #B27C00
+   1340  tencentvideoupgrade11.138.9784.0.exe           TencentVideo                              #C68E00
+   2074  terraria.exe                                   Terraria                                  #1C6D38
+   2279  mmc.exe                                        Text Input Management Service 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+    413  there is no greendam.exe                       There is No GreenDam                      #8F37F3
+   1819  wsreset.exe                                    This tool resets the Windows Store without changing account settings or deleting installed apps  #0D3459
+   2555  timeactivity.exe                               TimeActivity                              #0D4B74
+   1873  tinyshadowsinterwovenhearts.exe                TinyShadowsInterwovenHearts               #BBD325
+   2014  wish.exe                                       Tk 8.6 for Windows                        #F5C000
+    326  toastfish.exe                                  ToastFish                                 #E30000
+   1822  fish.exe                                       TODO: <浜у搧鍚?                               #007F00
+   1265  islfilezilla.exe                               TODO: <浜у搧鍚?                               #FE0000
+   1438  妤兼湀寰俊璇煶鎾斁鍣?exe                                  TODO: <浜у搧鍚?                               #518C58
+   2158  togetherbnb-win64-shipping.exe                 TogetherBnB                               #77AB81
+    842  translucenttb.exe                              TranslucentTB                             #729340
+    634  tslgame.exe                                    TslGame                                   #23363E
+   1329  tuanjiesetup64-2022.3.61t7.exe                 Tuanjie 1.6.6                             #163123
+   1332  tuanjiedevopssetup.tmp                         Tuanjie Devops                                                #86E560
+   1327  tuanjie hub.exe                                Tuanjie Hub                               #83828F
+   1326  tuanjiehubsetup.exe                            Tuanjie Hub                               #C90FF8
+   2157  nekopara_extra.exe                             TVP(KIRIKIRI) Z core / Scripting Platform for Win32  #FE0000
+    885  txbugreport.exe                                TxBugReport                               #D50E00
+   1224  typora.exe                                     Typora                                    #EEAAE5
+   1233  typora-setup-x64-1.10.8.tmp                    Typora                                                        #F264A1
+   1168  uagame.exe                                     UAGame                                    #00F9F9
+    682  ubuntu2004.exe                                 ubuntu2004                                #F85D24
+   2094  umodel.exe                                     umodel                                    #FE00FE
+   2093  umodel_64.exe                                  umodel_64                                 #FE00FE
+   2095  umodel_64_chs.exe                              umodel_64_CHS                             #FE00FE
+    186  un.exe                                         Un                                        #0D4B74
+    333  un_a.exe                                       Un_A                                      #0D4B74
+    717  uninst.exe                                     uninst                                    #006DD3
+     80  uninst.exe                                     uninstall                                 #2885F7
+   1671  lovelorn sanatorium 鈪?exe                      Unity                                     #0D4B74
+   1330  unity.exe                                      Unity                                     #2A1D9F
+   1251  unity.vtuber.exe                               unity                                     #00B0F0
+   1333  unitysetup64-2021.3.45f2c1.exe                 Unity 2021.3.45f2c1                       #D7DFAC
+   1331  unitysetup64-2022.3.62f2c1.exe                 Unity 2022.3.62f2c1                       #5B9D6A
+   1328  unity hub.exe                                  Unity Hub                                 #198F83
+    542  mmc.exe                                        Unity Hub 灞炴€?                             #DC0D0A
+   1418  2.鍘熺甯х巼瑙ｉ攣_nc.exe                                unlockfps_nc                              #FBFB00
+    189  unlockfps_nc.exe                               unlockfps_nc                              #FBFB00
+   1479  epicgameslauncher.exe                          Unreal Engine                             #0000FE
+    540  mmc.exe                                        UnrealCEFSubProcess 灞炴€?                   #DC0D0A
+   1646  unrealeditor.exe                               UnrealEditor                              #E55860
+   1165  upgrader.exe                                   upgrader                                  #CE9000
+   1109  upload_crash.exe                               upload_crash                              #2F739B
+    435  upscayl-2.9.5-win.exe                          Upscayl                                   #0057C3
+    928  upscayl.exe                                    Upscayl                                   #0057C3
+   2583  useraccountbroker.exe                          User Account Control Panel Host           #0D4B74
+   1244  utw_gothic-win64-shipping.exe                  UTW_Gothic-Win64-Shipping                 #F754A6
+    334  update.exe                                     UU鍔犻€熷櫒                                     #181B30
+    335  uu.exe                                         UU鍔犻€熷櫒                                     #181B30
+    409  uu_ball.exe                                    UU鍔犻€熷櫒                                     #181B30
+    336  uu_crosshair.exe                               UU鍔犻€熷櫒                                     #171A30
+    652  vbcable_setup_x64.exe                          VBCABLE_Setup                             #00007F
+    648  vc++鍚堥泦.tmp                                     VC++鍚堥泦                                    #56C416
+   1688  vc_redist.x64.exe                              VC_redist                                 #806D12
+    129  vc_redist.x86.exe                              vc_redist                                 #F75C91
+    294  vcrepair_win.exe                               vcrepair_win                              #2674FA
+    295  unin.exe                                       VC杩愯搴撲慨澶?                                  #005BFA
+    293  vc杩愯搴撲慨澶峗tb23904.exe                            VC杩愯搴撲慨澶?                                  #005BFA
+    921  venus vacation prism - dead or alive xtreme -.exe  Venus Vacation PRISM - DEAD OR ALIVE Xtreme -  #00F7F7
+   1525  video2x_gui.exe                                video2x_gui                               #FE0000
+   1259  village.exe                                    village                                   #D35921
+    659  vcctlpan.exe                                   Virtual Audio Cable                       #00007F
+    341  setup.exe                                      Visual Studio                             #2DB9A6
+    340  vs_setup_bootstrapper.exe                      Visual Studio                             #3BCCBB
+    511  code.exe                                       Visual Studio Code                        #00578A
+   1734  inno_updater.exe                               Visual Studio Code                        #00578A
+   1736  codesetup-stable-618725e67565b290ba4da6fe2d29f8fa1d4e3622.tmp  Visual Studio Code                                            #CF6ABA
+   1383  codesetup-stable-7d842fb85a0275a4a8e4d7e040d2625abbf7f084.tmp  Visual Studio Code                                            #76F26E
+    618  codesetup-stable-e54c774e0add60467559eb0d1e229c6452cf8447.tmp  Visual Studio Code                                            #026BF0
+    512  codesetup-stable-fabdb6a30b49f79a7aba0f2ad9df9b399473380f.tmp  Visual Studio Code                                            #CF1684
+    161  mmc.exe                                        VMware USB Arbitration Service 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   1323  vmnetcfg.exe                                   VMware Workstation                        #547F7F
+    163  vmware-tray.exe                                VMware Workstation                        #31CDD4
+     36  vmware.exe                                     VMware Workstation                        #794400
+   1577  audiorecorder.exe                              Voice Recorder                            #C2F54C
+    663  voicerecorder.exe                              VoiceRecorder                             #008DFA
+    221  volume2.exe                                    Volume虏                                   #003C78
+    398  vpet.solution.exe                              VPet                                      #0070C6
+      3  vpet-simulator.windows.exe                     VPet-Simulator.Windows                    #177AC6
+   1441  vsc_v1.5.tmp                                   VSC_v1.5                                  #4CF310
+    145  vsixinstaller.exe                              VSIXInstaller                             #40805E
+   1190  vtube studio.exe                               VTube Studio                              #EE8F7A
+    908  w30 build18212596.tmp                          W30 Build18212596                         #CFC05B
+   1292  w51 v3.5.8.tmp                                 W51 v3.5.8                                #157FE2
+    924  ui32.exe                                       Wallpaper Engine GUI                      #0049E8
+    923  launcher.exe                                   Wallpaper Engine Launcher                 #0049E8
+    131  wallpaper_generator.exe                        Wallpaper_Generator_V4                    #FD7070
+    133  steam++.exe                                    Watt Toolkit                              #1F4F89
+     21  wechat.exe                                     WeChat                                    #39DD75
+     63  wechatappex.exe                                WeChatAppEx x64                           #00B135
+    417  wechatdatabackup.exe                           wechatDataBackup                          #39DD75
+    643  wechatupdate.exe                               WeChatUpdate                              #84D54E
+    381  repair_client.exe                              WeGame                                    #A18000
+    538  tgp_daemon.exe                                 WeGame                                    #A18000
+    473  uninst.exe                                     WeGame                                    #C15706
+    532  uninstall_complete.exe                         WeGame                                    #C15706
+    380  wegame.exe                                     WeGame                                    #3C1100
+    537  wegamesetup.exe                                WeGame                                    #B44E00
+    533  涓夎娲茶鍔ㄥ嵏杞?exe                                    WeGame                                    #FBAA08
+    762  browser.exe                                    WeGame WebHelper                          #3C1100
+    531  wegameminiloader.exe                           WeGame涓嬭浇鍣?                                #B44E00
+   1437  weixinplayer_setup.tmp                         weixinplayer_setup                        #777508
+    775  wemod.exe                                      WeMod                                     #002EC7
+   1064  wemod鐮磋В.exe                                    WeMod鐮磋В                                   #002EC7
+    469  wetvdownload2_winformsapp(1).exe               WeTV 4K Downloader                        #E8A600
+    468  wetvdownload2_winformsapp.exe                  WeTV 4K Downloader                        #E8A600
+   2034  window detective.exe                           Window Detective                          #FEFE00
+   2033  window-detective-3.5.1-setup.tmp               Window-Detective-3.5.1-setup              #3F82B3
+    122  sechealthui.exe                                Windows Defender application              #0D4B74
+    153  msiexec.exe                                    Windows Installer - Unicode               #1F81B6
+    677  powershell.exe                                 Windows PowerShell                        #0058F1
+   1910  powershell_ise.exe                             Windows PowerShell ISE                    #23CCF2
+    182  werfault.exe                                   Windows Problem Reporting                 #1FB002
+   2295  mmc.exe                                        Windows Push Notifications User Service_10a925 鐨勫睘鎬?鏈湴璁＄畻鏈?  #DC0D0A
+   2281  mmc.exe                                        Windows Search 灞炴€?                        #DC0D0A
+    173  mmc.exe                                        Windows Search 鐨勫睘鎬?鏈湴璁＄畻鏈?                 #DC0D0A
+   1057  securityhealthsystray.exe                      Windows Security notification icon        #003D6C
+   1992  sonarservicewrapper.exe                        Windows Service Wrapper                   #0D4B74
+     13  shellexperiencehost.exe                        Windows Shell Experience Host             #0D4B74
+     59  startmenuexperiencehost.exe                    Windows Start Experience Host             #0D4B74
+    140  windowsterminal.exe                            Windows Terminal                          #C822AC
+   1642  mmc.exe                                        Windows Time 鐨勫睘鎬?鏈湴璁＄畻鏈?                   #DC0D0A
+    195  rundll32.exe                                   Windows 涓昏繘绋?(Rundll32)                    #0D4B74
+    498  taskhostw.exe                                  Windows 浠诲姟鐨勪富鏈鸿繘绋?                          #0D4B74
+   1776  shutdown.exe                                   Windows 鍏抽棴鍜屾敞閲婂伐鍏?                          #0D4B74
+    297  optionalfeatures.exe                           Windows 鍔熻兘                                #0000FD
+    143  cmd.exe                                        Windows 鍛戒护澶勭悊绋嬪簭                            #7A096E
+    283  fontview.exe                                   Windows 瀛椾綋鏌ョ湅鍣?                            #0000EA
+    440  mmc.exe                                        Windows 鏇存柊 鐨勫睘鎬?鏈湴璁＄畻鏈?                     #DC0D0A
+    205  mblctr.exe                                     Windows 绉诲姩涓績                              #0931D4
+    364  mmc.exe                                        Windows 鑷姩鏇存柊                              #DC0D0A
+      4  explorer.exe                                   Windows 璧勬簮绠＄悊鍣?                            #C48F00
+   1981  contextmenumanager.exe                         Windows鍙抽敭绠＄悊                               #AC1100
+   2054  contextmenumanager.net.3.5.exe                 Windows鍙抽敭绠＄悊                               #AC1100
+   1933  contextmenumanager.net.4.0.exe                 Windows鍙抽敭绠＄悊                               #AC1100
+   1878  windows瀹炵敤璁剧疆宸ュ叿3.6.5.exe                         Windows瀹炵敤璁剧疆宸ュ叿                             #DF0007
+   1429  windows瓒呯骇绠＄悊鍣?9.50 鍗曟枃浠剁増.exe                     Windows瓒呯骇绠＄悊鍣?                             #0000AD
+   2048  windscribe.exe                                 Windscribe                                #0050C2
+   2047  windscribe_2.20.7_amd64.exe                    Windscribe_2.20                           #94145D
+   2429  winforgifsicle.exe                             WinForGIFSicle                            #0D4B74
+    718  winhex.exe                                     WinHex                                    #0000FD
+    720  winhex64.exe                                   WinHex                                    #0000FD
+    247  winrar.exe                                     WinRAR                                    #3E3F9C
+   1580  mmc.exe                                        WinUSB 璁惧 灞炴€?                             #DC0D0A
+   2580  witness64_d3d11.exe                            witness64_d3d11                           #0097DD
+   1716  wixstdba.exe                                   WiX Toolset                               #0D4B74
+   1778  wiztree64.exe                                  WizTree                                   #E0A800
+   1777  wiztree_4_19_setup.tmp                         wiztree_4_19_setup                        #DBB8F1
+   1490  x32dbg.exe                                     x64dbg                                    #7B0202
+   1489  x64dbg.exe                                     x64dbg                                    #7F0000
+   1488  x96dbg.exe                                     x64dbg                                    #BE3E2D
+     10  xappcenter.exe                                 xAppCenter                                #0CC0FC
+    148  xboxpcapp.exe                                  Xbox                                      #39FD39
+    848  gamingservicestcui.exe                         Xbox.Apps.TCUI                            #0D4B74
+    846  gamingservicesui.exe                           Xbox.Apps.TCUI                            #0D4B74
+     11  xdroidui.exe                                   xDroidUI                                  #0CC0FC
+   1760  mmc.exe                                        XiaoMi Continuity Service 鐨勫睘鎬?鏈湴璁＄畻鏈?      #DC0D0A
+   1856  mmc.exe                                        XiaoMi Dist Service 鐨勫睘鎬?鏈湴璁＄畻鏈?            #DC0D0A
+   1761  mmc.exe                                        XiaoMi Distributed Service 鐨勫睘鎬?鏈湴璁＄畻鏈?     #DC0D0A
+   2280  mmc.exe                                        XiaoMi Handoff Service 鐨勫睘鎬?鏈湴璁＄畻鏈?         #DC0D0A
+   1601  xiaomithemeeditor.exe                          XiaomiThemeEditor                         #DD6E00
+   1426  xmind-for-windows-x64bit-26.01.03145-202510170340.exe  Xmind                                     #F2572C
+   1427  xmind.exe                                      Xmind                                     #F2572C
+    711  y229 v3.0.tmp                                  Y229 v3.0                                 #1BF006
+   2487  y23 v1.7.9c.tmp                                Y23 v1.7.9c                               #54CA9F
+   2571  yazd_hd.exe                                    YAZD_HD                                   #5B9A19
+   1678  ym.exe                                         YM                                        #3C9306
+    105  yuanshen.exe                                   YuanShen                                  #FBFB00
+    544  yysls.exe                                      yysls                                     #9D7445
+   1393  zfgamebrowser.exe                              ZFGameBrowser                             #0D4B74
+    505  zhuxianclient-win64-shipping.exe               ZhuxianClient-Win64-Shipping              #4895F3
+    687  zipextractor.exe                               ZipExtractor                              #A99A1B
+    501  zxsjgame.exe                                   ZXSJGame                                  #227FF8
+   1380  zyh.exe                                        zyh                                       #11BCCE
+   1884  zyperwin++.exe                                 ZyperWin++                                #329AE4
+   1245  銇欍仺锝炪亶銈撱亹锛?exe                                    銇欍仺锝炪亶銈撱亹锛?                                  #FC00FC
+    210  slbsmartsearch.exe                             涓€鍒?                                       #00B3FA
+    486  deltaforceminiloader.exe                       涓夎娲蹭笅杞藉櫒                                    #193340
+     33  delta_force_launcher.exe                       涓夎娲茶鍔?                                    #193340
+   2151  瀹㈡埛绔?exe                                        涓嬭浇鍣?                                      #4E9429
+   1930  mmc.exe                                        涓嶈鍦ㄢ€滃叧闂?Windows鈥濆璇濇鏄剧ず鈥滃畨瑁呮洿鏂板苟鍏虫満鈥?            #DC0D0A
+    363  mmc.exe                                        涓嶈繍琛屾寚瀹氱殑 Windows 搴旂敤绋嬪簭                       #DC0D0A
+   1742  mmc.exe                                        浜嬩欢灞炴€?                                     #DC0D0A
+   1309  mmc.exe                                        浜嬩欢鏌ョ湅鍣?                                    #DC0D0A
+   1540  _unins.tmp                                     浜岄噸铻烘棆                                                          #21EB6A
+    311  mmc.exe                                        浠庣鐩樺畨瑁?                                    #DC0D0A
+   1390  daiti.exe                                      浠ｄ綋                                        #0000FE
+   1389  daiti_0.2.0_x64-setup.exe                      浠ｄ綋                                        #0000FE
+      9  taskmgr.exe                                    浠诲姟绠＄悊鍣?                                    #0092E1
+   1582  mmc.exe                                        浠诲姟璁″垝绋嬪簭                                    #DC0D0A
+   2566  mmc.exe                                        浣嶇疆                                        #DC0D0A
+   1881  渚濈洊涔嬩功.exe                                       渚濈洊涔嬩功                                      #00076C
+    250  mmc.exe                                        鍌婚笩搴旂敤 (D:) 灞炴€?                             #DC0D0A
+   1929  mmc.exe                                        鍏佽浣跨敤鍓创鏉垮巻鍙茶褰?                              #DC0D0A
+   2582  mmc.exe                                        鍏佽鍒嗛厤淇濆瓨鐨勫嚟鎹敤浜庝粎 NTLM 鏈嶅姟鍣ㄨ韩浠介獙璇?                #DC0D0A
+     88  鍏ユⅵ宸ュ叿绠盻8.6_setup.tmp                            鍏ユⅵ宸ュ叿绠?                                                        #5DBFAA
+    878  mmc.exe                                        鍏抽棴 Microsoft Defender 闃茬梾姣?                #DC0D0A
+   1592  mmc.exe                                        鍏抽棴 Windows Copilot                        #DC0D0A
+    477  鍐掗櫓灏忓垎闃?exe                                      鍐掗櫓灏忓垎闃?                                    #FE007F
+    926  鍒濆璁剧疆.exe                                       鍒濆璁剧疆                                      #0095D0
+    583  jianying_7_5_0_12565_jianyingpro_lenovo_creatortool.exe  鍓槧涓撲笟鐗?                                    #1AA35F
+   2373  uninst.exe                                     鍓槧涓撲笟鐗?                                    #5D0A7C
+   2371  鍓槧涓撲笟鐗?.0@7.11娴嬭瘯.exe                            鍓槧涓撲笟鐗?                                    #87AAF7
+   2588  mmc.exe                                        鍔犲瘑鏁版嵁搴撲慨姝?                                  #DC0D0A
+    479  mmc.exe                                        鍗虫彃鍗崇敤杞欢璁惧鏋氫妇鍣?灞炴€?                           #DC0D0A
+    584  3162-2024-12-06103135-1733452295770.exe        鍗虫椂璁捐                                      #FE0000
+    669  鍗虫椂璁捐.exe                                       鍗虫椂璁捐                                      #FE0000
+   1423  uninstall.exe                                  鍗歌浇绋嬪簭                                      #0D4B74
+    394  mmc.exe                                        鍗歌浇璁惧                                      #DC0D0A
+    254  mmc.exe                                        鍘嬬缉 C:                                     #DC0D0A
+    252  mmc.exe                                        鍘嬬缉 D:                                     #DC0D0A
+   2072  xwizard.exe                                    鍙墿灞曠殑鍚戝涓绘満杩涚▼                                #0000FE
+    401  鍙抽敭绠″.exe                                       鍙抽敭绠″                                      #D223BA
+   1194  mmc.exe                                        鍚敤鎴栫鐢?Windows 娓告垙褰曞埗鍜屽箍鎾?                    #DC0D0A
+   1164  鍜屽钩绮捐嫳pc妯℃嫙鍣╛1.0.0.24_10870824_setup.exe          鍜屽钩绮捐嫳PC妯℃嫙鍣╛1.0.0                           #CE9000
+   1167  鍜屽钩绮捐嫳妯℃嫙鍣?exe                                    鍜屽钩绮捐嫳妯℃嫙鍣?                                  #CE9000
+     78  3098-2024-11-01023119-1730442679472.exe        鍝斿摡鍝斿摡                                      #F7004E
+    582  7776-2025-01-13110444-1736737484536.exe        鍝斿摡鍝斿摡                                      #F7004E
+     97  鍝斿摡鍝斿摡.exe                                       鍝斿摡鍝斿摡                                      #F7004E
+     32  livehime.exe                                   鍝斿摡鍝斿摡鐩存挱濮?                                  #F80052
+   1591  mmc.exe                                        鍦?Windows 鍚姩鍜屾瘡娆″叧闂?Microsoft Edge 鏃讹紝鍏佽 Microsoft Edge 鍚姩鍜屽姞杞解€滃紑濮嬧€濆拰鈥滄柊寤烘爣绛鹃〉鈥濋〉闈? #DC0D0A
+   1872  mmc.exe                                        鍦ㄦ枃浠惰祫婧愮鐞嗗櫒鎼滅储妗嗕腑鍏抽棴鏈€杩戞悳绱㈡潯鐩殑鏄剧ず                   #DC0D0A
+   1125  mmc.exe                                        鍩轰簬绛栫暐鐨?QoS                                 #DC0D0A
+    130  澹佺焊鐢熸垚鍣? 瀹夎绋嬪簭.exe                                澹佺焊鐢熸垚鍣?                                    #FD7070
+    561  etalien.exe                                    澶栨槦浜哄姞閫熷櫒                                    #5607E9
+   1775  etalien.exe                                    澶栨槦浠斿姞閫熷櫒                                    #5607E9
+   1726  _unins.tmp                                     澶瀬                                                            #8AC90D
+   1083  澶瀬_2.9.8.tmp                                   澶瀬                                                            #52A872
+    933  cbox.exe                                       澶褰遍煶                                      #7F0000
+   1975  quarkpc_v4.1.0.380.tmp                         澶稿厠浜戞ˉ鐗?                                                        #1959DF
+   2421  _iu14d2n.tmp                                   澶稿厠浜戞ˉ鐗?                                                        #D2D86B
+    104  quarkclouddrive.exe                            澶稿厠缃戠洏                                      #0046F8
+    244  quarkclouddrivepc_v3.14.1_pc_pf30001_(zh-cn)_release_(build1975574-20241107131932).tmp  澶稿厠缃戠洏                                                          #7863F0
+    809  quarkclouddrivepc_v3.19.0_pc_pf30001_(zh-cn)_release_(build2135311-20250327222033).tmp  澶稿厠缃戠洏                                                          #70483A
+   1661  magicaltool.exe                                濂囧宸ュ叿绠?                                    #0054FD
+   1660  magicaltool_0.0.2_x64-setup.exe                濂囧宸ュ叿绠?                                    #D77265
+   1875  濡瑰眳鐗╄.exe                                       濡瑰眳鐗╄                                      #53C1DA
+   2581  mmc.exe                                        濮嬬粓鍦ㄨ繛鎺ユ椂鎻愮ず杈撳叆瀵嗙爜                              #DC0D0A
+     74  microsoft.media.player.exe                     濯掍綋鎾斁鍣?                                    #265083
+    502  charmap.exe                                    瀛楃鏄犲皠琛?                                    #72ACF8
+    120  cxstudy.exe                                    瀛︿範閫?                                      #F90025
+    812  xiaomipcmanager_feature_n56s_5.3.0.328_aa472251.exe  瀹夎绋嬪簭                                      #D20A00
+    820  xiaoai.exe                                     灏忕埍鍚屽                                      #275185
+    819  xiaomiaisearch.exe                             灏忕背AI鎼滅储                                    #005BEE
+     67  6076-2024-10-30041307-1730275987120.exe        灏忕背浜戞湇鍔?                                    #00A1F8
+    232  灏忕背浜戞湇鍔?exe                                      灏忕背浜戞湇鍔?                                    #00A1F8
+    813  xiaomipcmanager.exe                            灏忕背鐢佃剳绠″                                    #D20A00
+   1134  fpsmaster.exe                                  甯ф暟澶у笀                                      #0B3C90
+   1524  mujing.exe                                     骞曞                                        #890000
+    816  miappstore.exe                                 搴旂敤鍟嗗簵                                      #187BF5
+    814  mstore_1.0.5.2s_setup.exe                      搴旂敤鍟嗗簵                                      #187BF5
+    144  appinstaller.exe                               搴旂敤瀹夎绋嬪簭                                    #0088F8
+    832  mismartsharehandoff.exe                        搴旂敤鎺ュ姏                                      #0000FD
+    101  pc-launcher.exe                                褰掗緳娼?                                      #54A0E6
+    541  mmc.exe                                        寰俊澶囦唤 灞炴€?                                  #DC0D0A
+    352  uninst000.exe                                  寰蒋OfficePLUS鍗歌浇绋嬪簭                          #8A2A1D
+    831  蹇繛vpn.tmp                                      蹇繛VPN                                     #492ED4
+     49  stellarplayer.exe                              鎭掓槦鎾斁鍣?                                    #0000FE
+     45  stellar_20220902162757_zj_54_stable_full_x64.exe  鎭掓槦鎾斁鍣?                                    #C08415
+     47  updater.exe                                    鎭掓槦鎾斁鍣?                                    #007500
+    798  wpflauncher.exe                                鎴戠殑涓栫晫鍚姩鍣?                                  #82654F
+   1744  mmc.exe                                        鎵€鏈夋鍦ㄨ繍琛屼换鍔?                                 #DC1815
+    366  mmc.exe                                        鎵撳紑                                        #DC0D0A
+    253  mmc.exe                                        鎵╁睍鍗峰悜瀵?                                    #DC0D0A
+    585  9456-2024-12-24035126-1735026686591.exe        鎼滅嫍杈撳叆娉?                                    #F64A0C
+   1421  biz_helper.exe                                 鎼滅嫍杈撳叆娉?                                    #FA4600
+    273  sgfeedbackhelper.exe                           鎼滅嫍杈撳叆娉?                                    #FA4600
+    236  sgmyinput.exe                                  鎼滅嫍杈撳叆娉?                                    #FA4600
+    290  sgsmartassistant.exe                           鎼滅嫍杈撳叆娉?                                    #EC5C03
+    272  sgtool.exe                                     鎼滅嫍杈撳叆娉?                                    #FA4600
+     20  sgwangzai.exe                                  鎼滅嫍杈撳叆娉?                                    #FA4600
+   1278  sogousmartassistant.exe                        鎼滅嫍杈撳叆娉?                                    #FA6400
+   2414  aplayer.exe                                    鎾斁鍐呮牳                                      #007FFE
+   1131  802_1023085_18778_1001_setup_2.0.0.1.exe       鏂楃綏澶ч檰锛氱寧榄備笘鐣?                                #0454D3
+   1133  au_.exe                                        鏂楃綏澶ч檰锛氱寧榄備笘鐣?                                #F37171
+    421  mmc.exe                                        鏂板缓鍏ョ珯瑙勫垯鍚戝                                  #DC0D0A
+    419  mmc.exe                                        鏂板缓鍑虹珯瑙勫垯鍚戝                                  #DC0D0A
+    255  mmc.exe                                        鏂板缓绠€鍗曞嵎鍚戝                                   #DC0D0A
+    330  mmc.exe                                        鏂板缓璺緞瑙勫垯                                    #DC0D0A
+   2587  mmc.exe                                        鏂扮敤鎴?                                      #DC0D0A
+   1085  un_a.exe                                       鏄撳壀濯?                                      #DB969B
+   1082  鏄撳壀濯?exe                                        鏄撳壀濯?                                      #311C6B
+   1081  鏄撳壀濯掋€恮indows绯荤粺銆?.2.1.exe                        鏄撳壀濯?                                      #311C6B
+   1023  slbuninstallui12.exe                           鏅烘収鑱旀兂                                      #009FDE
+   1163  wegameminiloader.exe                           鏆楀尯绐佸洿鏃犻檺涓嬭浇鍣?                                #1798F4
+   1031  systempropertiesperformance.exe                鏇存敼璁＄畻鏈烘€ц兘璁剧疆                                 #0023EC
+   2589  systempropertiescomputername.exe               鏇存敼璁＄畻鏈鸿缃?                                  #0023EC
+   1826  mmc.exe                                        鏇存柊 Orchestrator 鏈嶅姟 鐨勫睘鎬?鏈湴璁＄畻鏈?             #DC0D0A
+    175  mmc.exe                                        鏇存柊椹卞姩绋嬪簭                                    #DC0D0A
+    916  mmc.exe                                        鏇存柊椹卞姩绋嬪簭 - HID-compliant mouse              #DC0D0A
+    603  mmc.exe                                        鏈€灏忓寲鍒?Internet 鎴?Windows 鍩熺殑鍚屾椂杩炴帴鏁?          #DC0D0A
+     39  mmc.exe                                        鏈嶅姟                                        #DC0D0A
+    162  mmc.exe                                        鏈嶅姟鎺у埗                                      #DC0D0A
+   2433  mmc.exe                                        鏈煡 USB 璁惧(璁惧鎻忚堪绗﹁姹傚け璐? 灞炴€?                  #DC0D0A
+   2565  mmc.exe                                        鏈湴瀹夊叏绛栫暐                                    #DC0D0A
+    329  mmc.exe                                        鏈湴缁勭瓥鐣ョ紪杈戝櫒                                  #DC0D0A
+    853  mmc.exe                                        鏈湴閮ㄧ讲 灞炴€?                                  #DC0D0A
+   1743  mmc.exe                                        鏌ユ壘                                        #DC1815
+    251  mmc.exe                                        鏌ヨ鍘嬬缉绌洪棿                                    #DC0D0A
+   1573  妤兼湀鍏嶈垂mp3褰曢煶杞欢.exe                                妤兼湀鍏嶈垂MP3褰曢煶杞欢                               #435875
+     75  regedit.exe                                    娉ㄥ唽琛ㄧ紪杈戝櫒                                    #00496E
+    263  mmc.exe                                        娴忚鏂囦欢澶?                                    #DC0D0A
+   2076  7555d61de513ea5e90e0a22937585134.exe           娣辨緶瀹藉甫璁よ瘉瀹㈡埛绔?                                #1B57D8
+     60  srun3k.exe                                     娣辨緶瀹藉甫璁よ瘉瀹㈡埛绔?                                #1B57D8
+    262  mmc.exe                                        娣诲姞椹卞姩绋嬪簭                                    #DC0D0A
+   1317  .hr4768.tmp                                    鐏粧瀹夊叏杞欢                                    #A385C8
+   1806  fileshred.exe                                  鐏粧瀹夊叏杞欢                                    #3A30F3
+   1315  hipsmain.exe                                   鐏粧瀹夊叏杞欢                                    #F47600
+   1820  hipstray.exe                                   鐏粧瀹夊叏杞欢                                    #F47600
+   1794  hrconfig.exe                                   鐏粧瀹夊叏杞欢                                    #36979F
+   1316  hrupdate.exe                                   鐏粧瀹夊叏杞欢                                    #7FEB1A
+   1795  netflow.exe                                    鐏粧瀹夊叏杞欢                                    #00FB5C
+   2055  rightclickman.exe                              鐏粧瀹夊叏杞欢                                    #A8FDFD
+   1314  sysdiag-all-x64-6.0.7.12-2025.09.24.2.exe      鐏粧瀹夊叏杞欢                                    #DA974F
+   1793  sysdiag-all-x64-6.0.8.4-2025.12.21.1.exe       鐏粧瀹夊叏杞欢                                    #DA974F
+    536  launcher.exe                                   鐕曚簯鍗佸叚澹?                                    #9D7445
+    604  uninstaller.exe                                鐕曚簯鍗佸叚澹板嵏杞界▼搴?                                #C18C4A
+    535  yysls_1.9.31_netease.lenovo_cpa_dev_setup.exe  鐕曚簯鍗佸叚澹板畨瑁呯▼搴?                                #9D7445
+   2319  es_broadcast.exe                               鐜嬭€呭ぇ涓栫晫NGR                                  #367000
+   2063  setup.exe                                      鐜嬭€呰崳鑰€涓栫晫                                    #41A2F2
+   2064  鐜嬭€呰崳鑰€涓栫晫.exe                                     鐜嬭€呰崳鑰€涓栫晫                                    #41A2F2
+   2099  uninstall.exe                                  鐜嬭€呰崳鑰€涓栫晫 uninstall                          #41A2F2
+   2091  upgrader.exe                                   鐜嬭€呰崳鑰€涓栫晫 upgrader                           #41A2F2
+    375  mmc.exe                                        鐢ㄦ埛甯愭埛鎺у埗: 浠ョ鐞嗗憳鎵瑰噯妯″紡杩愯鎵€鏈夌鐞嗗憳 灞炴€?               #DC0D0A
+    118  video.ui.exe                                   鐢靛奖鍜岀數瑙?                                    #0062AD
+    699  paintstudio.view.exe                           鐢诲浘 3D                                     #005DA5
+    465  4271-2024-12-05105956-1733367596437.exe        鐣屽鐙傛疆鍚姩鍣?                                  #3E0287
+    466  fragpunk.exe                                   鐣屽鐙傛疆鍚姩鍣?                                  #3E0287
+    365  mmc.exe                                        鐧诲綍鏃朵笉鏄剧ず娆㈣繋灞忓箷                                #DC0D0A
+   1293  鐩綍.tmp                                         鐩綍                                        #025461
+    187  windowscamera.exe                              鐩告満                                        #0079D7
+    249  mmc.exe                                        纾佺洏绠＄悊                                      #DC0D0A
+   1218  绌烘礊楠戝＋涓濅箣姝?exe                                    绌烘礊楠戝＋涓濅箣姝?                                  #A25600
+    664  mmc.exe                                        绔嬩綋澹版贩闊?(Realtek(R) Audio) 灞炴€?              #DC0D0A
+     58  hyp.exe                                        绫冲搱娓稿惎鍔ㄥ櫒                                    #008CC8
+    360  hyupdater.exe                                  绫冲搱娓稿惎鍔ㄥ櫒                                    #008CC8
+    472  uninstall.exe                                  绫冲搱娓稿惎鍔ㄥ櫒                                    #00007F
+    509  yuanshen_setup_202411101232.exe                绫冲搱娓稿惎鍔ㄥ櫒                                    #FEFE00
+    595  yuanshen_setup_202412201721.exe                绫冲搱娓稿惎鍔ㄥ櫒                                    #FEFE00
+   1741  msinfo32.exe                                   绯荤粺淇℃伅                                      #0044F2
+    169  sysprep.exe                                    绯荤粺鍑嗗宸ュ叿                                    #400000
+    112  msconfig.exe                                   绯荤粺閰嶇疆瀹炵敤绋嬪簭                                  #000991
+   1704  stablediffusionwebuilauncher.exe               缁樹笘                                        #E02B4C
+   1493  缂撳啿鍖烘孩鍑烘敾鍑?exe                                    缂撳啿鍖烘孩鍑烘敾鍑?                                  #0D4B74
+   1127  mmc.exe                                        缂栬緫涓€涓幇鏈夌殑 QoS 绛栫暐                            #DC0D0A
+    795  9426-2024-07-09025828-1720508308473.tmp        缃戞槗鍙戠儳娓告垙                                                        #68249E
+    796  mc_setup.tmp                                   缃戞槗鍙戠儳娓告垙                                                        #842379
+    553  sky_setup.tmp                                  缃戞槗鍙戠儳娓告垙                                                        #44649C
+    214  youdaodict.exe                                 缃戞槗鏈夐亾缈昏瘧                                    #F40C00
+    823  youdaodictuninstalltemp.exe                    缃戞槗鏈夐亾缈昏瘧                                    #006BD0
+    213  youdaodict_lianxiang_op240912.exe              缃戞槗鏈夐亾缈昏瘧                                    #F40C00
+    590  youdaodict_lianxiang_op241209.exe              缃戞槗鏈夐亾缈昏瘧                                    #F40C00
+    644  缇ゆ槦dlc.exe                                      缇ゆ槦dlc                                     #E4BA00
+      8  lztray.exe                                     鑱旀兂 Legion Zone                            #121200
+    428  lsf.exe                                        鑱旀兂甯愬彿                                      #7F4400
+    368  lsfinstall.exe                                 鑱旀兂甯愬彿                                      #7F4400
+     65  lenovoappstore.exe                             鑱旀兂搴旂敤鍟嗗簵                                    #31E487
+    534  store-ind-30020.exe                            鑱旀兂搴旂敤鍟嗗簵                                    #31E487
+    371  storeuninstaller.exe                           鑱旀兂搴旂敤鍟嗗簵                                    #31E487
+    339  memu.exe                                       鑱旀兂妯℃嫙鍣?                                    #009B7C
+    646  uninstall.exe                                  鑱旀兂妯℃嫙鍣ㄥ嵏杞界▼搴?                                #009B7C
+    578  slbinstall_11.exe                              鑱旀兂娴忚鍣?                                    #C97800
+    127  pdfpreview.exe                                 鑱旀兂娴忚鍣?鏋佸厜PDF鍚堜綔鐗?                           #00497A
+    382  fastpdf.exe                                    鑱旀兂娴忚鍣?鏋佸厜PDF鍚堜綔鐗堥槄璇诲櫒                         #00497A
+    429  lzupdate.exe                                   鑱旀兂娓告垙鍗囩骇绋嬪簭                                  #121200
+    925  batterysetting.exe                             鑱旀兂鐢垫睜绠＄悊                                    #006FF8
+     19  lenovopcmanager.exe                            鑱旀兂鐢佃剳绠″                                    #0066DC
+    321  uninst.exe                                     鑱旀兂鐢佃剳绠″鍗歌浇绋嬪簭                                #0066DC
+     46  lenovotray.exe                                 鑱旀兂鐢佃剳绠″闃叉姢涓績                                #0066DC
+    446  lenovodm_setup.exe                             鑱旀兂椹卞姩绠＄悊                                    #0054FC
+    433  browser.exe                                    鑵捐娴忚鏈嶅姟缁勪欢                                  #FEFE00
+    783  qmbrowser.exe                                  鑵捐娴忚鏈嶅姟缁勪欢                                  #FEFE00
+   1341  hardwarecheck.exe                              鑵捐瑙嗛                                      #FEFE00
+     68  qqlive.exe                                     鑵捐瑙嗛                                      #008FEF
+   1342  qqlivetips.exe                                 鑵捐瑙嗛                                      #008FEF
+   1339  qqliveup.exe                                   鑵捐瑙嗛                                      #005F8F
+   1124  mmc.exe                                        鑷畾涔夊厑璁告潯浠跺畨鍏ㄨ缃?                              #DC0D0A
+   1745  mmc.exe                                        鑷畾涔夎鍥?                                    #DC1815
+   1137  wegameminiloader.exe                           鑻遍泟鑱旂洘涓嬭浇鍣?                                  #FEFE00
+    106  calculatorapp.exe                              璁＄畻鍣?                                      #008DFA
+    172  mmc.exe                                        璁＄畻鏈虹鐞?                                    #DC0D0A
+    507  deviceproperties.exe                           璁惧灞炴€?                                     #254D7D
+    174  mmc.exe                                        璁惧绠＄悊鍣?                                    #DC0D0A
+     12  systemsettings.exe                             璁剧疆                                        #4193F7
+    191  systemsettingsadminflows.exe                   璁剧疆                                        #0082EC
+    539  mmc.exe                                        璁剧疆鎴愭湰                                      #DC0D0A
+    259  msdt.exe                                       璇婃柇鐤戦毦瑙ｇ瓟鍚戝                                  #000E79
+   1460  璇嶆硶鍒嗘瀽瀹為獙.exe                                     璇嶆硶鍒嗘瀽瀹為獙                                    #0D4B74
+    424  speechuxwiz.exe                                璇煶 UX 閰嶇疆                                  #FDFD00
+   1250  awesun.exe                                     璐濋攼鍚戞棩钁?                                    #FA1A6C
+   1249  awesun_16.0.1.24350_x64.exe                    璐濋攼鍚戞棩钁?                                    #FA1A6C
+     25  perfmon.exe                                    璧勬簮鍜屾€ц兘鐩戣鍣?                                 #F88C00
+    897  璧勬簮缂栬緫鍣?resource hacker)5.1.7姹夊寲鐗?exe             璧勬簮缂栬緫鍣?Resource Hacker)5.1                 #AE6800
+    420  mmc.exe                                        璧勮 灞炴€?                                    #DC0D0A
+    630  uninstall.exe                                  璧氶挶瀹濈數鑴戠増                                    #0000FE
+    817  miscreenshare.exe                              璺ㄥ睆鍗忎綔                                      #DFA23F
+    635  xunyou.exe                                     杩呮父鍔犻€熷櫒                                     #006E38
+   1135  uninstall.exe                                  杩呮父鍔犻€熷櫒鍗歌浇宸ュ叿                                 #DA1200
+    594  xylauncher.exe                                 杩呮父鍔犻€熷櫒鏇存柊宸ュ叿                                 #006E38
+     93  thunder.exe                                    杩呴浄                                        #005CFB
+    580  8215-2025-01-08054737-1736329657754.exe        杩呴浄X                                       #005CFB
+   1242  thunderstart.exe                               杩呴浄XI                                      #005CFB
+   1240  accuninstall.exe                               杩呴浄鍔犻€熷櫒鍗歌浇绋嬪簭                                 #96E200
+   1047  xlliveud.exe                                   杩呴浄鍗囩骇绋嬪簭                                    #16549A
+    282  xlgame.exe                                     杩呴浄娓告垙                                      #FB5C00
+   1241  xlgame.exe                                     杩呴浄娓告垙(x86)                                 #FB5C00
+   1239  xlacc.exe                                      杩呴浄娓告垙鍔犻€熷櫒                                   #393124
+   2420  xlbugreport.exe                                杩呴浄閿欒鎶ュ憡                                    #700100
+    474  杩愯娓告垙.exe                                       杩愯娓告垙                                      #D8816C
+    821  remotecontrol.exe                              杩滅▼鎺у埗                                      #0035F8
+    822  杩滅▼鎺у埗.exe                                       杩滅▼鎺у埗                                      #0035F8
+    836  mstsc.exe                                      杩滅▼妗岄潰杩炴帴                                    #001ECD
+    588  3675-2025-01-02023408-1735799648031.tmp        杩炶繛鎺?                                                          #5047F7
+    280  asklink-installer-v3.6.2.9-x64-20241112-2241.tmp  杩炶繛鎺?                                                          #4444B6
+   1887  nzm_launcher.exe                               閫嗘垬鏈潵                                      #FD0000
+   2173  閫嗘垬锛氭湭鏉ュ嵏杞?exe                                    閫嗘垬锛氭湭鏉?                                    #FBAA08
+   1885  wegameminiloader.exe                           閫嗘垬锛氭湭鏉ヤ笅杞藉櫒                                  #FE0000
+     44  openwith.exe                                   閫夊彇搴旂敤                                      #02F32E
+   2567  mmc.exe                                        閫夋嫨鐢ㄦ埛鎴栫粍 (楂樼骇)                               #DC0D0A
+   2533  mmc.exe                                        閫氱敤 USB 闆嗙嚎鍣?灞炴€?                            #DC0D0A
+    581  3402-2024-12-02110257-1733108577786.exe        閰风嫍闊充箰                                      #B58732
+    601  mmc.exe                                        闄愬埗鍙繚鐣欏甫瀹?                                  #DC0D0A
+    602  mmc.exe                                        闄愬埗鏈畬鎴愭暟鎹寘                                  #DC0D0A
+    638  dnplayer.exe                                   闆风數妯℃嫙鍣?                                    #9E7400
+    774  flingtrainer.exe                               椋庣伒鏈堝奖淇敼鍣?                                  #660808
+    452  drvmain.exe                                    椹卞姩澶у笀                                      #003581
+    454  uninstall.exe                                  椹卞姩澶у笀                                      #003581
+    453  vipmain.exe                                    椹卞姩澶у笀                                      #003581
+   2468  mmc.exe                                        椹卞姩绋嬪簭鍖呭洖閫€                                   #DC0D0A
+   1533  mmc.exe                                        椹卞姩绋嬪簭鏂囦欢璇︾粏淇℃伅                                #DC0D0A
+   1128  mmc.exe                                        楂樼骇 QoS 璁剧疆                                 #DC0D0A
+    418  mmc.exe                                        楂樼骇瀹夊叏 Windows Defender 闃茬伀澧?                #DC0D0A
+   2584  netplwiz.exe                                   楂樼骇鐢ㄦ埛甯愭埛鎺у埗闈㈡澘                                #D76B00
+    403  systempropertiesadvanced.exe                   楂樼骇绯荤粺璁剧疆                                    #0023EC
+    546  椴滆壓ai鎶犲浘.exe                                     椴滆壓AI鎶犲浘                                    #000909
+   1896  games.exe                                      楣拌鍚姩鍣?                                    #4B77FB
+   1895  hypergryph.exe                                 楣拌鍚姩鍣?                                    #C0B600
+    449  mmc.exe                                        楹﹀厠椋庨樀鍒?(Realtek(R) Audio)                  #DC0D0A
+    753  wegameminiloader.exe                           榫欐伅锛氱瀵備笅杞藉櫒                                  #442E22

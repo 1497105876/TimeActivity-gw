@@ -17,9 +17,12 @@ public class OverviewRenderer
 {
     private readonly CategoryColorHelper _colorHelper;
 
+    public Func<string, string, Color> GetColorFunc { get; set; }
+
     public OverviewRenderer(CategoryColorHelper colorHelper)
     {
         _colorHelper = colorHelper;
+        GetColorFunc = (proc, cat) => _colorHelper.GetColor(cat);
     }
 
     /// <summary>
@@ -55,7 +58,7 @@ public class OverviewRenderer
             double x = (startSec / totalSeconds) * width;
             double w = Math.Max((durSec / totalSeconds) * width, 1);
 
-            var color = _colorHelper.GetColor(act.Category);
+            var color = GetColorFunc(act.ProcessName, act.Category);
             var block = new Rectangle
             {
                 Width = w,

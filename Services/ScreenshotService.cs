@@ -138,11 +138,15 @@ public class ScreenshotService
 
     /// <summary>
     /// 切换应用时调用 — 仿 ManicTime "在每次应用程序切换时截屏"
+    /// 切换后重置定时器倒计时
     /// </summary>
     public void OnAppSwitched()
     {
         if (!_running || !_captureOnSwitch) return;
         CaptureAndSave();
+        CleanOldScreenshots();
+        // 重置定时器倒计时：从此刻起重新计时
+        _timer?.Change(TimeSpan.FromMinutes(_intervalMinutes), TimeSpan.FromMinutes(_intervalMinutes));
     }
 
     private void CaptureAndSave()

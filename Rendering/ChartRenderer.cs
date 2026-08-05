@@ -44,7 +44,7 @@ public class ChartRenderer
         {
             var color = _colorHelper.GetColor(kvp.Key);
             double pct = totalSeconds > 0 ? (double)kvp.Value / totalSeconds : 0;
-            string durStr = FormatDuration(kvp.Value);
+            string durStr = TimeFormatHelper.Format(kvp.Value);
 
             var row = new Grid { Margin = new Thickness(0, 0, 0, 6) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
@@ -268,7 +268,7 @@ public class ChartRenderer
 
             var dur = new TextBlock
             {
-                Text = FormatDuration(kvp.Value), FontSize = 12, VerticalAlignment = VerticalAlignment.Center
+                Text = TimeFormatHelper.Format(kvp.Value), FontSize = 12, VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(dur, 3);
             row.Children.Add(dur);
@@ -278,13 +278,5 @@ public class ChartRenderer
         }
     }
 
-    /// <summary>
-    /// 格式化时长显示
-    /// </summary>
-    public static string FormatDuration(int seconds)
-    {
-        if (seconds < 60) return $"{seconds}s";
-        if (seconds < 3600) return $"{seconds / 60}m";
-        return $"{seconds / 3600}h{(seconds % 3600) / 60}m";
-    }
+    // FormatDuration 已移到 TimeFormatHelper
 }

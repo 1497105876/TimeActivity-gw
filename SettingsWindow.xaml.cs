@@ -16,7 +16,7 @@ using TimeActivity.Services;
 
 namespace TimeActivity;
 
-public partial class SettingsPage : Page
+public partial class SettingsWindow : Window
 {
     private bool _loading = false;
     private bool _hasChanges = false;
@@ -28,8 +28,10 @@ public partial class SettingsPage : Page
     // 分类名列表（供 DataGridComboBoxColumn 绑定用）
     public List<string> _categoryNames = new();
 
-    public SettingsPage()
+    public SettingsWindow(string initialSection = null)
     {
+        try
+        {
         InitializeComponent();
         _loading = true;
         LoadSettings();
@@ -39,6 +41,66 @@ public partial class SettingsPage : Page
         UpdateDiskUsage();
         _loading = false;
         _hasChanges = false;
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Forms.MessageBox.Show($"SettingsWindow 构造失败:\n{ex.Message}\n\n{ex.StackTrace}");
+            throw;
+        }
+
+        // 根据初始参数选中对应导航项
+        if (!string.IsNullOrEmpty(initialSection))
+        {
+            int index = initialSection.ToLower() switch
+            {
+                "tracking" => 0,
+                "screenshot" => 1,
+                "rules" => 2,
+                "categories" => 3,
+                "display" => 4,
+                "data" => 5,
+                "ai" => 6,
+                "system" => 7,
+                "io" => 8,
+                _ => -1
+            };
+            if (index >= 0 && NavList != null)
+            {
+                NavList.SelectedIndex = index;
+            }
+        }
+    }
+
+    // ========== 侧边栏导航 ==========
+
+    private void NavList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (NavList == null || PanelTracking == null) return;
+
+        // 先全部隐藏
+        PanelTracking.Visibility = Visibility.Collapsed;
+        PanelScreenshot.Visibility = Visibility.Collapsed;
+        PanelRules.Visibility = Visibility.Collapsed;
+        PanelCategories.Visibility = Visibility.Collapsed;
+        PanelDisplay.Visibility = Visibility.Collapsed;
+        PanelData.Visibility = Visibility.Collapsed;
+        PanelAI.Visibility = Visibility.Collapsed;
+        PanelSystem.Visibility = Visibility.Collapsed;
+        PanelIO.Visibility = Visibility.Collapsed;
+
+        // 根据选中索引显示对应面板
+        switch (NavList.SelectedIndex)
+        {
+            case 0: PanelTracking.Visibility = Visibility.Visible; break;
+            case 1: PanelScreenshot.Visibility = Visibility.Visible; break;
+            case 2: PanelRules.Visibility = Visibility.Visible; break;
+            case 3: PanelCategories.Visibility = Visibility.Visible; break;
+            case 4: PanelDisplay.Visibility = Visibility.Visible; break;
+            case 5: PanelData.Visibility = Visibility.Visible; break;
+            case 6: PanelAI.Visibility = Visibility.Visible; break;
+            case 7: PanelSystem.Visibility = Visibility.Visible; break;
+            case 8: PanelIO.Visibility = Visibility.Visible; break;
+        }
     }
 
     // ========== 加载设置 ==========
@@ -55,7 +117,6 @@ public partial class SettingsPage : Page
                 CbxIdleThreshold.Text = (idleSec / 60).ToString();
         }
         ChkAutoStartTracking.IsChecked = SettingsRepository.Get("AutoStartTracking", "true") == "true";
-        ChkTrackWindowTitle.IsChecked = SettingsRepository.Get("TrackWindowTitle", "true") == "true";
 
         // 截图设置
         ChkEnableScreenshot.IsChecked = SettingsRepository.Get("EnableScreenshot", "false") == "true";
@@ -81,9 +142,6 @@ public partial class SettingsPage : Page
         TxtMaxSize.Text = SettingsRepository.Get("MaxScreenshotSizeMB", "5120");
         ChkMaxAge.IsChecked = SettingsRepository.Get("EnableMaxAge", "true") == "true";
         TxtMaxAge.Text = SettingsRepository.Get("MaxScreenshotAgeDays", "30");
-
-        // 显示设置
-        Chk24Hour.IsChecked = SettingsRepository.Get("Use24Hour", "true") == "true";
 
         // 数据设置
         SetComboByTagOrText(CbxDataRetention, SettingsRepository.Get("DataRetentionDays", "90"), "天");
@@ -126,22 +184,33 @@ public partial class SettingsPage : Page
 
         CategoriesGrid.ItemsSource = new ObservableCollection<CategoryItem>(_categories);
 
-        // 更新分类名列表供 DataGridComboBoxColumn 绑定
+        // 更新分类名列表供规则下拉用
         _categoryNames = _categories.Select(c => c.Name).ToList();
 
-        // 更新规则 DataGrid 的分类下拉
-        UpdateRuleCategoryColumn();
+        // 加载分类筛选下拉
+        if (CbxRuleFilter != null)
+        {
+            CbxRuleFilter.Items.Clear();
+            CbxRuleFilter.Items.Add(new ComboBoxItem { Content = "全部分类", Tag = "" });
+            foreach (var c in _categories)
+                CbxRuleFilter.Items.Add(new ComboBoxItem { Content = c.Name, Tag = c.Name });
+            CbxRuleFilter.SelectedIndex = 0;
+        }
+
+        LoadCategorySidebar();
     }
 
-    private void UpdateRuleCategoryColumn()
+    private void LoadCategorySidebar()
     {
-        foreach (var col in RulesGrid.Columns)
+        if (CategorySidebar == null) return;
+        var sidebarItems = new ObservableCollection<CategoryItem>();
+        var rules = RuleRepository.GetAll();
+        foreach (var c in _categories)
         {
-            if (col is DataGridComboBoxColumn comboCol)
-            {
-                comboCol.ItemsSource = _categories.Select(c => c.Name).ToList();
-            }
+            int count = rules.Count(r => r.CategoryId == c.Id);
+            sidebarItems.Add(new CategoryItem { Id = c.Id, Name = c.Name, Color = c.Color, SortOrder = c.SortOrder, Count = count });
         }
+        CategorySidebar.ItemsSource = sidebarItems;
     }
 
     // ========== 分类规则 ==========
@@ -162,7 +231,89 @@ public partial class SettingsPage : Page
                 IsCustom = r.IsCustom
             });
         }
-        RulesGrid.ItemsSource = ruleItems;
+        _allRules = ruleItems;
+        ApplyRuleFilter();
+    }
+
+    private ObservableCollection<RuleItem> _allRules = new();
+
+    private void ApplyRuleFilter()
+    {
+        if (RulesListView == null) return;
+        var filtered = _allRules.AsEnumerable();
+
+        // 搜索过滤
+        if (TxtRuleSearch != null && !string.IsNullOrWhiteSpace(TxtRuleSearch.Text))
+        {
+            var keyword = TxtRuleSearch.Text.Trim().ToLower();
+            filtered = filtered.Where(r => r.ProcessName.ToLower().Contains(keyword));
+        }
+
+        // 分类过滤
+        if (CbxRuleFilter != null && CbxRuleFilter.SelectedItem is ComboBoxItem item && item.Tag?.ToString() != "")
+        {
+            var catName = item.Tag.ToString();
+            filtered = filtered.Where(r => r.CategoryName == catName);
+        }
+
+        RulesListView.ItemsSource = new ObservableCollection<RuleItem>(filtered);
+    }
+
+    // 新增规则
+    private void BtnAddRule_Click(object sender, RoutedEventArgs e)
+    {
+        var newRule = new RuleItem { ProcessName = "", CategoryName = _categories.FirstOrDefault()?.Name ?? "", IsCustom = true };
+        _allRules.Add(newRule);
+        ApplyRuleFilter();
+        MarkChanged();
+    }
+
+    // 搜索/筛选
+    private void TxtRuleSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        ApplyRuleFilter();
+    }
+
+    private void CbxRuleFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        ApplyRuleFilter();
+    }
+
+    private void CategorySidebar_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || CategorySidebar == null) return;
+        if (CategorySidebar.SelectedItem is CategoryItem cat)
+        {
+            // 点击左侧分类 → 右侧筛选该分类
+            for (int i = 0; i < CbxRuleFilter.Items.Count; i++)
+            {
+                if (CbxRuleFilter.Items[i] is ComboBoxItem item && item.Tag?.ToString() == cat.Name)
+                {
+                    CbxRuleFilter.SelectedIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    private void CategorySidebar_Drop(object sender, DragEventArgs e)
+    {
+        // 拖拽功能后续实现
+        if (e.Data.GetData(typeof(RuleItem)) is RuleItem droppedRule)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is CategoryItem targetCat)
+            {
+                droppedRule.CategoryName = targetCat.Name;
+                ApplyRuleFilter();
+                MarkChanged();
+            }
+        }
+    }
+
+    private void RulesListView_Drop(object sender, DragEventArgs e)
+    {
+        // 拖拽功能后续实现
     }
 
     // ========== 保存设置 ==========
@@ -171,91 +322,9 @@ public partial class SettingsPage : Page
 
     private void BtnSave_Click(object sender, RoutedEventArgs e)
     {
-        // 追踪设置
-        string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
-        if (int.TryParse(samplingText, out int sv) && sv > 0)
-            SettingsRepository.Set("PollIntervalSeconds", sv.ToString());
-        else
-            SettingsRepository.Set("PollIntervalSeconds", "3");
-
-        string idleText = CbxIdleThreshold.Text.Replace("分钟", "").Trim();
-        if (int.TryParse(idleText, out int iv) && iv > 0)
-            SettingsRepository.Set("IdleThresholdSeconds", (iv * 60).ToString());
-        else
-            SettingsRepository.Set("IdleThresholdSeconds", "300");
-
-        SettingsRepository.Set("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("TrackWindowTitle", ChkTrackWindowTitle.IsChecked == true ? "true" : "false");
-
-        // 截图设置
-        SettingsRepository.Set("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
-
-        string intervalText = CbxScreenshotInterval.Text.Replace("分钟", "").Trim();
-        if (int.TryParse(intervalText, out int intervalVal) && intervalVal > 0)
-            SettingsRepository.Set("ScreenshotIntervalMinutes", intervalVal.ToString());
-        else
-            SettingsRepository.Set("ScreenshotIntervalMinutes", "5");
-
-        SettingsRepository.Set("ScreenshotFormat", CbxScreenshotFormat.SelectedItem is ComboBoxItem fmtItem ? fmtItem.Tag?.ToString() ?? "jpg" : "jpg");
-        SettingsRepository.Set("ScreenshotQuality", GetComboTag(CbxScreenshotQuality));
-        SettingsRepository.Set("ScreenshotPath", TxtScreenshotPath.Text);
-
-        SettingsRepository.Set("EnableMaxSize", ChkMaxSize.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("MaxScreenshotSizeMB",
-            int.TryParse(TxtMaxSize.Text, out int ms) && ms > 0 ? ms.ToString() : "5120");
-        SettingsRepository.Set("EnableMaxAge", ChkMaxAge.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("MaxScreenshotAgeDays",
-            int.TryParse(TxtMaxAge.Text, out int ma) && ma > 0 ? ma.ToString() : "30");
-
-        // 显示设置
-        SettingsRepository.Set("Use24Hour", Chk24Hour.IsChecked == true ? "true" : "false");
-        // 数据设置
-        string retentionText = CbxDataRetention.Text.Replace("天", "").Replace("永久", "0").Trim();
-        if (int.TryParse(retentionText, out int dr) && dr >= 0)
-            SettingsRepository.Set("DataRetentionDays", dr.ToString());
-        else
-            SettingsRepository.Set("DataRetentionDays", "90");
-
-        // AI 设置
-        SettingsRepository.Set("EnableAI", ChkEnableAI.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("AIMode", CbxAIMode.SelectedItem is ComboBoxItem aiItem ? aiItem.Tag?.ToString() ?? "lan" : "lan");
-        SettingsRepository.Set("AIApiUrl", TxtApiUrl.Text);
-        SettingsRepository.Set("AIApiKey", TxtApiKey.Password);
-        SettingsRepository.Set("AIModel", TxtAIModel.Text);
-        SettingsRepository.Set("AutoDailySummary", ChkAutoSummary.IsChecked == true ? "true" : "false");
-
-        // AI 总结文件保存
-        SettingsRepository.Set("AISummaryPath", TxtAISummaryPath.Text);
-        SettingsRepository.Set("AISummaryMaxCount", TxtAISummaryMaxCount.Text);
-        SettingsRepository.Set("AISummaryMaxSizeMB", TxtAISummaryMaxSizeMB.Text);
-
-        // 系统设置
-        SettingsRepository.Set("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
-
-        // 开机自启
-        if (ChkAutoStart.IsChecked == true)
-            AutoStartHelper.Enable();
-        else
-            AutoStartHelper.Disable();
-
-        // 保存分类规则
-        SaveRules();
-        SaveCategories();
-
-        // 通知主窗口重启服务
-        SettingsSaved?.Invoke();
-
-        // 刷新预估值
-        UpdateEstimates();
-        UpdateDiskUsage();
-
-        _hasChanges = false;
-        TxtUnsaved.Text = "";
-        SaveSnapshot();
-
+        DoSave();
         MessageBox.Show("设置已保存", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        this.Close();
     }
 
     private void SaveRules()
@@ -268,23 +337,20 @@ public partial class SettingsPage : Page
             using var del = new SqliteCommand("DELETE FROM Rules", conn);
             del.ExecuteNonQuery();
 
-            if (RulesGrid.ItemsSource is ObservableCollection<RuleItem> rules)
+            foreach (var r in _allRules)
             {
-                foreach (var r in rules)
-                {
-                    if (string.IsNullOrWhiteSpace(r.ProcessName) && string.IsNullOrWhiteSpace(r.TitleKeyword))
-                        continue;
-                    var cat = _categories.FirstOrDefault(c => c.Name == r.CategoryName);
-                    if (cat == null) continue;
+                if (string.IsNullOrWhiteSpace(r.ProcessName))
+                    continue;
+                var cat = _categories.FirstOrDefault(c => c.Name == r.CategoryName);
+                if (cat == null) continue;
 
-                    using var ins = new SqliteCommand(
-                        "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn);
-                    ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
-                    ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
-                    ins.Parameters.AddWithValue("@c", cat.Id);
-                    ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
-                    ins.ExecuteNonQuery();
-                }
+                using var ins = new SqliteCommand(
+                    "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn);
+                ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
+                ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
+                ins.Parameters.AddWithValue("@c", cat.Id);
+                ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
+                ins.ExecuteNonQuery();
             }
         }
         catch { }
@@ -316,11 +382,9 @@ public partial class SettingsPage : Page
         {
             if (!rule.IsCustom) return; // 预置规则不可删
 
-            if (RulesGrid.ItemsSource is ObservableCollection<RuleItem> rules)
-            {
-                rules.Remove(rule);
-                MarkChanged();
-            }
+            _allRules.Remove(rule);
+            ApplyRuleFilter();
+            MarkChanged();
         }
     }
 
@@ -374,15 +438,98 @@ public partial class SettingsPage : Page
 
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {
-        _loading = true;
-        LoadSettings();
-        LoadCategories();
-        LoadRules();
+        // 不保存直接关窗
+        this.Close();
+    }
+
+    private void BtnApply_Click(object sender, RoutedEventArgs e)
+    {
+        // 和保存一样逻辑，但不关窗
+        DoSave();
+    }
+
+    private void DoSave()
+    {
+        // 追踪设置
+        string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
+        if (int.TryParse(samplingText, out int sv) && sv > 0)
+            SettingsRepository.Set("PollIntervalSeconds", sv.ToString());
+        else
+            SettingsRepository.Set("PollIntervalSeconds", "3");
+
+        string idleText = CbxIdleThreshold.Text.Replace("分钟", "").Trim();
+        if (int.TryParse(idleText, out int iv) && iv > 0)
+            SettingsRepository.Set("IdleThresholdSeconds", (iv * 60).ToString());
+        else
+            SettingsRepository.Set("IdleThresholdSeconds", "300");
+
+        SettingsRepository.Set("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
+
+        // 截图设置
+        SettingsRepository.Set("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
+
+        string intervalText = CbxScreenshotInterval.Text.Replace("分钟", "").Trim();
+        if (int.TryParse(intervalText, out int intervalVal) && intervalVal > 0)
+            SettingsRepository.Set("ScreenshotIntervalMinutes", intervalVal.ToString());
+        else
+            SettingsRepository.Set("ScreenshotIntervalMinutes", "5");
+
+        SettingsRepository.Set("ScreenshotFormat", CbxScreenshotFormat.SelectedItem is ComboBoxItem fmtItem ? fmtItem.Tag?.ToString() ?? "jpg" : "jpg");
+        SettingsRepository.Set("ScreenshotQuality", GetComboTag(CbxScreenshotQuality));
+        SettingsRepository.Set("ScreenshotPath", TxtScreenshotPath.Text);
+
+        SettingsRepository.Set("EnableMaxSize", ChkMaxSize.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("MaxScreenshotSizeMB",
+            int.TryParse(TxtMaxSize.Text, out int ms) && ms > 0 ? ms.ToString() : "5120");
+        SettingsRepository.Set("EnableMaxAge", ChkMaxAge.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("MaxScreenshotAgeDays",
+            int.TryParse(TxtMaxAge.Text, out int ma) && ma > 0 ? ma.ToString() : "30");
+
+        // 数据设置
+        string retentionText = CbxDataRetention.Text.Replace("天", "").Replace("永久", "0").Trim();
+        if (int.TryParse(retentionText, out int dr) && dr >= 0)
+            SettingsRepository.Set("DataRetentionDays", dr.ToString());
+        else
+            SettingsRepository.Set("DataRetentionDays", "90");
+
+        // AI 设置
+        SettingsRepository.Set("EnableAI", ChkEnableAI.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("AIMode", CbxAIMode.SelectedItem is ComboBoxItem aiItem ? aiItem.Tag?.ToString() ?? "lan" : "lan");
+        SettingsRepository.Set("AIApiUrl", TxtApiUrl.Text);
+        SettingsRepository.Set("AIApiKey", TxtApiKey.Password);
+        SettingsRepository.Set("AIModel", TxtAIModel.Text);
+        SettingsRepository.Set("AutoDailySummary", ChkAutoSummary.IsChecked == true ? "true" : "false");
+
+        // AI 总结文件保存
+        SettingsRepository.Set("AISummaryPath", TxtAISummaryPath.Text);
+        SettingsRepository.Set("AISummaryMaxCount", TxtAISummaryMaxCount.Text);
+        SettingsRepository.Set("AISummaryMaxSizeMB", TxtAISummaryMaxSizeMB.Text);
+
+        // 系统设置
+        SettingsRepository.Set("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
+        SettingsRepository.Set("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
+
+        // 开机自启
+        if (ChkAutoStart.IsChecked == true)
+            AutoStartHelper.Enable();
+        else
+            AutoStartHelper.Disable();
+
+        // 保存分类规则
+        SaveRules();
+        SaveCategories();
+
+        // 通知主窗口重启服务
+        SettingsSaved?.Invoke();
+
+        // 刷新预估值
         UpdateEstimates();
         UpdateDiskUsage();
-        _loading = false;
+
         _hasChanges = false;
         TxtUnsaved.Text = "";
+        BtnApply.IsEnabled = false;
         SaveSnapshot();
     }
 
@@ -403,7 +550,6 @@ public partial class SettingsPage : Page
         snap["PollIntervalSeconds"] = CbxSamplingInterval.Text ?? "";
         snap["IdleThresholdSeconds"] = CbxIdleThreshold.Text ?? "";
         snap["AutoStartTracking"] = (ChkAutoStartTracking.IsChecked == true).ToString().ToLower();
-        snap["TrackWindowTitle"] = (ChkTrackWindowTitle.IsChecked == true).ToString().ToLower();
         snap["EnableScreenshot"] = (ChkEnableScreenshot.IsChecked == true).ToString().ToLower();
         snap["ScreenshotOnSwitch"] = (ChkScreenshotOnSwitch.IsChecked == true).ToString().ToLower();
         snap["ScreenshotIntervalMinutes"] = CbxScreenshotInterval.Text ?? "";
@@ -414,7 +560,6 @@ public partial class SettingsPage : Page
         snap["MaxScreenshotSizeMB"] = TxtMaxSize.Text;
         snap["EnableMaxAge"] = (ChkMaxAge.IsChecked == true).ToString().ToLower();
         snap["MaxScreenshotAgeDays"] = TxtMaxAge.Text;
-        snap["Use24Hour"] = (Chk24Hour.IsChecked == true).ToString().ToLower();
         snap["DataRetentionDays"] = CbxDataRetention.Text ?? "";
         snap["EnableAI"] = (ChkEnableAI.IsChecked == true).ToString().ToLower();
         snap["AIMode"] = GetComboTag(CbxAIMode);
@@ -428,8 +573,7 @@ public partial class SettingsPage : Page
         snap["MinimizeToTray"] = (ChkMinimizeToTray.IsChecked == true).ToString().ToLower();
 
         // 规则和分类数据
-        if (RulesGrid.ItemsSource is ObservableCollection<RuleItem> rules)
-            snap["__rules"] = JsonSerializer.Serialize(rules.Select(r => new { r.ProcessName, r.TitleKeyword, r.CategoryName }).ToList());
+        snap["__rules"] = JsonSerializer.Serialize(_allRules.Select(r => new { r.ProcessName, r.TitleKeyword, r.CategoryName }).ToList());
         if (CategoriesGrid.ItemsSource is ObservableCollection<CategoryItem> cats)
             snap["__categories"] = JsonSerializer.Serialize(cats.Select(c => new { c.Name, c.Color, c.SortOrder }).ToList());
 
@@ -454,6 +598,7 @@ public partial class SettingsPage : Page
         }
         _hasChanges = changed;
         TxtUnsaved.Text = changed ? "有未保存的更改" : "";
+        BtnApply.IsEnabled = changed;
     }
 
     private static string GetComboTag(ComboBox combo)
@@ -648,7 +793,7 @@ public partial class SettingsPage : Page
         }
     }
 
-    private void RulesGrid_Changed(object sender, RoutedEventArgs e)
+    private void RulesListView_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
         MarkChanged();
@@ -733,7 +878,6 @@ public partial class SettingsPage : Page
             {"PollIntervalSeconds", "3"},
             {"IdleThresholdSeconds", "300"},
             {"AutoStartTracking", "true"},
-            {"TrackWindowTitle", "true"},
             {"EnableScreenshot", "false"},
             {"ScreenshotOnSwitch", "true"},
             {"ScreenshotIntervalMinutes", "5"},
@@ -744,7 +888,6 @@ public partial class SettingsPage : Page
             {"MaxScreenshotSizeMB", "5120"},
             {"EnableMaxAge", "true"},
             {"MaxScreenshotAgeDays", "30"},
-            {"Use24Hour", "true"},
             {"DataRetentionDays", "90"},
             {"EnableAI", "true"},
             {"AIMode", "lan"},
@@ -868,32 +1011,3 @@ public partial class SettingsPage : Page
     }
 }
 
-// ========== 数据模型 ==========
-
-public class RuleItem
-{
-    public int Id { get; set; }
-    public string ProcessName { get; set; } = "";
-    public string TitleKeyword { get; set; } = "";
-    public string CategoryName { get; set; } = "";
-    public bool IsCustom { get; set; } = true; // true=可删，false=预置不可删
-    public string TypeLabel => IsCustom ? "自定义" : "预置";
-    public string TypeBrush => IsCustom ? "#999" : "#4A90D9";
-}
-
-public class CategoryItem
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = "";
-    public string Color { get; set; } = "#808080";
-    public int SortOrder { get; set; }
-    public bool CanDelete => Id > 8; // 预置分类不可删
-    public int Count { get; set; } // 该分类下的规则数
-    // 将 hex 颜色转为 ColorValue 供 XAML 绑定
-    private static System.Windows.Media.Color ParseColor(string hex)
-    {
-        try { return (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex); }
-        catch { return System.Windows.Media.Color.FromRgb(128, 128, 128); }
-    }
-    public System.Windows.Media.Color ColorValue => ParseColor(Color);
-}

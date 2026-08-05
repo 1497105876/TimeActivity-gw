@@ -51,7 +51,7 @@ public static class RuleRepository
         EnsureInit();
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
-        using var cmd = new SqliteCommand("DELETE FROM Rules", conn);
+        using var cmd = new SqliteCommand("DELETE FROM Rules WHERE IsCustom=1", conn);
         cmd.ExecuteNonQuery();
     }
 }

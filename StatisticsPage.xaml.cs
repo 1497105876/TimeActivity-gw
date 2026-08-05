@@ -103,19 +103,14 @@ public partial class StatisticsPage : Page
             return _periodStart == DateTime.Today;
         if (_period == "week")
         {
-            var todayWeekStart = GetWeekStart(DateTime.Today);
+            var todayWeekStart = DateHelper.GetWeekStart(DateTime.Today);
             return start == todayWeekStart;
         }
         // month
         return _periodStart.Year == DateTime.Today.Year && _periodStart.Month == DateTime.Today.Month;
     }
 
-    private static DateTime GetWeekStart(DateTime date)
-    {
-        int delta = (int)date.DayOfWeek;
-        if (delta == 0) delta = 7;
-        return date.AddDays(-(delta - 1)).Date;
-    }
+
 
     /// <summary>
     /// 从数据库加载 AI 总结并显示
@@ -270,17 +265,43 @@ public partial class StatisticsPage : Page
         var (start, end) = GetRange();
 
         bool includeIdle = ChkSkipIdle.IsChecked != true;
-        var catData = ActivityRepository.GetCategorySummaryByRange(start, end, includeIdle);
-        var procData = ActivityRepository.GetProcessSummaryByRange(start, end, includeIdle);
-        var dailyData = ActivityRepository.GetDailyTotalsByRange(start, end, includeIdle);
-
-        // 类别筛选
         string filterCategory = GetSelectedFilterCategory();
-        if (!string.IsNullOrEmpty(filterCategory))
+
+        Dictionary<string, int> catData;
+        Dictionary<string, int> procData;
+        Dictionary<string, int> dailyData;
+
+        if (_period == "day")
         {
-            catData = catData.Where(k => k.Key == filterCategory)
-                .ToDictionary(k => k.Key, v => v.Value);
-            procData = FilterProcessByCategory(start, end, filterCategory);
+            // 日模式查原始表（数据量小，且需要明细）
+            catData = ActivityRepository.GetCategorySummaryByRange(start, end, includeIdle);
+            procData = ActivityRepository.GetProcessSummaryByRange(start, end, includeIdle);
+            dailyData = ActivityRepository.GetDailyTotalsByRange(start, end, includeIdle);
+
+            // 类别筛选
+            if (!string.IsNullOrEmpty(filterCategory))
+            {
+                catData = catData.Where(k => k.Key == filterCategory)
+                    .ToDictionary(k => k.Key, v => v.Value);
+                procData = FilterProcessByCategory(start, end, filterCategory);
+            }
+        }
+        else
+        {
+            // 周/月模式读汇总表（大幅减少扫描行数）
+            catData = DailySummaryRepository.GetCategorySummary(start, end);
+            dailyData = DailySummaryRepository.GetDailyTotals(start, end, includeIdle);
+
+            // Top 应用：有筛选则按类别查，否则查全部
+            procData = DailySummaryRepository.GetProcessSummary(start, end,
+                string.IsNullOrEmpty(filterCategory) ? null : filterCategory);
+
+            // 类别筛选时只保留选中的类别
+            if (!string.IsNullOrEmpty(filterCategory))
+            {
+                catData = catData.Where(k => k.Key == filterCategory)
+                    .ToDictionary(k => k.Key, v => v.Value);
+            }
         }
 
         int totalSeconds = catData.Values.Sum();
@@ -365,6 +386,7 @@ public partial class StatisticsPage : Page
     private const int AICooldownSeconds = 30;
     // 当前 AI 总结内容
     private string? _currentAISummary = null;
+    private bool _isGenerating = false;
 
     private async void BtnGenerateAI_Click(object sender, RoutedEventArgs e)
     {
@@ -377,47 +399,55 @@ public partial class StatisticsPage : Page
         }
         _lastAICallTime = DateTime.Now;
 
-        BtnGenerateAI.IsEnabled = false;
+        // 生成中不改 IsEnabled（会变白），用 flag + 文字提示
+        if (_isGenerating) return;
+        _isGenerating = true;
+        BtnGenerateAI.Content = "正在生成...";
         AISummaryText.Markdown = "正在生成...";
+
+        // 锁定当前 period 和日期，防止 await 期间用户切换导致串台
+        string lockPeriod = _period;
+        DateTime lockPeriodStart = _periodStart;
 
         try
         {
             var aiService = new AISummaryService();
 
-            // 根据 _period 调对应方法
+            // 根据锁定时的 period 调对应方法
             string? result;
-            if (_period == "day")
-                result = await aiService.GenerateDailySummary(_periodStart);
-            else if (_period == "week")
-                result = await aiService.GenerateWeeklySummary(_periodStart);
+            if (lockPeriod == "day")
+                result = await aiService.GenerateDailySummary(lockPeriodStart);
+            else if (lockPeriod == "week")
+                result = await aiService.GenerateWeeklySummary(lockPeriodStart);
             else
-                result = await aiService.GenerateMonthlySummary(_periodStart);
+                result = await aiService.GenerateMonthlySummary(lockPeriodStart);
 
             if (result != null)
             {
                 _currentAISummary = result;
 
                 // 存入数据库
-                string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
-                AISummaryRepository.Insert(_periodStart, result, summaryType, "manual");
+                string summaryType = lockPeriod switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
+                AISummaryRepository.Insert(lockPeriodStart, result, summaryType, "manual");
 
                 // 自动保存到文件（按日期文件夹分，每次保留不覆盖）
                 string? savePath = null;
                 try
                 {
-                    savePath = AISummaryService.SaveSummaryToFile(result, _periodStart, summaryType);
+                    savePath = AISummaryService.SaveSummaryToFile(result, lockPeriodStart, summaryType);
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("AI 总结自动保存失败", ex);
                 }
 
-                // 从数据库重新加载（这样时间显示也一致）
-                LoadAISummary();
-
-                // 如果保存成功，追加提示
-                if (savePath != null)
-                    AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n已自动保存到：{savePath}";
+                // 只有用户没切换走才刷新显示
+                if (lockPeriod == _period && lockPeriodStart == _periodStart)
+                {
+                    LoadAISummary();
+                    if (savePath != null)
+                        AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n已自动保存到：{savePath}";
+                }
             }
             else
             {
@@ -432,7 +462,8 @@ public partial class StatisticsPage : Page
         }
         finally
         {
-            BtnGenerateAI.IsEnabled = true;
+            _isGenerating = false;
+            BtnGenerateAI.Content = "生成总结";
         }
     }
 }

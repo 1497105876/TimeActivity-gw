@@ -66,6 +66,16 @@ public partial class MainWindow : Window
     private TrayIcon? _trayIcon;
     private bool _forceClose = false;
 
+    // === 使用占比高亮 ===
+    private readonly HashSet<string> _checkedApps = new();          // 勾选高亮的应用名
+    private readonly HashSet<string> _checkedCategories = new();    // 勾选高亮的类别名
+    private readonly Dictionary<string, string> _appBarColors = new(); // 应用名→占比条颜色缓存
+    private readonly Random _colorRandom = new();
+
+    // 勾选高亮集合（唯一高亮来源）
+    private HashSet<string> ActiveAppHighlights => _checkedApps;
+    private HashSet<string> ActiveCategoryHighlights => _checkedCategories;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -74,7 +84,9 @@ public partial class MainWindow : Window
         LoadCategoryColors();
 
         _timelineRenderer = new TimelineRenderer(_colorHelper);
+        _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
         _overviewRenderer = new OverviewRenderer(_colorHelper);
+        _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
 
         _classifier = new ActivityClassifier();
         _engine = new TrackingEngine(_classifier);
@@ -90,15 +102,23 @@ public partial class MainWindow : Window
 
         ActivityList.ItemsSource = _items;
 
+        // 加载颜色模式
+        _colorMode = SettingsRepository.Get("ColorMode", "category");
+        if (_colorMode == "app")
+        {
+            RbColorCategory.IsChecked = false;
+            RbColorApp.IsChecked = true;
+        }
+        AppColorAllocator.LoadFromDb();
+
         DrawLegend();
-        LoadDateData(_currentDate);
+        LoadDateData(_currentDate, isDateChange: true);
 
         // 统计页
         _statsPage = new StatisticsPage();
         StatsFrame.Navigate(_statsPage);
 
-        var settingsPage = new SettingsPage();
-        SettingsFrame.Navigate(settingsPage);
+        // 设置页改为独立窗口，不再在 Tab 里加载
 
         // 窗口大小变化时重绘 — 整体等比缩放
         TimelineContainer.SizeChanged += (s, e) =>
@@ -115,8 +135,44 @@ public partial class MainWindow : Window
         _autoRefreshTimer.Tick += (s, e) =>
         {
             if (_currentDate == DateTime.Today)
-                LoadDateData(_currentDate);
+            {
+                // 轻量刷新：只查库+重绘时间轴，不重建 ListView（避免卡顿）
+                var activities = ActivityRepository.GetByDate(_currentDate);
+                _cachedActivities = activities;
+
+                // 追加新记录到列表（只加末尾新增的）
+                int existingCount = _items.Count;
+                for (int i = existingCount; i < activities.Count; i++)
+                {
+                    var a = activities[i];
+                    _items.Add(new ActivityDisplayItem
+                    {
+                        Icon = IconExtractor.GetIcon(a.ProcessName),
+                        ProcessName = a.ProcessName,
+                        WindowTitle = a.WindowTitle,
+                        Category = a.Category,
+                        StartTime = a.StartTime,
+                        EndTime = a.EndTime,
+                        DurationText = TimeFormatHelper.Format(a.Duration)
+                    });
+                }
+                // 更新已有记录的结束时间和时长（最后一条可能还在进行中）
+                if (_items.Count > 0 && activities.Count > 0)
+                {
+                    var last = activities[activities.Count - 1];
+                    var item = _items[_items.Count - 1];
+                    item.EndTime = last.EndTime;
+                    item.DurationText = TimeFormatHelper.Format(last.Duration);
+                }
+
+                DrawAll();
+                UpdateTodayTotal();
+            }
             _ = CheckAutoSummaryAsync();
+
+            // 每次自动刷新都更新当天的汇总（一天的数据量不大，GROUP BY 很快）
+            try { DailySummaryRepository.GenerateForDate(DateTime.Today.ToString("yyyy-MM-dd")); }
+            catch { }
         };
         _autoRefreshTimer.Start();
 
@@ -139,8 +195,8 @@ public partial class MainWindow : Window
         // 初始化托盘需等窗口句柄就绪
         this.SourceInitialized += (s, e) => InitTray();
 
-        // 设置页保存后重启截图服务
-        SettingsPage.SettingsSaved += OnSettingsSaved;
+        // 设置窗口保存后重启截图服务
+        SettingsWindow.SettingsSaved += OnSettingsSaved;
 
         // 切换应用时截屏（仿 ManicTime）
         _engine.OnAppSwitched += () => _screenshotService.OnAppSwitched();
@@ -179,11 +235,208 @@ public partial class MainWindow : Window
 
         // 重载分类颜色（用户可能改了分类颜色）
         LoadCategoryColors();
+        _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
+        _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
         DrawLegend();
         DrawAll();
 
         // 执行数据保留清理
         PerformDataRetention();
+    }
+
+    // ========== 设置窗口 + 颜色模式 + 右键菜单 ==========
+
+    private string _colorMode = "category"; // "category" or "app"
+
+    private void BtnSettings_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var win = new SettingsWindow();
+            win.Owner = this;
+            win.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"打开设置失败：{ex.Message}\n\n{ex.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    /// <summary>
+    /// 打开设置窗口并定位到指定分区
+    /// </summary>
+    private void OpenSettings(string section)
+    {
+        try
+        {
+            var win = new SettingsWindow(section);
+            win.Owner = this;
+            win.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"打开设置失败：{ex.Message}\n\n{ex.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ColorMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        _colorMode = RbColorApp.IsChecked == true ? "app" : "category";
+        SettingsRepository.Set("ColorMode", _colorMode);
+        _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
+        _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
+        LoadCategoryColors(); // 重新加载颜色
+        DrawLegend();
+        DrawAll();
+        // 刷新统计列表
+        LoadStatsLists();
+    }
+
+    /// <summary>
+    /// 根据当前颜色模式获取某个应用的颜色
+    /// </summary>
+    private Color GetAppColor(string processName, string category)
+    {
+        if (_colorMode == "app")
+        {
+            var hex = AppColorAllocator.GetOrAssign(processName);
+            return (Color)ColorConverter.ConvertFromString(hex);
+        }
+        return _colorHelper.GetColor(category);
+    }
+
+    // ========== 右键菜单 ==========
+
+    private void AppStatsList_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        try
+        {
+        var pos = e.GetPosition(AppStatsList);
+        Logger.Info($"AppStatsList 右键事件触发，位置: {pos}");
+
+        // 找点击的行
+        var item = GetListViewItemFromPoint(AppStatsList, pos);
+        Logger.Info($"GetListViewItemFromPoint 返回: {item?.GetType().Name ?? "null"}");
+        if (item == null) return;
+
+        // 从行中提取进程名
+        string? processName = GetProcessNameFromStatsRow(item);
+        Logger.Info($"GetProcessNameFromStatsRow 返回: {processName ?? "null"}");
+        if (string.IsNullOrEmpty(processName)) return;
+
+        var menu = new ContextMenu();
+
+        var miColor = new MenuItem { Header = "颜色" };
+        miColor.Click += (s, ev) =>
+        {
+            try
+            {
+            var dlg = new System.Windows.Forms.ColorDialog();
+            dlg.FullOpen = true;
+            var current = AppColorAllocator.GetOrAssign(processName);
+            try
+            {
+                var c = (Color)ColorConverter.ConvertFromString(current);
+                dlg.Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
+            }
+            catch { }
+            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                var hex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
+                AppColorAllocator.SetCustom(processName, hex);
+                DrawAll();
+                LoadStatsLists();
+            }
+            }
+            catch (Exception ex) { MessageBox.Show($"颜色选择失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
+        };
+        menu.Items.Add(miColor);
+
+        var miCategory = new MenuItem { Header = "更改类别" };
+        miCategory.Click += (s, ev) => OpenSettings("rules");
+        menu.Items.Add(miCategory);
+
+        menu.IsOpen = true;
+        }
+        catch (Exception ex) { MessageBox.Show($"右键菜单失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
+
+    private void CategoryStatsList_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        try
+        {
+        var item = GetListViewItemFromPoint(CategoryStatsList, e.GetPosition(CategoryStatsList));
+        if (item == null) return;
+
+        string? categoryName = GetCategoryNameFromStatsRow(item);
+        if (string.IsNullOrEmpty(categoryName)) return;
+
+        var menu = new ContextMenu();
+
+        var miColor = new MenuItem { Header = "颜色" };
+        miColor.Click += (s, ev) => OpenSettings("categories");
+        menu.Items.Add(miColor);
+
+        var miView = new MenuItem { Header = "查看类别" };
+        miView.Click += (s, ev) => OpenSettings("rules");
+        menu.Items.Add(miView);
+
+        menu.IsOpen = true;
+        }
+        catch (Exception ex) { MessageBox.Show($"右键菜单失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
+    }
+
+    // ========== 右键菜单辅助方法 ==========
+
+    private static object? GetListViewItemFromPoint(System.Windows.Controls.ListView list, System.Windows.Point point)
+    {
+        var hit = list.InputHitTest(point) as DependencyObject;
+        while (hit != null && hit is not System.Windows.Controls.ListViewItem)
+            hit = VisualTreeHelper.GetParent(hit);
+        return hit;
+    }
+
+    private static string? GetProcessNameFromStatsRow(object item)
+    {
+        // item 是 ListViewItem，里面包裹的是 Border（CreateStatsRow 返回的）
+        if (item is System.Windows.DependencyObject d)
+        {
+            var border = FindChild<Border>(d);
+            if (border?.Tag is string s)
+                return s;
+            // Border 可能直接就是 item 的 Content
+            if (item is System.Windows.Controls.ContentControl cc && cc.Content is Border b && b.Tag is string s2)
+                return s2;
+        }
+        return null;
+    }
+
+    private static string? GetCategoryNameFromStatsRow(object item)
+    {
+        if (item is System.Windows.DependencyObject d)
+        {
+            var border = FindChild<Border>(d);
+            if (border?.Tag is string s)
+                return s;
+            if (item is System.Windows.Controls.ContentControl cc && cc.Content is Border b && b.Tag is string s2)
+                return s2;
+        }
+        return null;
+    }
+
+    private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T found)
+                return found;
+            var result = FindChild<T>(child);
+            if (result != null)
+                return result;
+        }
+        return null;
     }
 
     /// <summary>
@@ -204,9 +457,8 @@ public partial class MainWindow : Window
                 }
             }
 
-            // 启动时生成昨天的每日汇总
-            string yesterday = DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd");
-            DailySummaryRepository.GenerateForDate(yesterday);
+            // 启动时补全所有缺失的每日汇总
+            DailySummaryRepository.GenerateAllMissing();
         }
         catch (Exception ex)
         {
@@ -227,7 +479,7 @@ public partial class MainWindow : Window
             DateTime today = DateTime.Today;
 
             // 检查上周总结
-            DateTime lastWeekStart = GetWeekStart(today.AddDays(-7));
+            DateTime lastWeekStart = DateHelper.GetWeekStart(today.AddDays(-7));
             if (!AISummaryRepository.HasAuto(lastWeekStart, "weekly"))
             {
                 int weekSeconds = ActivityRepository.GetCategorySummaryByRange(lastWeekStart, lastWeekStart.AddDays(6), false).Values.Sum();
@@ -269,14 +521,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// 获取本周一（或指定日期所在周的周一）
-    /// </summary>
-    private static DateTime GetWeekStart(DateTime date)
-    {
-        int diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
-        return date.AddDays(-1 * diff).Date;
-    }
+
     private async void ShowStatus(string message)
     {
         try
@@ -394,25 +639,25 @@ public partial class MainWindow : Window
         StatusText.Text = "已停止";
     }
 
-    private void BtnRefresh_Click(object sender, RoutedEventArgs e) => LoadDateData(_currentDate);
+    private void BtnRefresh_Click(object sender, RoutedEventArgs e) => LoadDateData(_currentDate, isDateChange: true);
 
     private void BtnPrevDay_Click(object sender, RoutedEventArgs e)
     {
         _currentDate = _currentDate.AddDays(-1);
-        LoadDateData(_currentDate);
+        LoadDateData(_currentDate, isDateChange: true);
     }
 
     private void BtnNextDay_Click(object sender, RoutedEventArgs e)
     {
         if (_currentDate >= DateTime.Today) return;
         _currentDate = _currentDate.AddDays(1);
-        LoadDateData(_currentDate);
+        LoadDateData(_currentDate, isDateChange: true);
     }
 
     private void BtnToday_Click(object sender, RoutedEventArgs e)
     {
         _currentDate = DateTime.Today;
-        LoadDateData(_currentDate);
+        LoadDateData(_currentDate, isDateChange: true);
     }
 
     // ========== 追踪回调 ==========
@@ -440,7 +685,7 @@ public partial class MainWindow : Window
                     Category = activity.Category,
                     StartTime = activity.StartTime,
                     EndTime = activity.EndTime,
-                    DurationText = TimelineRenderer.FormatDuration(activity.Duration)
+                    DurationText = TimeFormatHelper.Format(activity.Duration)
                 });
                 while (_items.Count > 500)
                     _items.RemoveAt(_items.Count - 1);
@@ -471,7 +716,7 @@ public partial class MainWindow : Window
 
     // ========== 数据加载 ==========
 
-    private void LoadDateData(DateTime date)
+    private void LoadDateData(DateTime date, bool isDateChange = false)
     {
         if (date == DateTime.Today)
             DateText.Text = "今天";
@@ -495,8 +740,17 @@ public partial class MainWindow : Window
                 Category = a.Category,
                 StartTime = a.StartTime,
                 EndTime = a.EndTime,
-                DurationText = TimelineRenderer.FormatDuration(a.Duration)
+                DurationText = TimeFormatHelper.Format(a.Duration)
             });
+        }
+
+        // 仅切日期时清空勾选 + 重建统计列表（自动刷新不动勾选）
+        if (isDateChange)
+        {
+            _checkedApps.Clear();
+            _checkedCategories.Clear();
+            if (StatsListPanel?.Visibility == Visibility.Visible)
+                LoadStatsLists();
         }
 
         DrawAll();
@@ -504,22 +758,215 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 切换列表显示模式：使用明细 / 使用统计
+    /// 切换列表显示模式：使用明细 / 使用占比
     /// </summary>
     private void RbListMode_Checked(object sender, RoutedEventArgs e)
     {
-        if (ActivityList == null || StatsList == null) return;
+        if (ActivityList == null || StatsListPanel == null) return;
 
         var rb = sender as RadioButton;
         if (rb?.Tag?.ToString() == "stats")
         {
             ActivityList.Visibility = Visibility.Collapsed;
-            StatsList.Visibility = Visibility.Visible;
+            StatsListPanel.Visibility = Visibility.Visible;
+            LoadStatsLists();
         }
         else
         {
             ActivityList.Visibility = Visibility.Visible;
-            StatsList.Visibility = Visibility.Collapsed;
+            StatsListPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    // ========== 使用占比列表 ==========
+
+    private string GetRandomBarColor()
+    {
+        var colors = new[] { "#4A90D9", "#E67E22", "#E74C3C", "#2ECC71", "#9B59B6", "#1ABC9C", "#F39C12", "#E91E63", "#00BCD4", "#8BC34A", "#FF5722", "#3F51B5" };
+        return colors[_colorRandom.Next(colors.Length)];
+    }
+
+    private string GetAppBarColor(string appName)
+    {
+        if (!_appBarColors.TryGetValue(appName, out var color))
+        {
+            color = GetRandomBarColor();
+            _appBarColors[appName] = color;
+        }
+        return color;
+    }
+
+    private void LoadStatsLists()
+    {
+        AppStatsList.Items.Clear();
+        CategoryStatsList.Items.Clear();
+
+        // 从缓存的活动数据聚合
+        var activities = _cachedActivities.Where(a => !a.IsIdle).ToList();
+        if (activities.Count == 0) return;
+
+        int totalSeconds = activities.Sum(a => a.Duration);
+
+        // 应用统计
+        var appGroups = activities
+            .GroupBy(a => a.ProcessName)
+            .OrderByDescending(g => g.Sum(a => a.Duration))
+            .ToList();
+
+        foreach (var g in appGroups)
+        {
+            int sec = g.Sum(a => a.Duration);
+            double pct = totalSeconds > 0 ? sec * 100.0 / totalSeconds : 0;
+            string cat = g.First().Category;
+            var row = CreateStatsRow(false, g.Key, cat, sec, pct,
+                AppColorAllocator.GetOrAssign(g.Key),
+                IconExtractor.GetIcon(g.Key));
+            AppStatsList.Items.Add(row);
+        }
+
+        // 类别统计
+        var catGroups = activities
+            .GroupBy(a => a.Category)
+            .OrderByDescending(g => g.Sum(a => a.Duration))
+            .ToList();
+
+        foreach (var g in catGroups)
+        {
+            int sec = g.Sum(a => a.Duration);
+            double pct = totalSeconds > 0 ? sec * 100.0 / totalSeconds : 0;
+            string color = _categoryColors.TryGetValue(g.Key, out var c) ? c : "#7F8C8D";
+            var row = CreateStatsRow(true, g.Key, "", sec, pct, color, null);
+            CategoryStatsList.Items.Add(row);
+        }
+    }
+
+    private Border CreateStatsRow(bool isCategory, string name, string category, int seconds, double pct, string barColor, ImageSource? icon)
+    {
+        var row = new Border { Padding = new Thickness(2), Margin = new Thickness(0, 1, 0, 1), Tag = name, Background = System.Windows.Media.Brushes.Transparent };
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });   // checkbox
+        if (!isCategory)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });   // icon
+        }
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(isCategory ? 100 : 80) }); // name
+        if (!isCategory)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });   // category
+        }
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // bar
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });   // duration
+
+        int col = 0;
+
+        // Checkbox
+        var cb = new CheckBox { VerticalAlignment = VerticalAlignment.Center, Tag = name };
+        if (isCategory)
+        {
+            cb.Checked += CatStatsRow_CheckChanged;
+            cb.Unchecked += CatStatsRow_CheckChanged;
+        }
+        else
+        {
+            cb.Checked += AppStatsRow_CheckChanged;
+            cb.Unchecked += AppStatsRow_CheckChanged;
+        }
+        Grid.SetColumn(cb, col++);
+        grid.Children.Add(cb);
+
+        // Icon (apps only)
+        if (!isCategory)
+        {
+            var img = new Image { Source = icon, Width = 16, Height = 16, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(img, col++);
+            grid.Children.Add(img);
+        }
+
+        // Name
+        var nameTb = new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        Grid.SetColumn(nameTb, col++);
+        grid.Children.Add(nameTb);
+
+        // Category (apps only)
+        if (!isCategory)
+        {
+            var catTb = new TextBlock { Text = category, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)), FontSize = 11 };
+            Grid.SetColumn(catTb, col++);
+            grid.Children.Add(catTb);
+        }
+
+        // Bar — Canvas 实现，固定宽度 120
+        const double BarWidth = 120;
+        const double BarHeight = 14;
+        var barCanvas = new Canvas { Width = BarWidth, Height = BarHeight, Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center };
+
+        // 外框
+        var barBorder = new Border { BorderBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)), BorderThickness = new Thickness(1), Height = BarHeight, CornerRadius = new CornerRadius(2) };
+        Canvas.SetLeft(barBorder, 0); Canvas.SetTop(barBorder, 0);
+        barCanvas.Children.Add(barBorder);
+
+        // 有色部分
+        double fillWidth = BarWidth * pct / 100.0;
+        var fillColor = (Color)ColorConverter.ConvertFromString(barColor);
+        var fillBorder = new Border { Background = new SolidColorBrush(fillColor), Height = BarHeight - 2, CornerRadius = new CornerRadius(2, 0, 0, 2) };
+        Canvas.SetLeft(fillBorder, 1); Canvas.SetTop(fillBorder, 1);
+        fillBorder.Width = Math.Max(0, fillWidth - 1);
+        barCanvas.Children.Add(fillBorder);
+
+        // 百分比文字
+        string pctText = $"{pct:F1}%";
+        var pctTb = new TextBlock { Text = pctText, FontSize = 10, VerticalAlignment = VerticalAlignment.Center };
+        pctTb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double textWidth = pctTb.DesiredSize.Width;
+
+        if (pct > 80)
+        {
+            // 放在有色部分上居中，白色字
+            pctTb.Foreground = Brushes.White;
+            Canvas.SetLeft(pctTb, Math.Max(1, (fillWidth - textWidth) / 2));
+        }
+        else
+        {
+            // 放在透明部分开头，黑色字
+            pctTb.Foreground = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33));
+            Canvas.SetLeft(pctTb, fillWidth + 2);
+        }
+        Canvas.SetTop(pctTb, (BarHeight - pctTb.DesiredSize.Height) / 2);
+        barCanvas.Children.Add(pctTb);
+
+        Grid.SetColumn(barCanvas, col++);
+        grid.Children.Add(barCanvas);
+
+        // Duration
+        var durTb = new TextBlock { Text = TimeFormatHelper.Format(seconds), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
+        Grid.SetColumn(durTb, col++);
+        grid.Children.Add(durTb);
+
+        row.Child = grid;
+        return row;
+    }
+
+    private void AppStatsRow_CheckChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox cb && cb.Tag is string appName)
+        {
+            if (cb.IsChecked == true)
+                _checkedApps.Add(appName);
+            else
+                _checkedApps.Remove(appName);
+            DrawAll();
+        }
+    }
+
+    private void CatStatsRow_CheckChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is CheckBox cb && cb.Tag is string catName)
+        {
+            if (cb.IsChecked == true)
+                _checkedCategories.Add(catName);
+            else
+                _checkedCategories.Remove(catName);
+            DrawAll();
         }
     }
 
@@ -541,7 +988,9 @@ public partial class MainWindow : Window
         // 上方时间轴
         TopScaleCanvas.Width = w;
         MainTimelineCanvas.Width = w;
-        _timelineRenderer.DrawActivities(MainTimelineCanvas, w, TimelineHeight, _cachedActivities, _viewStartSeconds, _visibleSeconds);
+        _timelineRenderer.DrawActivities(MainTimelineCanvas, w, TimelineHeight, _cachedActivities, _viewStartSeconds, _visibleSeconds,
+            ActiveAppHighlights.Count > 0 ? ActiveAppHighlights : null,
+            ActiveCategoryHighlights.Count > 0 ? ActiveCategoryHighlights : null);
         _timelineRenderer.DrawScale(TopScaleCanvas, w, _viewStartSeconds, _visibleSeconds);
 
         // 下方概览条
@@ -649,14 +1098,15 @@ public partial class MainWindow : Window
             PopupCategory.Visibility = Visibility.Visible;
             PopupProcess.Visibility = Visibility.Visible;
             PopupColor.Fill = new SolidColorBrush(GetCategoryColor(hit.Category));
-            PopupCategory.Text = $"{hit.Category}  ·  {TimelineRenderer.FormatDuration(hit.Duration)}";
+            PopupCategory.Text = $"{hit.Category}  ·  {TimeFormatHelper.Format(hit.Duration)}";
             PopupTime.Text = $"{hit.StartTime:HH:mm:ss} → {hit.EndTime:HH:mm:ss}";
             PopupProcess.Text = hit.ProcessName;
             PopupTitle.Text = hit.WindowTitle;
             PopupTitle.Visibility = string.IsNullOrEmpty(hit.WindowTitle) ? Visibility.Collapsed : Visibility.Visible;
 
-            // 加载截图（路径没变就不重新加载）
-            var screenshotPath = ScreenshotService.GetScreenshotForTime(hit.StartTime);
+            // 用鼠标当前时间点查截图（<= 该时间点最近的一张）
+            DateTime mouseDateTime = _currentDate.Date.AddSeconds(mouseTime);
+            var screenshotPath = ScreenshotService.GetScreenshotForTime(mouseDateTime);
             if (screenshotPath != null)
             {
                 if (_lastScreenshotPath != screenshotPath)

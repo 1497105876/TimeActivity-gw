@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using TimeActivity.Services;
+using TimeActivity.Helpers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using TimeActivity.Data;
@@ -150,9 +151,9 @@ public class AISummaryService
         foreach (var (cat, sec) in catSummary)
         {
             totalSeconds += sec;
-            sb.AppendLine($"  {cat}：{FormatDuration(sec)}");
+            sb.AppendLine($"  {cat}：{TimeFormatHelper.Format(sec)}");
         }
-        sb.AppendLine($"  总活跃时长：{FormatDuration(totalSeconds)}");
+        sb.AppendLine($"  总活跃时长：{TimeFormatHelper.Format(totalSeconds)}");
         sb.AppendLine();
 
         sb.AppendLine("Top 5 应用：");
@@ -160,7 +161,7 @@ public class AISummaryService
         foreach (var (proc, sec) in procSummary)
         {
             if (rank > 5) break;
-            sb.AppendLine($"  {rank}. {proc}：{FormatDuration(sec)}");
+            sb.AppendLine($"  {rank}. {proc}：{TimeFormatHelper.Format(sec)}");
             rank++;
         }
 
@@ -173,14 +174,7 @@ public class AISummaryService
         return sb.ToString();
     }
 
-    private static string FormatDuration(long seconds)
-    {
-        if (seconds < 60) return $"{seconds}秒";
-        long h = seconds / 3600;
-        long m = (seconds % 3600) / 60;
-        if (h > 0) return $"{h}小时{m}分钟";
-        return $"{m}分钟";
-    }
+    // FormatDuration 已移到 TimeFormatHelper
 
     // ========== 总结文件保存 ==========
 
@@ -334,23 +328,24 @@ public class AISummaryService
 
         sb.AppendLine("### 分类时长");
         foreach (var c in catSummary)
-            sb.AppendLine($"- {c.Key}: {FormatDuration(c.Value)}");
+            sb.AppendLine($"- {c.Key}: {TimeFormatHelper.Format(c.Value)}");
 
         sb.AppendLine("\n### Top 10 应用");
+        sb.AppendLine("请务必列出以下全部 10 个应用，不要省略：");
         int i = 1;
         foreach (var p in procSummary.Take(10))
-            sb.AppendLine($"{i++}. {p.Key}: {FormatDuration(p.Value)}");
+            sb.AppendLine($"{i++}. {p.Key}: {TimeFormatHelper.Format(p.Value)}");
 
         int activeDays = dailyTotals.Count(d => d.Value > 0);
         long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
         sb.AppendLine($"\n### 活跃情况");
         sb.AppendLine($"- 活跃天数: {activeDays}/7");
-        sb.AppendLine($"- 总活跃时长: {FormatDuration(totalSeconds)}");
-        sb.AppendLine($"- 日均活跃: {FormatDuration(activeDays > 0 ? totalSeconds / activeDays : 0)}");
+        sb.AppendLine($"- 总活跃时长: {TimeFormatHelper.Format(totalSeconds)}");
+        sb.AppendLine($"- 日均活跃: {TimeFormatHelper.Format(activeDays > 0 ? totalSeconds / activeDays : 0)}");
 
         sb.AppendLine("\n### 每日明细");
         foreach (var d in dailyTotals)
-            sb.AppendLine($"- {d.Key}: {FormatDuration(d.Value)}");
+            sb.AppendLine($"- {d.Key}: {TimeFormatHelper.Format(d.Value)}");
 
         return sb.ToString();
     }
@@ -372,20 +367,21 @@ public class AISummaryService
 
         sb.AppendLine("### 分类时长");
         foreach (var c in catSummary)
-            sb.AppendLine($"- {c.Key}: {FormatDuration(c.Value)}");
+            sb.AppendLine($"- {c.Key}: {TimeFormatHelper.Format(c.Value)}");
 
         sb.AppendLine("\n### Top 15 应用");
+        sb.AppendLine("请务必列出以下全部 15 个应用，不要省略：");
         int i = 1;
         foreach (var p in procSummary.Take(15))
-            sb.AppendLine($"{i++}. {p.Key}: {FormatDuration(p.Value)}");
+            sb.AppendLine($"{i++}. {p.Key}: {TimeFormatHelper.Format(p.Value)}");
 
         int activeDays = dailyTotals.Count(d => d.Value > 0);
         long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
         int daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
         sb.AppendLine($"\n### 活跃情况");
         sb.AppendLine($"- 活跃天数: {activeDays}/{daysInMonth}");
-        sb.AppendLine($"- 总活跃时长: {FormatDuration(totalSeconds)}");
-        sb.AppendLine($"- 日均活跃: {FormatDuration(activeDays > 0 ? totalSeconds / activeDays : 0)}");
+        sb.AppendLine($"- 总活跃时长: {TimeFormatHelper.Format(totalSeconds)}");
+        sb.AppendLine($"- 日均活跃: {TimeFormatHelper.Format(activeDays > 0 ? totalSeconds / activeDays : 0)}");
 
         // 周对比
         sb.AppendLine("\n### 每周对比");
@@ -396,7 +392,7 @@ public class AISummaryService
         foreach (var g in weeklyGroups)
         {
             long weekTotal = g.Sum(x => (long)x.Seconds);
-            sb.AppendLine($"- 第{g.Key}周: {FormatDuration(weekTotal)}");
+            sb.AppendLine($"- 第{g.Key}周: {TimeFormatHelper.Format(weekTotal)}");
         }
 
         return sb.ToString();
