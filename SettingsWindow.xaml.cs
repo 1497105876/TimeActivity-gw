@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -215,23 +216,27 @@ public partial class SettingsWindow : Window
 
     // ========== 分类规则 ==========
 
-    private void LoadRules()
+    private async void LoadRules()
     {
-        var rules = RuleRepository.GetAll();
-        var ruleItems = new ObservableCollection<RuleItem>();
-        foreach (var r in rules)
+        RulesListView.ItemsSource = null;
+        await Task.Run(() =>
         {
-            var cat = _categories.FirstOrDefault(c => c.Id == r.CategoryId);
-            ruleItems.Add(new RuleItem
+            var rules = RuleRepository.GetAll();
+            var ruleItems = new ObservableCollection<RuleItem>();
+            foreach (var r in rules)
             {
-                Id = r.Id,
-                ProcessName = r.ProcessName ?? "",
-                TitleKeyword = r.TitleKeyword ?? "",
-                CategoryName = cat?.Name ?? "",
-                IsCustom = r.IsCustom
-            });
-        }
-        _allRules = ruleItems;
+                var cat = _categories.FirstOrDefault(c => c.Id == r.CategoryId);
+                ruleItems.Add(new RuleItem
+                {
+                    Id = r.Id,
+                    ProcessName = r.ProcessName ?? "",
+                    TitleKeyword = r.TitleKeyword ?? "",
+                    CategoryName = cat?.Name ?? "",
+                    IsCustom = r.IsCustom
+                });
+            }
+            _allRules = ruleItems;
+        });
         ApplyRuleFilter();
     }
 

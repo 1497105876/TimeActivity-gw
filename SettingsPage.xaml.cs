@@ -887,7 +887,7 @@ public class CategoryItem
     public string Name { get; set; } = "";
     public string Color { get; set; } = "#808080";
     public int SortOrder { get; set; }
-    public bool CanDelete => Id > 8; // 预置分类不可删
+    public bool CanDelete => Id > 13; // 预置分类（Id 1-13）不可删
     public int Count { get; set; } // 该分类下的规则数
     // 将 hex 颜色转为 ColorValue 供 XAML 绑定
     private static System.Windows.Media.Color ParseColor(string hex)

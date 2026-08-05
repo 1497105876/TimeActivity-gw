@@ -168,15 +168,15 @@ public class DatabaseHelper
                     ("社交通讯", "#E67E22", "chat", 2),
                     ("游戏", "#E74C3C", "gamepad", 3),
                     ("办公学习", "#2ECC71", "book", 4),
-                    ("系统组件", "#95A5A6", "desktop", 5),
+                    ("系统组件", "#7CB9E8", "desktop", 5),
                     ("浏览器", "#9B59B6", "globe", 6),
-                    ("空闲", "#BDC3C7", "coffee", 7),
-                    ("未分类", "#7F8C8D", "question", 8),
-                    ("视频娱乐", "#C0392B", "video", 9),
-                    ("音乐", "#8E44AD", "music", 10),
-                    ("设计创作", "#F39C12", "palette", 11),
-                    ("实用工具", "#1ABC9C", "wrench", 12),
-                    ("AI助手", "#E91E63", "robot", 13),
+                    ("空闲", "#CFD8DC", "coffee", 7),
+                    ("未分类", "#90A4AE", "question", 8),
+                    ("视频娱乐", "#FF6B6B", "video", 9),
+                    ("音乐", "#AB47BC", "music", 10),
+                    ("设计创作", "#FFA726", "palette", 11),
+                    ("实用工具", "#26C6DA", "wrench", 12),
+                    ("AI助手", "#EC407A", "robot", 13),
                 };
                 foreach (var (name, color, icon, order) in cats)
                 {
@@ -459,6 +459,60 @@ public class DatabaseHelper
             using var cmd = new SqliteCommand($"DELETE FROM {table}", conn);
             cmd.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>
+    /// 重新分类所有历史活动记录（规则更新后调用）
+    /// </summary>
+    public static int ReclassifyAll(System.Func<string, string, string> classifyFunc)
+    {
+        Initialize();
+        int updated = 0;
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+
+        // 取所有非空闲活动记录
+        using var selCmd = new SqliteCommand(
+            "SELECT Id, ProcessName, WindowTitle FROM Activities WHERE IsIdle=0", conn);
+        using var reader = selCmd.ExecuteReader();
+
+        var updates = new List<(long id, string category)>();
+        while (reader.Read())
+        {
+            long id = reader.GetInt64(0);
+            string proc = reader.GetString(1);
+            string title = reader.IsDBNull(2) ? "" : reader.GetString(2);
+            string newCat = classifyFunc(proc, title);
+            updates.Add((id, newCat));
+        }
+
+        reader.Close();
+
+        foreach (var (id, cat) in updates)
+        {
+            using var updCmd = new SqliteCommand(
+                "UPDATE Activities SET Category=@c WHERE Id=@id", conn);
+            updCmd.Parameters.AddWithValue("@c", cat);
+            updCmd.Parameters.AddWithValue("@id", id);
+            updated += updCmd.ExecuteNonQuery();
+        }
+
+        // 重新生成每日汇总
+        using var datesCmd = new SqliteCommand(
+            "SELECT DISTINCT date(StartTime) FROM Activities", conn);
+        using var dateReader = datesCmd.ExecuteReader();
+        var dates = new List<string>();
+        while (dateReader.Read())
+            dates.Add(dateReader.GetString(0));
+        dateReader.Close();
+
+        foreach (var date in dates)
+            DailySummaryRepository.GenerateForDate(date);
+
+        if (updated > 0)
+            Logger.Info($"重新分类完成：更新 {updated} 条活动记录，重新生成 {dates.Count} 天汇总");
+
+        return updated;
     }
 
     /// <summary>

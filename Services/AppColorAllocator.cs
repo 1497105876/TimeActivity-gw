@@ -11,7 +11,7 @@ namespace TimeActivity.Services;
 /// </summary>
 public static class AppColorAllocator
 {
-    // HSV 均匀分布的 24 色调色板（饱和度 0.7，亮度 0.55）
+    // HSV 均匀分布的 24 色调色板（饱和度 0.75，亮度 0.65，明亮但不刺眼）
     private static readonly string[] Palette = GeneratePalette();
 
     // 内存缓存：进程名 → 颜色
@@ -26,7 +26,7 @@ public static class AppColorAllocator
         for (int i = 0; i < 24; i++)
         {
             double h = i * 15.0; // 0, 15, 30, ... 345
-            var color = HsvToColor(h, 0.7, 0.55);
+            var color = HsvToColor(h, 0.75, 0.65);
             colors[i] = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
         }
         return colors;
@@ -105,8 +105,8 @@ public static class AppColorAllocator
         for (int i = 0; i < 50; i++)
         {
             double h = rng.NextDouble() * 360;
-            double s = 0.5 + rng.NextDouble() * 0.3; // 0.5~0.8
-            double v = 0.45 + rng.NextDouble() * 0.25; // 0.45~0.7
+            double s = 0.6 + rng.NextDouble() * 0.25; // 0.6~0.85
+            double v = 0.55 + rng.NextDouble() * 0.2; // 0.55~0.75
             var candidate = HsvToColor(h, s, v);
             var candidateHex = $"#{candidate.R:X2}{candidate.G:X2}{candidate.B:X2}";
 

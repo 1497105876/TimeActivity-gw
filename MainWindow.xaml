@@ -107,7 +107,7 @@
                                                 </DataTemplate>
                                             </GridViewColumn.CellTemplate>
                                         </GridViewColumn>
-                                        <GridViewColumn Header="进程" Width="120" DisplayMemberBinding="{Binding ProcessName}"/>
+                                        <GridViewColumn Header="应用" Width="120" DisplayMemberBinding="{Binding DisplayName}"/>
                                         <GridViewColumn Header="标题" Width="300" DisplayMemberBinding="{Binding WindowTitle}"/>
                                         <GridViewColumn Header="类别" Width="70" DisplayMemberBinding="{Binding Category}"/>
                                         <GridViewColumn Header="开始" Width="90" DisplayMemberBinding="{Binding StartTime, StringFormat=HH:mm:ss}"/>

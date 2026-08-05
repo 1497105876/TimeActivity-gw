@@ -92,6 +92,16 @@ public partial class MainWindow : Window
         _engine = new TrackingEngine(_classifier);
         _screenshotService = new ScreenshotService();
 
+        // 启动时重新分类历史数据（规则可能已更新）
+        try
+        {
+            DatabaseHelper.ReclassifyAll(_classifier.Classify);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("启动重新分类失败", ex);
+        }
+
         if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
             _engine.PollIntervalSeconds = poll;
         if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
@@ -149,6 +159,7 @@ public partial class MainWindow : Window
                     {
                         Icon = IconExtractor.GetIcon(a.ProcessName),
                         ProcessName = a.ProcessName,
+                        DisplayName = Services.AppDisplayName.Get(a.ProcessName),
                         WindowTitle = a.WindowTitle,
                         Category = a.Category,
                         StartTime = a.StartTime,
@@ -681,6 +692,7 @@ public partial class MainWindow : Window
                 {
                     Icon = IconExtractor.GetIcon(activity.ProcessName),
                     ProcessName = activity.ProcessName,
+                    DisplayName = Services.AppDisplayName.Get(activity.ProcessName),
                     WindowTitle = activity.WindowTitle,
                     Category = activity.Category,
                     StartTime = activity.StartTime,
@@ -736,6 +748,7 @@ public partial class MainWindow : Window
             {
                 Icon = IconExtractor.GetIcon(a.ProcessName),
                 ProcessName = a.ProcessName,
+                DisplayName = Services.AppDisplayName.Get(a.ProcessName),
                 WindowTitle = a.WindowTitle,
                 Category = a.Category,
                 StartTime = a.StartTime,
@@ -820,7 +833,8 @@ public partial class MainWindow : Window
             string cat = g.First().Category;
             var row = CreateStatsRow(false, g.Key, cat, sec, pct,
                 AppColorAllocator.GetOrAssign(g.Key),
-                IconExtractor.GetIcon(g.Key));
+                IconExtractor.GetIcon(g.Key),
+                Services.AppDisplayName.Get(g.Key));
             AppStatsList.Items.Add(row);
         }
 
@@ -835,12 +849,12 @@ public partial class MainWindow : Window
             int sec = g.Sum(a => a.Duration);
             double pct = totalSeconds > 0 ? sec * 100.0 / totalSeconds : 0;
             string color = _categoryColors.TryGetValue(g.Key, out var c) ? c : "#7F8C8D";
-            var row = CreateStatsRow(true, g.Key, "", sec, pct, color, null);
+            var row = CreateStatsRow(true, g.Key, "", sec, pct, color, null, g.Key);
             CategoryStatsList.Items.Add(row);
         }
     }
 
-    private Border CreateStatsRow(bool isCategory, string name, string category, int seconds, double pct, string barColor, ImageSource? icon)
+    private Border CreateStatsRow(bool isCategory, string name, string category, int seconds, double pct, string barColor, ImageSource? icon, string displayName)
     {
         var row = new Border { Padding = new Thickness(2), Margin = new Thickness(0, 1, 0, 1), Tag = name, Background = System.Windows.Media.Brushes.Transparent };
         var grid = new Grid();
@@ -883,7 +897,7 @@ public partial class MainWindow : Window
         }
 
         // Name
-        var nameTb = new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        var nameTb = new TextBlock { Text = displayName, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         Grid.SetColumn(nameTb, col++);
         grid.Children.Add(nameTb);
 
