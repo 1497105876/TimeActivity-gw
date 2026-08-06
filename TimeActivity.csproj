@@ -16,4 +16,15 @@
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
+  <!-- 排除已废弃的旧设置页（模型类已移至 Models/） -->
+  <ItemGroup>
+    <Compile Remove="SettingsPage.xaml.cs" />
+    <Page Remove="SettingsPage.xaml" />
+  </ItemGroup>
+
+  <!-- 预置规则数据文件复制到输出目录 -->
+  <ItemGroup>
+    <None Update="Data\seed_rules.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

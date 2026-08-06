@@ -54,4 +54,62 @@ public static class SettingsRepository
         }
         return dict;
     }
+
+    /// <summary>
+    /// 默认设置值 — 单一数据源，DatabaseHelper.Initialize 和 BtnRestoreDefault 共用
+    /// </summary>
+    public static readonly Dictionary<string, string> Defaults = new()
+    {
+        ["PollIntervalSeconds"] = "3",
+        ["IdleThresholdSeconds"] = "300",
+        ["AutoStartTracking"] = "true",
+        ["EnableScreenshot"] = "false",
+        ["ScreenshotOnSwitch"] = "true",
+        ["ScreenshotIntervalMinutes"] = "5",
+        ["ScreenshotFormat"] = "jpg",
+        ["ScreenshotPath"] = "",
+        ["ScreenshotQuality"] = "medium",
+        ["EnableMaxSize"] = "true",
+        ["MaxScreenshotSizeMB"] = "5120",
+        ["EnableMaxAge"] = "true",
+        ["MaxScreenshotAgeDays"] = "30",
+        ["ColorScheme"] = "default",
+        ["Theme"] = "light",
+        ["DataRetentionDays"] = "90",
+        ["EnableAI"] = "true",
+        ["AIMode"] = "lan",
+        ["AIApiUrl"] = "http://localhost:11434",
+        ["AIApiKey"] = "",
+        ["AIModel"] = "qwen2.5:7b",
+        ["AutoDailySummary"] = "true",
+        ["AISummaryPath"] = "",
+        ["AISummaryMaxCount"] = "30",
+        ["AISummaryMaxSizeMB"] = "50",
+        ["AutoStartWithWindows"] = "false",
+        ["MinimizeToTray"] = "true",
+    };
+
+    /// <summary>
+    /// 按页分组返回默认值（BtnRestoreDefault 用）
+    /// </summary>
+    public static Dictionary<string, string> GetDefaultsByPage(int navIndex) => navIndex switch
+    {
+        0 => FilterDefaults("PollIntervalSeconds", "IdleThresholdSeconds", "AutoStartTracking"),
+        1 => FilterDefaults("EnableScreenshot", "ScreenshotOnSwitch", "ScreenshotIntervalMinutes",
+            "ScreenshotFormat", "ScreenshotPath", "ScreenshotQuality",
+            "EnableMaxSize", "MaxScreenshotSizeMB", "EnableMaxAge", "MaxScreenshotAgeDays"),
+        4 => FilterDefaults("DataRetentionDays"),
+        5 => FilterDefaults("EnableAI", "AIMode", "AIApiUrl", "AIApiKey", "AIModel", "AutoDailySummary"),
+        6 => FilterDefaults("AutoStartWithWindows", "MinimizeToTray"),
+        _ => new()
+    };
+
+    private static Dictionary<string, string> FilterDefaults(params string[] keys)
+    {
+        var result = new Dictionary<string, string>();
+        foreach (var key in keys)
+            if (Defaults.TryGetValue(key, out var val))
+                result[key] = val;
+        return result;
+    }
 }

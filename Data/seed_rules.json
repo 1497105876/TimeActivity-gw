@@ -1,0 +1,1510 @@
+[
+  {
+    "process": "devenv",
+    "category": "开发工具"
+  },
+  {
+    "process": "code",
+    "category": "开发工具"
+  },
+  {
+    "process": "code-insiders",
+    "category": "开发工具"
+  },
+  {
+    "process": "idea64",
+    "category": "开发工具"
+  },
+  {
+    "process": "idea",
+    "category": "开发工具"
+  },
+  {
+    "process": "pycharm64",
+    "category": "开发工具"
+  },
+  {
+    "process": "pycharm",
+    "category": "开发工具"
+  },
+  {
+    "process": "webstorm64",
+    "category": "开发工具"
+  },
+  {
+    "process": "rider64",
+    "category": "开发工具"
+  },
+  {
+    "process": "clion64",
+    "category": "开发工具"
+  },
+  {
+    "process": "goland64",
+    "category": "开发工具"
+  },
+  {
+    "process": "phpstorm64",
+    "category": "开发工具"
+  },
+  {
+    "process": "rubymine64",
+    "category": "开发工具"
+  },
+  {
+    "process": "studio64",
+    "category": "开发工具"
+  },
+  {
+    "process": "cmd",
+    "category": "开发工具"
+  },
+  {
+    "process": "powershell",
+    "category": "开发工具"
+  },
+  {
+    "process": "pwsh",
+    "category": "开发工具"
+  },
+  {
+    "process": "WindowsTerminal",
+    "category": "开发工具"
+  },
+  {
+    "process": "alacritty",
+    "category": "开发工具"
+  },
+  {
+    "process": "mintty",
+    "category": "开发工具"
+  },
+  {
+    "process": "git",
+    "category": "开发工具"
+  },
+  {
+    "process": "github",
+    "category": "开发工具"
+  },
+  {
+    "process": "sourcetree",
+    "category": "开发工具"
+  },
+  {
+    "process": "gitkraken",
+    "category": "开发工具"
+  },
+  {
+    "process": "node",
+    "category": "开发工具"
+  },
+  {
+    "process": "npm",
+    "category": "开发工具"
+  },
+  {
+    "process": "python",
+    "category": "开发工具"
+  },
+  {
+    "process": "pythonw",
+    "category": "开发工具"
+  },
+  {
+    "process": "dotnet",
+    "category": "开发工具"
+  },
+  {
+    "process": "java",
+    "category": "开发工具"
+  },
+  {
+    "process": "javaw",
+    "category": "开发工具"
+  },
+  {
+    "process": "go",
+    "category": "开发工具"
+  },
+  {
+    "process": "cargo",
+    "category": "开发工具"
+  },
+  {
+    "process": "mvn",
+    "category": "开发工具"
+  },
+  {
+    "process": "gradle",
+    "category": "开发工具"
+  },
+  {
+    "process": "cmake",
+    "category": "开发工具"
+  },
+  {
+    "process": "make",
+    "category": "开发工具"
+  },
+  {
+    "process": "navicat",
+    "category": "开发工具"
+  },
+  {
+    "process": "ssms",
+    "category": "开发工具"
+  },
+  {
+    "process": "pgadmin4",
+    "category": "开发工具"
+  },
+  {
+    "process": "dbeaver",
+    "category": "开发工具"
+  },
+  {
+    "process": "mongodbcompass",
+    "category": "开发工具"
+  },
+  {
+    "process": "apifox",
+    "category": "开发工具"
+  },
+  {
+    "process": "postman",
+    "category": "开发工具"
+  },
+  {
+    "process": "insomnia",
+    "category": "开发工具"
+  },
+  {
+    "process": "filezilla",
+    "category": "开发工具"
+  },
+  {
+    "process": "putty",
+    "category": "开发工具"
+  },
+  {
+    "process": "xshell",
+    "category": "开发工具"
+  },
+  {
+    "process": "mobaxterm",
+    "category": "开发工具"
+  },
+  {
+    "process": "winscp",
+    "category": "开发工具"
+  },
+  {
+    "process": "vmware",
+    "category": "开发工具"
+  },
+  {
+    "process": "virtualbox",
+    "category": "开发工具"
+  },
+  {
+    "process": "qemu-system-x86_64",
+    "category": "开发工具"
+  },
+  {
+    "process": "docker",
+    "category": "开发工具"
+  },
+  {
+    "process": "draw.io",
+    "category": "开发工具"
+  },
+  {
+    "process": "ilspy",
+    "category": "开发工具"
+  },
+  {
+    "process": "dotPeek",
+    "category": "开发工具"
+  },
+  {
+    "process": "beyondeditor",
+    "category": "开发工具"
+  },
+  {
+    "process": "qtscrcpy",
+    "category": "开发工具"
+  },
+  {
+    "process": "electron",
+    "category": "开发工具"
+  },
+  {
+    "process": "vim",
+    "category": "开发工具"
+  },
+  {
+    "process": "gvim",
+    "category": "开发工具"
+  },
+  {
+    "process": "neovim",
+    "category": "开发工具"
+  },
+  {
+    "process": "sublime_text",
+    "category": "开发工具"
+  },
+  {
+    "process": "notepad++",
+    "category": "开发工具"
+  },
+  {
+    "process": "wireshark",
+    "category": "开发工具"
+  },
+  {
+    "process": "fiddler",
+    "category": "开发工具"
+  },
+  {
+    "process": "processhacker",
+    "category": "开发工具"
+  },
+  {
+    "process": "procmon",
+    "category": "开发工具"
+  },
+  {
+    "process": "procexp",
+    "category": "开发工具"
+  },
+  {
+    "process": "x64dbg",
+    "category": "开发工具"
+  },
+  {
+    "process": "x32dbg",
+    "category": "开发工具"
+  },
+  {
+    "process": "ida",
+    "category": "开发工具"
+  },
+  {
+    "process": "ghidra",
+    "category": "开发工具"
+  },
+  {
+    "process": "winhex",
+    "category": "开发工具"
+  },
+  {
+    "process": "winhex64",
+    "category": "开发工具"
+  },
+  {
+    "process": "imhex-gui",
+    "category": "开发工具"
+  },
+  {
+    "process": "copilotnative",
+    "category": "开发工具"
+  },
+  {
+    "process": "cursor",
+    "category": "开发工具"
+  },
+  {
+    "process": "windsurf",
+    "category": "开发工具"
+  },
+  {
+    "process": "zed",
+    "category": "开发工具"
+  },
+  {
+    "process": "fleet",
+    "category": "开发工具"
+  },
+  {
+    "process": "rstudio",
+    "category": "开发工具"
+  },
+  {
+    "process": "matlab",
+    "category": "开发工具"
+  },
+  {
+    "process": "mathematica",
+    "category": "开发工具"
+  },
+  {
+    "process": "jupyter",
+    "category": "开发工具"
+  },
+  {
+    "process": "spyder",
+    "category": "开发工具"
+  },
+  {
+    "process": "arduino",
+    "category": "开发工具"
+  },
+  {
+    "process": "platformio",
+    "category": "开发工具"
+  },
+  {
+    "process": "keil",
+    "category": "开发工具"
+  },
+  {
+    "process": "stm32cubeide",
+    "category": "开发工具"
+  },
+  {
+    "process": "chrome",
+    "category": "浏览器"
+  },
+  {
+    "process": "msedge",
+    "category": "浏览器"
+  },
+  {
+    "process": "firefox",
+    "category": "浏览器"
+  },
+  {
+    "process": "brave",
+    "category": "浏览器"
+  },
+  {
+    "process": "opera",
+    "category": "浏览器"
+  },
+  {
+    "process": "vivaldi",
+    "category": "浏览器"
+  },
+  {
+    "process": "arc",
+    "category": "浏览器"
+  },
+  {
+    "process": "maxthon",
+    "category": "浏览器"
+  },
+  {
+    "process": "360chrome",
+    "category": "浏览器"
+  },
+  {
+    "process": "quark",
+    "category": "浏览器"
+  },
+  {
+    "process": "tor-browser",
+    "category": "浏览器"
+  },
+  {
+    "process": "chromium",
+    "category": "浏览器"
+  },
+  {
+    "process": "YuanShen",
+    "category": "游戏"
+  },
+  {
+    "process": "genshinimpact",
+    "category": "游戏"
+  },
+  {
+    "process": "starrail",
+    "category": "游戏"
+  },
+  {
+    "process": "hyp",
+    "category": "游戏"
+  },
+  {
+    "process": "hypergryph",
+    "category": "游戏"
+  },
+  {
+    "process": "deltaforceclient-win64-shipping",
+    "category": "游戏"
+  },
+  {
+    "process": "delta_force_launcher",
+    "category": "游戏"
+  },
+  {
+    "process": "deltaforcesingle-win64-shipping",
+    "category": "游戏"
+  },
+  {
+    "process": "nzmclient",
+    "category": "游戏"
+  },
+  {
+    "process": "nzm_launcher",
+    "category": "游戏"
+  },
+  {
+    "process": "BetterGI",
+    "category": "游戏"
+  },
+  {
+    "process": "Plain Craft Launcher 2",
+    "category": "游戏"
+  },
+  {
+    "process": "minecraft",
+    "category": "游戏"
+  },
+  {
+    "process": "minecraft.windows",
+    "category": "游戏"
+  },
+  {
+    "process": "steam",
+    "category": "游戏"
+  },
+  {
+    "process": "steamwebhelper",
+    "category": "游戏"
+  },
+  {
+    "process": "wegame",
+    "category": "游戏"
+  },
+  {
+    "process": "epicgameslauncher",
+    "category": "游戏"
+  },
+  {
+    "process": "riotclientservices",
+    "category": "游戏"
+  },
+  {
+    "process": "leagueclient",
+    "category": "游戏"
+  },
+  {
+    "process": "VALORANT-Win64-Shipping",
+    "category": "游戏"
+  },
+  {
+    "process": "battlenet",
+    "category": "游戏"
+  },
+  {
+    "process": "origin",
+    "category": "游戏"
+  },
+  {
+    "process": "upc",
+    "category": "游戏"
+  },
+  {
+    "process": "gta5",
+    "category": "游戏"
+  },
+  {
+    "process": "terraria",
+    "category": "游戏"
+  },
+  {
+    "process": "portal2",
+    "category": "游戏"
+  },
+  {
+    "process": "csgo",
+    "category": "游戏"
+  },
+  {
+    "process": "cs2",
+    "category": "游戏"
+  },
+  {
+    "process": "dota2",
+    "category": "游戏"
+  },
+  {
+    "process": "guilongchao",
+    "category": "游戏"
+  },
+  {
+    "process": "startgame",
+    "category": "游戏"
+  },
+  {
+    "process": "misidefull",
+    "category": "游戏"
+  },
+  {
+    "process": "hogwartslegacy",
+    "category": "游戏"
+  },
+  {
+    "process": "daysgone",
+    "category": "游戏"
+  },
+  {
+    "process": "endfield",
+    "category": "游戏"
+  },
+  {
+    "process": "honeyselect2",
+    "category": "游戏"
+  },
+  {
+    "process": "ai-syoujyo",
+    "category": "游戏"
+  },
+  {
+    "process": "doax_vv",
+    "category": "游戏"
+  },
+  {
+    "process": "atelierresleriana",
+    "category": "游戏"
+  },
+  {
+    "process": "eldenring",
+    "category": "游戏"
+  },
+  {
+    "process": "cyberpunk2077",
+    "category": "游戏"
+  },
+  {
+    "process": "witcher3",
+    "category": "游戏"
+  },
+  {
+    "process": "rdr2",
+    "category": "游戏"
+  },
+  {
+    "process": "skyrim",
+    "category": "游戏"
+  },
+  {
+    "process": "fallout4",
+    "category": "游戏"
+  },
+  {
+    "process": "roblox",
+    "category": "游戏"
+  },
+  {
+    "process": "fortnite",
+    "category": "游戏"
+  },
+  {
+    "process": "pubg",
+    "category": "游戏"
+  },
+  {
+    "process": "apex_legends",
+    "category": "游戏"
+  },
+  {
+    "process": "overwatch",
+    "category": "游戏"
+  },
+  {
+    "process": "lostlight",
+    "category": "游戏"
+  },
+  {
+    "process": "fs2024",
+    "category": "游戏"
+  },
+  {
+    "process": "starcitizen",
+    "category": "游戏"
+  },
+  {
+    "process": "wows",
+    "category": "游戏"
+  },
+  {
+    "process": "wt",
+    "category": "游戏"
+  },
+  {
+    "process": "game",
+    "category": "游戏"
+  },
+  {
+    "process": "WeChat",
+    "category": "社交通讯"
+  },
+  {
+    "process": "wechatappex",
+    "category": "社交通讯"
+  },
+  {
+    "process": "QQ",
+    "category": "社交通讯"
+  },
+  {
+    "process": "dingtalk",
+    "category": "社交通讯"
+  },
+  {
+    "process": "telegram",
+    "category": "社交通讯"
+  },
+  {
+    "process": "discord",
+    "category": "社交通讯"
+  },
+  {
+    "process": "slack",
+    "category": "社交通讯"
+  },
+  {
+    "process": "teams",
+    "category": "社交通讯"
+  },
+  {
+    "process": "feishu",
+    "category": "社交通讯"
+  },
+  {
+    "process": "lark",
+    "category": "社交通讯"
+  },
+  {
+    "process": "skype",
+    "category": "社交通讯"
+  },
+  {
+    "process": "zoom",
+    "category": "社交通讯"
+  },
+  {
+    "process": "line",
+    "category": "社交通讯"
+  },
+  {
+    "process": "whatsapp",
+    "category": "社交通讯"
+  },
+  {
+    "process": "kook",
+    "category": "社交通讯"
+  },
+  {
+    "process": "yy",
+    "category": "社交通讯"
+  },
+  {
+    "process": "teamviewer",
+    "category": "社交通讯"
+  },
+  {
+    "process": "anydesk",
+    "category": "社交通讯"
+  },
+  {
+    "process": "todesk",
+    "category": "社交通讯"
+  },
+  {
+    "process": "asklink",
+    "category": "社交通讯"
+  },
+  {
+    "process": "sunlogin",
+    "category": "社交通讯"
+  },
+  {
+    "process": "awesun",
+    "category": "社交通讯"
+  },
+  {
+    "process": "qqlive",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "douyin",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "哔哩哔哩",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "bilibili",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "livehime",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "obs64",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "jianyingpro",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "tencentvideo",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "iqiyi",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "youku",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "mgtv",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "netflix",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "youtube",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "twitch",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "potplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "kmplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "gomplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "vlc",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "mpc-hc",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "mpc-be",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "handbrake",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "losslesscut",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "shotcut",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "davinciresolve",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "premiere",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "afterfx",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "QQMusic",
+    "category": "音乐"
+  },
+  {
+    "process": "spotify",
+    "category": "音乐"
+  },
+  {
+    "process": "musicplayer2",
+    "category": "音乐"
+  },
+  {
+    "process": "cloudmusic",
+    "category": "音乐"
+  },
+  {
+    "process": "netease_cloudmusic",
+    "category": "音乐"
+  },
+  {
+    "process": "kugou",
+    "category": "音乐"
+  },
+  {
+    "process": "kuwo",
+    "category": "音乐"
+  },
+  {
+    "process": "foobar2000",
+    "category": "音乐"
+  },
+  {
+    "process": "aimp",
+    "category": "音乐"
+  },
+  {
+    "process": "mpv",
+    "category": "音乐"
+  },
+  {
+    "process": "AppleMusic",
+    "category": "音乐"
+  },
+  {
+    "process": "ytmdesktop",
+    "category": "音乐"
+  },
+  {
+    "process": "algermusicplayer",
+    "category": "音乐"
+  },
+  {
+    "process": "mediamonkey",
+    "category": "音乐"
+  },
+  {
+    "process": "musicbee",
+    "category": "音乐"
+  },
+  {
+    "process": "WINWORD",
+    "category": "办公学习"
+  },
+  {
+    "process": "EXCEL",
+    "category": "办公学习"
+  },
+  {
+    "process": "POWERPNT",
+    "category": "办公学习"
+  },
+  {
+    "process": "ONENOTE",
+    "category": "办公学习"
+  },
+  {
+    "process": "OUTLOOK",
+    "category": "办公学习"
+  },
+  {
+    "process": "pdfeditor",
+    "category": "办公学习"
+  },
+  {
+    "process": "acrobat",
+    "category": "办公学习"
+  },
+  {
+    "process": "sumatrapdf",
+    "category": "办公学习"
+  },
+  {
+    "process": "foxit",
+    "category": "办公学习"
+  },
+  {
+    "process": "pdfxedit",
+    "category": "办公学习"
+  },
+  {
+    "process": "xmind",
+    "category": "办公学习"
+  },
+  {
+    "process": "typora",
+    "category": "办公学习"
+  },
+  {
+    "process": "notion",
+    "category": "办公学习"
+  },
+  {
+    "process": "obsidian",
+    "category": "办公学习"
+  },
+  {
+    "process": "evernote",
+    "category": "办公学习"
+  },
+  {
+    "process": "wiznote",
+    "category": "办公学习"
+  },
+  {
+    "process": "logseq",
+    "category": "办公学习"
+  },
+  {
+    "process": "anki",
+    "category": "办公学习"
+  },
+  {
+    "process": "cxstudy",
+    "category": "办公学习"
+  },
+  {
+    "process": "packettracer",
+    "category": "办公学习"
+  },
+  {
+    "process": "multisim",
+    "category": "办公学习"
+  },
+  {
+    "process": "mathtype",
+    "category": "办公学习"
+  },
+  {
+    "process": "geogebra",
+    "category": "办公学习"
+  },
+  {
+    "process": "zotero",
+    "category": "办公学习"
+  },
+  {
+    "process": "endnote",
+    "category": "办公学习"
+  },
+  {
+    "process": "mindmanager",
+    "category": "办公学习"
+  },
+  {
+    "process": "visio",
+    "category": "办公学习"
+  },
+  {
+    "process": "photoshop",
+    "category": "设计创作"
+  },
+  {
+    "process": "illustrator",
+    "category": "设计创作"
+  },
+  {
+    "process": "indesign",
+    "category": "设计创作"
+  },
+  {
+    "process": "audition",
+    "category": "设计创作"
+  },
+  {
+    "process": "lightroom",
+    "category": "设计创作"
+  },
+  {
+    "process": "bridge",
+    "category": "设计创作"
+  },
+  {
+    "process": "blender",
+    "category": "设计创作"
+  },
+  {
+    "process": "3dsmax",
+    "category": "设计创作"
+  },
+  {
+    "process": "maya",
+    "category": "设计创作"
+  },
+  {
+    "process": "cinema4d",
+    "category": "设计创作"
+  },
+  {
+    "process": "c4d",
+    "category": "设计创作"
+  },
+  {
+    "process": "autocad",
+    "category": "设计创作"
+  },
+  {
+    "process": "sketchup",
+    "category": "设计创作"
+  },
+  {
+    "process": "figma",
+    "category": "设计创作"
+  },
+  {
+    "process": "mastergo",
+    "category": "设计创作"
+  },
+  {
+    "process": "canva",
+    "category": "设计创作"
+  },
+  {
+    "process": "coreldraw",
+    "category": "设计创作"
+  },
+  {
+    "process": "gimp",
+    "category": "设计创作"
+  },
+  {
+    "process": "inkscape",
+    "category": "设计创作"
+  },
+  {
+    "process": "affinity",
+    "category": "设计创作"
+  },
+  {
+    "process": "sai",
+    "category": "设计创作"
+  },
+  {
+    "process": "krita",
+    "category": "设计创作"
+  },
+  {
+    "process": "procreate",
+    "category": "设计创作"
+  },
+  {
+    "process": "sketch",
+    "category": "设计创作"
+  },
+  {
+    "process": "ptgui",
+    "category": "设计创作"
+  },
+  {
+    "process": "edrawmax",
+    "category": "设计创作"
+  },
+  {
+    "process": "axure",
+    "category": "设计创作"
+  },
+  {
+    "process": "即时设计",
+    "category": "设计创作"
+  },
+  {
+    "process": "explorer",
+    "category": "系统组件"
+  },
+  {
+    "process": "Taskmgr",
+    "category": "系统组件"
+  },
+  {
+    "process": "SystemSettings",
+    "category": "系统组件"
+  },
+  {
+    "process": "SearchHost",
+    "category": "系统组件"
+  },
+  {
+    "process": "ShellExperienceHost",
+    "category": "系统组件"
+  },
+  {
+    "process": "StartMenuExperienceHost",
+    "category": "系统组件"
+  },
+  {
+    "process": "ApplicationFrameHost",
+    "category": "系统组件"
+  },
+  {
+    "process": "CredentialUIBroker",
+    "category": "系统组件"
+  },
+  {
+    "process": "HideVolumeOSD",
+    "category": "系统组件"
+  },
+  {
+    "process": "dwm",
+    "category": "系统组件"
+  },
+  {
+    "process": "sihost",
+    "category": "系统组件"
+  },
+  {
+    "process": "lockapp",
+    "category": "系统组件"
+  },
+  {
+    "process": "regedit",
+    "category": "系统组件"
+  },
+  {
+    "process": "mmc",
+    "category": "系统组件"
+  },
+  {
+    "process": "systempropertiesadvanced",
+    "category": "系统组件"
+  },
+  {
+    "process": "systempropertiescomputername",
+    "category": "系统组件"
+  },
+  {
+    "process": "systempropertiesperformance",
+    "category": "系统组件"
+  },
+  {
+    "process": "pickerhost",
+    "category": "系统组件"
+  },
+  {
+    "process": "runtimebroker",
+    "category": "系统组件"
+  },
+  {
+    "process": "csrss",
+    "category": "系统组件"
+  },
+  {
+    "process": "fontdrvhost",
+    "category": "系统组件"
+  },
+  {
+    "process": "logonui",
+    "category": "系统组件"
+  },
+  {
+    "process": "svchost",
+    "category": "系统组件"
+  },
+  {
+    "process": "spoolsv",
+    "category": "系统组件"
+  },
+  {
+    "process": "services",
+    "category": "系统组件"
+  },
+  {
+    "process": "compmgmt",
+    "category": "系统组件"
+  },
+  {
+    "process": "devmgmt",
+    "category": "系统组件"
+  },
+  {
+    "process": "mblctr",
+    "category": "系统组件"
+  },
+  {
+    "process": "perfmon",
+    "category": "系统组件"
+  },
+  {
+    "process": "msinfo32",
+    "category": "系统组件"
+  },
+  {
+    "process": "dxdiag",
+    "category": "系统组件"
+  },
+  {
+    "process": "optionalfeatures",
+    "category": "系统组件"
+  },
+  {
+    "process": "netplwiz",
+    "category": "系统组件"
+  },
+  {
+    "process": "shutdown",
+    "category": "系统组件"
+  },
+  {
+    "process": "winlogon",
+    "category": "系统组件"
+  },
+  {
+    "process": "textinputhost",
+    "category": "系统组件"
+  },
+  {
+    "process": "snipaste",
+    "category": "实用工具"
+  },
+  {
+    "process": "Notepad",
+    "category": "实用工具"
+  },
+  {
+    "process": "Photos",
+    "category": "实用工具"
+  },
+  {
+    "process": "Thunder",
+    "category": "实用工具"
+  },
+  {
+    "process": "everything",
+    "category": "实用工具"
+  },
+  {
+    "process": "7zfm",
+    "category": "实用工具"
+  },
+  {
+    "process": "7zg",
+    "category": "实用工具"
+  },
+  {
+    "process": "WinRAR",
+    "category": "实用工具"
+  },
+  {
+    "process": "bandizip",
+    "category": "实用工具"
+  },
+  {
+    "process": "idman",
+    "category": "实用工具"
+  },
+  {
+    "process": "calculatorapp",
+    "category": "实用工具"
+  },
+  {
+    "process": "calc",
+    "category": "实用工具"
+  },
+  {
+    "process": "wiztree64",
+    "category": "实用工具"
+  },
+  {
+    "process": "wiztree",
+    "category": "实用工具"
+  },
+  {
+    "process": "geek64",
+    "category": "实用工具"
+  },
+  {
+    "process": "geek",
+    "category": "实用工具"
+  },
+  {
+    "process": "aida64",
+    "category": "实用工具"
+  },
+  {
+    "process": "cpuz",
+    "category": "实用工具"
+  },
+  {
+    "process": "gpuz",
+    "category": "实用工具"
+  },
+  {
+    "process": "nlclientapp",
+    "category": "实用工具"
+  },
+  {
+    "process": "mspaint",
+    "category": "实用工具"
+  },
+  {
+    "process": "paintstudio",
+    "category": "实用工具"
+  },
+  {
+    "process": "onethingpclite",
+    "category": "实用工具"
+  },
+  {
+    "process": "123pan",
+    "category": "实用工具"
+  },
+  {
+    "process": "baidunetdisk",
+    "category": "实用工具"
+  },
+  {
+    "process": "baidunetdiskunite",
+    "category": "实用工具"
+  },
+  {
+    "process": "quarkclouddrive",
+    "category": "实用工具"
+  },
+  {
+    "process": "aliyundrive",
+    "category": "实用工具"
+  },
+  {
+    "process": "aliyunpan",
+    "category": "实用工具"
+  },
+  {
+    "process": "onedrive",
+    "category": "实用工具"
+  },
+  {
+    "process": "dropbox",
+    "category": "实用工具"
+  },
+  {
+    "process": "googledrive",
+    "category": "实用工具"
+  },
+  {
+    "process": "listary",
+    "category": "实用工具"
+  },
+  {
+    "process": "totalcmd",
+    "category": "实用工具"
+  },
+  {
+    "process": "files",
+    "category": "实用工具"
+  },
+  {
+    "process": "renamer",
+    "category": "实用工具"
+  },
+  {
+    "process": "unlocker",
+    "category": "实用工具"
+  },
+  {
+    "process": "poweriso",
+    "category": "实用工具"
+  },
+  {
+    "process": "ultraiso",
+    "category": "实用工具"
+  },
+  {
+    "process": "rufus",
+    "category": "实用工具"
+  },
+  {
+    "process": "ventoy",
+    "category": "实用工具"
+  },
+  {
+    "process": "etcher",
+    "category": "实用工具"
+  },
+  {
+    "process": "diskgenius",
+    "category": "实用工具"
+  },
+  {
+    "process": "partitionwizard",
+    "category": "实用工具"
+  },
+  {
+    "process": "translucenttb",
+    "category": "实用工具"
+  },
+  {
+    "process": "volume2",
+    "category": "实用工具"
+  },
+  {
+    "process": "powertoys",
+    "category": "实用工具"
+  },
+  {
+    "process": "autohotkey",
+    "category": "实用工具"
+  },
+  {
+    "process": "autohotkeyu64",
+    "category": "实用工具"
+  },
+  {
+    "process": "altsnap",
+    "category": "实用工具"
+  },
+  {
+    "process": "contextmenumanager",
+    "category": "实用工具"
+  },
+  {
+    "process": "QClaw",
+    "category": "AI助手"
+  },
+  {
+    "process": "doubao",
+    "category": "AI助手"
+  },
+  {
+    "process": "ollama app",
+    "category": "AI助手"
+  },
+  {
+    "process": "ollama",
+    "category": "AI助手"
+  },
+  {
+    "process": "lm studio",
+    "category": "AI助手"
+  },
+  {
+    "process": "chatgpt",
+    "category": "AI助手"
+  },
+  {
+    "process": "ima.copilot",
+    "category": "AI助手"
+  },
+  {
+    "process": "copilot",
+    "category": "AI助手"
+  },
+  {
+    "process": "claude",
+    "category": "AI助手"
+  },
+  {
+    "process": "gemini",
+    "category": "AI助手"
+  },
+  {
+    "process": "poe",
+    "category": "AI助手"
+  },
+  {
+    "process": "perplexity",
+    "category": "AI助手"
+  }
+]

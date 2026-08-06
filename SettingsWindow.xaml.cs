@@ -31,8 +31,6 @@ public partial class SettingsWindow : Window
 
     public SettingsWindow(string initialSection = null)
     {
-        try
-        {
         InitializeComponent();
         _loading = true;
         LoadSettings();
@@ -47,12 +45,6 @@ public partial class SettingsWindow : Window
             UpdateEstimates();
             UpdateDiskUsage();
         }), System.Windows.Threading.DispatcherPriority.Background);
-        }
-        catch (Exception ex)
-        {
-            System.Windows.Forms.MessageBox.Show($"SettingsWindow 构造失败:\n{ex.Message}\n\n{ex.StackTrace}");
-            throw;
-        }
 
         // 根据初始参数选中对应导航项
         if (!string.IsNullOrEmpty(initialSection))
@@ -192,7 +184,7 @@ public partial class SettingsWindow : Window
                 _categories.Add(new CategoryItem { Id = cat.Id, Name = cat.Name, Color = cat.Color, SortOrder = cat.SortOrder });
             }
         }
-        catch { }
+        catch (Exception ex) { Logger.Error("LoadCategories 失败", ex); }
 
         CategoriesGrid.ItemsSource = new ObservableCollection<CategoryItem>(_categories);
 
@@ -208,19 +200,23 @@ public partial class SettingsWindow : Window
     {
         if (CategorySidebar == null) return;
         var sidebarItems = new ObservableCollection<CategoryItem>();
-        // 从内存 _allRules 算 Count（如果已加载），否则查数据库
-        var rulesSource = _allRules.Count > 0 ? _allRules.Select(r => new { CategoryName = r.CategoryName }).ToList() : null;
-        foreach (var c in _categories)
+        // 从内存 _allRules 算 Count（如果已加载），否则查一次数据库
+        if (_allRules.Count > 0)
         {
-            int count;
-            if (rulesSource != null)
-                count = rulesSource.Count(r => r.CategoryName == c.Name);
-            else
+            foreach (var c in _categories)
             {
-                var dbRules = RuleRepository.GetAll();
-                count = dbRules.Count(r => r.CategoryId == c.Id);
+                int count = _allRules.Count(r => r.CategoryName == c.Name);
+                sidebarItems.Add(new CategoryItem { Id = c.Id, Name = c.Name, Color = c.Color, SortOrder = c.SortOrder, Count = count });
             }
-            sidebarItems.Add(new CategoryItem { Id = c.Id, Name = c.Name, Color = c.Color, SortOrder = c.SortOrder, Count = count });
+        }
+        else
+        {
+            var dbRules = RuleRepository.GetAll();
+            foreach (var c in _categories)
+            {
+                int count = dbRules.Count(r => r.CategoryId == c.Id);
+                sidebarItems.Add(new CategoryItem { Id = c.Id, Name = c.Name, Color = c.Color, SortOrder = c.SortOrder, Count = count });
+            }
         }
         CategorySidebar.ItemsSource = sidebarItems;
     }
@@ -727,7 +723,7 @@ public partial class SettingsWindow : Window
                 }
             }
         }
-        catch { }
+        catch (Exception ex) { Logger.Error("SaveRules 保存失败", ex); }
     }
 
     private void SaveCategories()
@@ -745,7 +741,7 @@ public partial class SettingsWindow : Window
                 }
             }
         }
-        catch { }
+        catch (Exception ex) { Logger.Error("SaveCategories 失败", ex); }
     }
 
     // ========== 删行按钮 + 颜色选择器 ==========
@@ -781,7 +777,7 @@ public partial class SettingsWindow : Window
             var current = (Color)ColorConverter.ConvertFromString(item.Color ?? "#808080");
             dlg.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
         }
-        catch { }
+        catch { /* 颜色解析失败用默认黑色 */ }
 
         if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
@@ -1258,22 +1254,12 @@ public partial class SettingsWindow : Window
         switch (NavList.SelectedIndex)
         {
             case 0: // 追踪设置
-                SettingsRepository.Set("PollIntervalSeconds", "3");
-                SettingsRepository.Set("IdleThresholdSeconds", "300");
-                SettingsRepository.Set("AutoStartTracking", "true");
-                break;
-
             case 1: // 截图设置
-                SettingsRepository.Set("EnableScreenshot", "false");
-                SettingsRepository.Set("ScreenshotOnSwitch", "true");
-                SettingsRepository.Set("ScreenshotIntervalMinutes", "5");
-                SettingsRepository.Set("ScreenshotFormat", "jpg");
-                SettingsRepository.Set("ScreenshotPath", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots"));
-                SettingsRepository.Set("ScreenshotQuality", "medium");
-                SettingsRepository.Set("EnableMaxSize", "true");
-                SettingsRepository.Set("MaxScreenshotSizeMB", "5120");
-                SettingsRepository.Set("EnableMaxAge", "true");
-                SettingsRepository.Set("MaxScreenshotAgeDays", "30");
+            case 4: // 数据设置
+            case 5: // AI 设置
+            case 6: // 系统设置
+                foreach (var kv in SettingsRepository.GetDefaultsByPage(NavList.SelectedIndex))
+                    SettingsRepository.Set(kv.Key, kv.Value);
                 break;
 
             case 2: // 分类规则
@@ -1290,24 +1276,6 @@ public partial class SettingsWindow : Window
             case 3: // 分类管理
                 CategoryRepository.ResetToDefault();
                 LoadCategories();
-                break;
-
-            case 4: // 数据设置
-                SettingsRepository.Set("DataRetentionDays", "90");
-                break;
-
-            case 5: // AI 设置
-                SettingsRepository.Set("EnableAI", "true");
-                SettingsRepository.Set("AIMode", "lan");
-                SettingsRepository.Set("AIApiUrl", "http://localhost:11434");
-                SettingsRepository.Set("AIApiKey", "");
-                SettingsRepository.Set("AIModel", "qwen2.5:7b");
-                SettingsRepository.Set("AutoDailySummary", "true");
-                break;
-
-            case 6: // 系统设置
-                SettingsRepository.Set("AutoStartWithWindows", "false");
-                SettingsRepository.Set("MinimizeToTray", "true");
                 break;
 
             case 7: // 导入/导出

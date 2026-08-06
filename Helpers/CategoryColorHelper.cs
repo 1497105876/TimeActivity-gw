@@ -33,13 +33,21 @@ public class CategoryColorHelper
         {
             _colors = new Dictionary<string, string>
             {
-                { "开发", "#4A90D9" }, { "社交", "#E67E22" }, { "娱乐", "#E74C3C" },
-                { "学习", "#2ECC71" }, { "系统", "#95A5A6" }, { "网页", "#9B59B6" },
-                { "空闲", "#BDC3C7" }, { "未分类", "#7F8C8D" },
+                { "开发工具", "#4A90D9" }, { "社交通讯", "#E67E22" }, { "游戏", "#E74C3C" },
+                { "办公学习", "#2ECC71" }, { "浏览器", "#9B59B6" }, { "视频娱乐", "#FF6B6B" },
+                { "音乐", "#AB47BC" }, { "设计创作", "#FFA726" }, { "实用工具", "#26C6DA" },
+                { "AI助手", "#EC407A" }, { "系统组件", "#7CB9E8" },
+                { "空闲", "#CFD8DC" }, { "未分类", "#90A4AE" },
             };
         }
         return _colors;
     }
+
+    /// <summary>
+    /// 解析十六进制颜色字符串为 Color
+    /// </summary>
+    public static Color ParseHex(string hex)
+        => (Color)ColorConverter.ConvertFromString(hex);
 
     /// <summary>
     /// 获取某个分类对应的颜色
@@ -47,8 +55,8 @@ public class CategoryColorHelper
     public Color GetColor(string category)
     {
         if (_colors.TryGetValue(category, out var hex))
-            return (Color)ColorConverter.ConvertFromString(hex);
-        return (Color)ColorConverter.ConvertFromString("#7F8C8D");
+            return ParseHex(hex);
+        return ParseHex("#90A4AE");
     }
 
     /// <summary>

@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using TimeActivity.Data;
 using TimeActivity.Helpers;
 using TimeActivity.Models;
@@ -155,17 +156,7 @@ public partial class MainWindow : Window
                 for (int i = existingCount; i < activities.Count; i++)
                 {
                     var a = activities[i];
-                    _items.Add(new ActivityDisplayItem
-                    {
-                        Icon = IconExtractor.GetIcon(a.ProcessName),
-                        ProcessName = a.ProcessName,
-                        DisplayName = Services.AppDisplayName.Get(a.ProcessName),
-                        WindowTitle = a.WindowTitle,
-                        Category = a.Category,
-                        StartTime = a.StartTime,
-                        EndTime = a.EndTime,
-                        DurationText = TimeFormatHelper.Format(a.Duration)
-                    });
+                    _items.Add(CreateDisplayItem(a));
                 }
                 // 更新已有记录的结束时间和时长（最后一条可能还在进行中）
                 if (_items.Count > 0 && activities.Count > 0)
@@ -313,7 +304,7 @@ public partial class MainWindow : Window
         if (_colorMode == "app")
         {
             var hex = AppColorAllocator.GetOrAssign(processName);
-            return (Color)ColorConverter.ConvertFromString(hex);
+            return CategoryColorHelper.ParseHex(hex);
         }
         return _colorHelper.GetColor(category);
     }
@@ -324,52 +315,49 @@ public partial class MainWindow : Window
     {
         try
         {
-        var pos = e.GetPosition(AppStatsList);
-        Logger.Info($"AppStatsList 右键事件触发，位置: {pos}");
+            var pos = e.GetPosition(AppStatsList);
 
-        // 找点击的行
-        var item = GetListViewItemFromPoint(AppStatsList, pos);
-        Logger.Info($"GetListViewItemFromPoint 返回: {item?.GetType().Name ?? "null"}");
-        if (item == null) return;
+            // 找点击的行
+            var item = GetListViewItemFromPoint(AppStatsList, pos);
+            if (item == null) return;
 
-        // 从行中提取进程名
-        string? processName = GetProcessNameFromStatsRow(item);
-        Logger.Info($"GetProcessNameFromStatsRow 返回: {processName ?? "null"}");
-        if (string.IsNullOrEmpty(processName)) return;
+            // 从行中提取进程名
+            string? processName = GetTagFromStatsRow(item);
+            if (string.IsNullOrEmpty(processName)) return;
 
-        var menu = new ContextMenu();
+            var menu = new ContextMenu();
 
-        var miColor = new MenuItem { Header = "颜色" };
-        miColor.Click += (s, ev) =>
-        {
-            try
+            var miColor = new MenuItem { Header = "颜色" };
+            miColor.Click += (s, ev) =>
             {
-            var dlg = new System.Windows.Forms.ColorDialog();
-            dlg.FullOpen = true;
-            var current = AppColorAllocator.GetOrAssign(processName);
-            try
-            {
-                var c = (Color)ColorConverter.ConvertFromString(current);
-                dlg.Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
-            }
-            catch { }
-            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                var hex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
-                AppColorAllocator.SetCustom(processName, hex);
-                DrawAll();
-                LoadStatsLists();
-            }
-            }
-            catch (Exception ex) { MessageBox.Show($"颜色选择失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
-        };
-        menu.Items.Add(miColor);
+                try
+                {
+                    var dlg = new System.Windows.Forms.ColorDialog();
+                    dlg.FullOpen = true;
+                    var current = AppColorAllocator.GetOrAssign(processName);
+                    try
+                    {
+                        var c = CategoryColorHelper.ParseHex(current);
+                        dlg.Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
+                    }
+                    catch { }
+                    if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                    {
+                        var hex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
+                        AppColorAllocator.SetCustom(processName, hex);
+                        DrawAll();
+                        LoadStatsLists();
+                    }
+                }
+                catch (Exception ex) { MessageBox.Show($"颜色选择失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
+            };
+            menu.Items.Add(miColor);
 
-        var miCategory = new MenuItem { Header = "更改类别" };
-        miCategory.Click += (s, ev) => OpenSettings("rules");
-        menu.Items.Add(miCategory);
+            var miCategory = new MenuItem { Header = "更改类别" };
+            miCategory.Click += (s, ev) => OpenSettings("rules");
+            menu.Items.Add(miCategory);
 
-        menu.IsOpen = true;
+            menu.IsOpen = true;
         }
         catch (Exception ex) { MessageBox.Show($"右键菜单失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
@@ -378,23 +366,23 @@ public partial class MainWindow : Window
     {
         try
         {
-        var item = GetListViewItemFromPoint(CategoryStatsList, e.GetPosition(CategoryStatsList));
-        if (item == null) return;
+            var item = GetListViewItemFromPoint(CategoryStatsList, e.GetPosition(CategoryStatsList));
+            if (item == null) return;
 
-        string? categoryName = GetCategoryNameFromStatsRow(item);
-        if (string.IsNullOrEmpty(categoryName)) return;
+            string? categoryName = GetTagFromStatsRow(item);
+            if (string.IsNullOrEmpty(categoryName)) return;
 
-        var menu = new ContextMenu();
+            var menu = new ContextMenu();
 
-        var miColor = new MenuItem { Header = "颜色" };
-        miColor.Click += (s, ev) => OpenSettings("categories");
-        menu.Items.Add(miColor);
+            var miColor = new MenuItem { Header = "颜色" };
+            miColor.Click += (s, ev) => OpenSettings("categories");
+            menu.Items.Add(miColor);
 
-        var miView = new MenuItem { Header = "查看类别" };
-        miView.Click += (s, ev) => OpenSettings("rules");
-        menu.Items.Add(miView);
+            var miView = new MenuItem { Header = "查看类别" };
+            miView.Click += (s, ev) => OpenSettings("rules");
+            menu.Items.Add(miView);
 
-        menu.IsOpen = true;
+            menu.IsOpen = true;
         }
         catch (Exception ex) { MessageBox.Show($"右键菜单失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
@@ -409,7 +397,22 @@ public partial class MainWindow : Window
         return hit;
     }
 
-    private static string? GetProcessNameFromStatsRow(object item)
+    private static ActivityDisplayItem CreateDisplayItem(ActivityRecord a)
+    {
+        return new ActivityDisplayItem
+        {
+            Icon = IconExtractor.GetIcon(a.ProcessName),
+            ProcessName = a.ProcessName,
+            DisplayName = Services.AppDisplayName.Get(a.ProcessName),
+            WindowTitle = a.WindowTitle,
+            Category = a.Category,
+            StartTime = a.StartTime,
+            EndTime = a.EndTime,
+            DurationText = TimeFormatHelper.Format(a.Duration)
+        };
+    }
+
+    private static string? GetTagFromStatsRow(object item)
     {
         // item 是 ListViewItem，里面包裹的是 Border（CreateStatsRow 返回的）
         if (item is System.Windows.DependencyObject d)
@@ -418,19 +421,6 @@ public partial class MainWindow : Window
             if (border?.Tag is string s)
                 return s;
             // Border 可能直接就是 item 的 Content
-            if (item is System.Windows.Controls.ContentControl cc && cc.Content is Border b && b.Tag is string s2)
-                return s2;
-        }
-        return null;
-    }
-
-    private static string? GetCategoryNameFromStatsRow(object item)
-    {
-        if (item is System.Windows.DependencyObject d)
-        {
-            var border = FindChild<Border>(d);
-            if (border?.Tag is string s)
-                return s;
             if (item is System.Windows.Controls.ContentControl cc && cc.Content is Border b && b.Tag is string s2)
                 return s2;
         }
@@ -534,15 +524,16 @@ public partial class MainWindow : Window
     }
 
 
-    private async void ShowStatus(string message)
+    private void ShowStatus(string message)
     {
-        try
+        StatusBar.Text = message;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5) };
+        timer.Tick += (s, e) =>
         {
-            StatusBar.Text = message;
-            await Task.Delay(3500);
             StatusBar.Text = "";
-        }
-        catch { }
+            timer.Stop();
+        };
+        timer.Start();
     }
 
     // ========== 托盘 ==========
@@ -689,17 +680,7 @@ public partial class MainWindow : Window
         {
             if (_currentDate == DateTime.Today)
             {
-                _items.Insert(0, new ActivityDisplayItem
-                {
-                    Icon = IconExtractor.GetIcon(activity.ProcessName),
-                    ProcessName = activity.ProcessName,
-                    DisplayName = Services.AppDisplayName.Get(activity.ProcessName),
-                    WindowTitle = activity.WindowTitle,
-                    Category = activity.Category,
-                    StartTime = activity.StartTime,
-                    EndTime = activity.EndTime,
-                    DurationText = TimeFormatHelper.Format(activity.Duration)
-                });
+                _items.Insert(0, CreateDisplayItem(activity));
                 while (_items.Count > 500)
                     _items.RemoveAt(_items.Count - 1);
             }
@@ -745,17 +726,7 @@ public partial class MainWindow : Window
         _cachedActivities = activities;
         foreach (var a in activities.AsEnumerable().Reverse())
         {
-            _items.Add(new ActivityDisplayItem
-            {
-                Icon = IconExtractor.GetIcon(a.ProcessName),
-                ProcessName = a.ProcessName,
-                DisplayName = Services.AppDisplayName.Get(a.ProcessName),
-                WindowTitle = a.WindowTitle,
-                Category = a.Category,
-                StartTime = a.StartTime,
-                EndTime = a.EndTime,
-                DurationText = TimeFormatHelper.Format(a.Duration)
-            });
+            _items.Add(CreateDisplayItem(a));
         }
 
         // 仅切日期时清空勾选 + 重建统计列表（自动刷新不动勾选）
@@ -922,7 +893,7 @@ public partial class MainWindow : Window
 
         // 有色部分
         double fillWidth = BarWidth * pct / 100.0;
-        var fillColor = (Color)ColorConverter.ConvertFromString(barColor);
+        var fillColor = CategoryColorHelper.ParseHex(barColor);
         var fillBorder = new Border { Background = new SolidColorBrush(fillColor), Height = BarHeight - 2, CornerRadius = new CornerRadius(2, 0, 0, 2) };
         Canvas.SetLeft(fillBorder, 1); Canvas.SetTop(fillBorder, 1);
         fillBorder.Width = Math.Max(0, fillWidth - 1);
@@ -1166,7 +1137,7 @@ public partial class MainWindow : Window
             var rect = new Rectangle
             {
                 Width = 12, Height = 12,
-                Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(kvp.Value)),
+                Fill = new SolidColorBrush(CategoryColorHelper.ParseHex(kvp.Value)),
                 RadiusX = 2, RadiusY = 2,
                 VerticalAlignment = VerticalAlignment.Center
             };

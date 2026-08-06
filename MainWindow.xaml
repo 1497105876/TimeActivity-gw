@@ -12,6 +12,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- 顶部状态栏 -->
@@ -97,7 +98,9 @@
                             </StackPanel>
 
                             <!-- 使用明细列表 -->
-                            <ListView x:Name="ActivityList" Grid.Row="2" FontSize="13">
+                            <ListView x:Name="ActivityList" Grid.Row="2" FontSize="13"
+                                     VirtualizingStackPanel.IsVirtualizing="True"
+                                     VirtualizingStackPanel.VirtualizationMode="Recycling">
                                 <ListView.View>
                                     <GridView>
                                         <GridViewColumn Header="" Width="32">
@@ -148,7 +151,7 @@
         </TabControl>
 
         <!-- 底部状态栏 -->
-        <TextBlock x:Name="StatusBar" DockPanel.Dock="Bottom" Height="20" FontSize="11" Foreground="#888" Padding="8,0" VerticalAlignment="Center" Text=""/>
+        <TextBlock x:Name="StatusBar" Grid.Row="3" Height="20" FontSize="11" Foreground="#888" Padding="8,0" VerticalAlignment="Center" Text=""/>
 
         <!-- 跟随鼠标的浮动详情框 -->
         <Popup x:Name="DetailPopup" AllowsTransparency="True" Placement="RelativePoint" PlacementTarget="{Binding ElementName=MainTimelineCanvas}" IsOpen="False" StaysOpen="True">
