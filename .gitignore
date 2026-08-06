@@ -50,3 +50,16 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
+
+## Runtime data
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+screenshots/
+
+## Temp/analysis files
+manictime_apps.txt
+classified_procs.json
+temp_*.txt
+temp_*.py
