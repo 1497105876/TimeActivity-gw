@@ -188,15 +188,7 @@ public partial class SettingsWindow : Window
         // 更新分类名列表供规则下拉用
         _categoryNames = _categories.Select(c => c.Name).ToList();
 
-        // 加载分类筛选下拉
-        if (CbxRuleFilter != null)
-        {
-            CbxRuleFilter.Items.Clear();
-            CbxRuleFilter.Items.Add(new ComboBoxItem { Content = "全部分类", Tag = "" });
-            foreach (var c in _categories)
-                CbxRuleFilter.Items.Add(new ComboBoxItem { Content = c.Name, Tag = c.Name });
-            CbxRuleFilter.SelectedIndex = 0;
-        }
+        // CbxRuleFilter 已移除（新方案用折叠面板）
 
         LoadCategorySidebar();
     }
@@ -214,15 +206,19 @@ public partial class SettingsWindow : Window
         CategorySidebar.ItemsSource = sidebarItems;
     }
 
-    // ========== 分类规则 ==========
+    // ========== 分类规则（折叠面板版） ==========
+
+    private List<RuleItem> _allRules = new();
+    private HashSet<string> _selectedProcessNames = new(); // 多选的进程名
+    private string? _lastClickedProcess = null; // Shift 范围选择用
+    private bool _isSelecting = false; // 是否处于选择模式（有选中项）
 
     private async void LoadRules()
     {
-        RulesListView.ItemsSource = null;
         await Task.Run(() =>
         {
             var rules = RuleRepository.GetAll();
-            var ruleItems = new ObservableCollection<RuleItem>();
+            var ruleItems = new List<RuleItem>();
             foreach (var r in rules)
             {
                 var cat = _categories.FirstOrDefault(c => c.Id == r.CategoryId);
@@ -237,88 +233,338 @@ public partial class SettingsWindow : Window
             }
             _allRules = ruleItems;
         });
-        ApplyRuleFilter();
+        BuildRulesPanel();
     }
 
-    private ObservableCollection<RuleItem> _allRules = new();
-
-    private void ApplyRuleFilter()
+    /// <summary>
+    /// 构建右侧折叠面板
+    /// </summary>
+    private void BuildRulesPanel()
     {
-        if (RulesListView == null) return;
-        var filtered = _allRules.AsEnumerable();
+        if (RulesPanel == null) return;
+        RulesPanel.Children.Clear();
 
-        // 搜索过滤
-        if (TxtRuleSearch != null && !string.IsNullOrWhiteSpace(TxtRuleSearch.Text))
+        // 搜索关键词
+        string keyword = TxtRuleSearch?.Text?.Trim().ToLower() ?? "";
+        bool hasSearch = !string.IsNullOrWhiteSpace(keyword);
+
+        // 按分类分组
+        var grouped = _allRules
+            .GroupBy(r => r.CategoryName)
+            .OrderBy(g => _categories.FirstOrDefault(c => c.Name == g.Key)?.SortOrder ?? 999);
+
+        foreach (var group in grouped)
         {
-            var keyword = TxtRuleSearch.Text.Trim().ToLower();
-            filtered = filtered.Where(r => r.ProcessName.ToLower().Contains(keyword));
+            var cat = _categories.FirstOrDefault(c => c.Name == group.Key);
+            if (cat == null) continue;
+
+            // 搜索过滤
+            var rulesInGroup = group.ToList();
+            if (hasSearch)
+            {
+                rulesInGroup = rulesInGroup
+                    .Where(r => r.ProcessName.ToLower().Contains(keyword) || r.CategoryName.ToLower().Contains(keyword))
+                    .ToList();
+                if (rulesInGroup.Count == 0) continue; // 没匹配就跳过这个分组
+            }
+
+            // 创建折叠分组
+            var expander = CreateCategoryExpander(cat, rulesInGroup, hasSearch);
+            RulesPanel.Children.Add(expander);
+        }
+    }
+
+    /// <summary>
+    /// 创建一个分类的折叠面板
+    /// </summary>
+    private Expander CreateCategoryExpander(CategoryItem cat, List<RuleItem> rules, bool forceExpand)
+    {
+        var expander = new Expander
+        {
+            Header = CreateCategoryHeader(cat, rules.Count),
+            IsExpanded = forceExpand, // 搜索时全部展开，否则默认折叠
+            Margin = new Thickness(0, 0, 0, 4),
+            Padding = new Thickness(8, 4, 8, 4),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+        };
+
+        // 内容：应用列表
+        var itemsPanel = new StackPanel();
+        foreach (var rule in rules)
+        {
+            var row = CreateAppRow(rule);
+            itemsPanel.Children.Add(row);
+        }
+        expander.Content = itemsPanel;
+
+        return expander;
+    }
+
+    /// <summary>
+    /// 创建分类头部（色块 + 名称 + 数量）
+    /// </summary>
+    private StackPanel CreateCategoryHeader(CategoryItem cat, int count)
+    {
+        var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
+
+        var colorBox = new Border
+        {
+            Width = 14,
+            Height = 14,
+            CornerRadius = new CornerRadius(3),
+            Margin = new Thickness(0, 0, 6, 0),
+            Background = new SolidColorBrush(cat.ColorValue)
+        };
+        header.Children.Add(colorBox);
+
+        var name = new TextBlock
+        {
+            Text = cat.Name,
+            FontSize = 13,
+            FontWeight = FontWeights.Bold,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        header.Children.Add(name);
+
+        var countText = new TextBlock
+        {
+            Text = count.ToString(),
+            FontSize = 11,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        header.Children.Add(countText);
+
+        return header;
+    }
+
+    /// <summary>
+    /// 创建一个应用行（CheckBox + 图标 + 友好名）
+    /// </summary>
+    private Border CreateAppRow(RuleItem rule)
+    {
+        var displayName = AppDisplayName.Get(rule.ProcessName);
+        var icon = IconExtractor.GetIcon(rule.ProcessName);
+
+        var row = new Border
+        {
+            Padding = new Thickness(4, 3, 4, 3),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0xF0, 0xF0, 0xF0)),
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Background = Brushes.Transparent,
+            Tag = rule.ProcessName, // 存进程名供拖拽和选择用
+        };
+
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+
+        // CheckBox
+        var checkbox = new CheckBox
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 6, 0),
+            IsChecked = _selectedProcessNames.Contains(rule.ProcessName),
+            Tag = rule.ProcessName,
+        };
+        checkbox.Checked += AppCheckbox_Changed;
+        checkbox.Unchecked += AppCheckbox_Changed;
+        panel.Children.Add(checkbox);
+
+        // 图标
+        if (icon != null)
+        {
+            var img = new Image
+            {
+                Source = icon,
+                Width = 16,
+                Height = 16,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            panel.Children.Add(img);
+        }
+        else
+        {
+            // 没图标占位
+            var placeholder = new Border
+            {
+                Width = 16,
+                Height = 16,
+                Margin = new Thickness(0, 0, 6, 0),
+                Background = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
+                CornerRadius = new CornerRadius(2)
+            };
+            panel.Children.Add(placeholder);
         }
 
-        // 分类过滤
-        if (CbxRuleFilter != null && CbxRuleFilter.SelectedItem is ComboBoxItem item && item.Tag?.ToString() != "")
+        // 友好名
+        var nameText = new TextBlock
         {
-            var catName = item.Tag.ToString();
-            filtered = filtered.Where(r => r.CategoryName == catName);
-        }
+            Text = displayName,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        panel.Children.Add(nameText);
 
-        RulesListView.ItemsSource = new ObservableCollection<RuleItem>(filtered);
+        row.Child = panel;
+
+        // 拖拽支持
+        row.MouseMove += AppRow_MouseMove;
+        row.MouseLeftButtonDown += AppRow_MouseLeftButtonDown;
+
+        return row;
     }
 
-    // 新增规则
-    private void BtnAddRule_Click(object sender, RoutedEventArgs e)
+    // ========== 多选逻辑 ==========
+
+    private void AppCheckbox_Changed(object sender, RoutedEventArgs e)
     {
-        var newRule = new RuleItem { ProcessName = "", CategoryName = _categories.FirstOrDefault()?.Name ?? "", IsCustom = true };
-        _allRules.Add(newRule);
-        ApplyRuleFilter();
-        MarkChanged();
+        if (sender is CheckBox cb && cb.Tag is string procName)
+        {
+            if (cb.IsChecked == true)
+                _selectedProcessNames.Add(procName);
+            else
+                _selectedProcessNames.Remove(procName);
+            UpdateSelectionMode();
+            MarkChanged();
+        }
     }
 
-    // 搜索/筛选
+    private void AppRow_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is Border border && border.Tag is string procName)
+        {
+            // Shift 范围选择（待实现，需记录视觉顺序）
+            _lastClickedProcess = procName;
+        }
+    }
+
+    private void AppRow_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed && sender is Border border && border.Tag is string procName)
+        {
+            // 如果有选中项，拖拽选中的；否则拖拽当前项
+            var toDrag = _selectedProcessNames.Count > 0 ? _selectedProcessNames.ToList() : new List<string> { procName };
+            var data = new DataObject();
+            data.SetData("ProcessNames", toDrag);
+            DragDrop.DoDragDrop(border, data, DragDropEffects.Move);
+        }
+    }
+
+    private void UpdateSelectionMode()
+    {
+        bool hasSelection = _selectedProcessNames.Count > 0;
+        BtnExitSelect.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void BtnExitSelect_Click(object sender, RoutedEventArgs e)
+    {
+        _selectedProcessNames.Clear();
+        _lastClickedProcess = null;
+        // 重建面板清除勾选状态
+        BuildRulesPanel();
+        UpdateSelectionMode();
+    }
+
+    // ========== 搜索 ==========
+
     private void TxtRuleSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
-        ApplyRuleFilter();
+        BuildRulesPanel();
     }
 
-    private void CbxRuleFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_loading) return;
-        ApplyRuleFilter();
-    }
+    // ========== 左侧分类列表交互 ==========
 
     private void CategorySidebar_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading || CategorySidebar == null) return;
         if (CategorySidebar.SelectedItem is CategoryItem cat)
         {
-            // 点击左侧分类 → 右侧筛选该分类
-            for (int i = 0; i < CbxRuleFilter.Items.Count; i++)
+            // 点击左侧分类 → 展开右侧对应分组
+            foreach (var child in RulesPanel.Children)
             {
-                if (CbxRuleFilter.Items[i] is ComboBoxItem item && item.Tag?.ToString() == cat.Name)
+                if (child is Expander exp && exp.Header is StackPanel header)
                 {
-                    CbxRuleFilter.SelectedIndex = i;
-                    break;
+                    // 找到分类名匹配的 Expander
+                    var nameBlock = header.Children.OfType<TextBlock>().FirstOrDefault(t => t.FontWeight == FontWeights.Bold);
+                    if (nameBlock?.Text == cat.Name)
+                    {
+                        exp.IsExpanded = true;
+                        exp.BringIntoView();
+                        break;
+                    }
                 }
             }
         }
     }
 
+    // ========== 拖拽到左侧分类 ==========
+
+    private void CategorySidebar_DragEnter(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent("ProcessNames"))
+        {
+            e.Effects = DragDropEffects.Move;
+            // 高亮目标
+            if (sender is Border b) b.Background = new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD));
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void CategorySidebar_DragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is Border b) b.Background = Brushes.Transparent;
+    }
+
     private void CategorySidebar_Drop(object sender, DragEventArgs e)
     {
-        // 拖拽功能后续实现
-        if (e.Data.GetData(typeof(RuleItem)) is RuleItem droppedRule)
+        if (e.Data.GetData("ProcessNames") is List<string> procNames && procNames.Count > 0)
         {
-            if (sender is FrameworkElement fe && fe.DataContext is CategoryItem targetCat)
+            // 找到目标分类
+            CategoryItem? targetCat = null;
+            if (sender is FrameworkElement fe)
             {
-                droppedRule.CategoryName = targetCat.Name;
-                ApplyRuleFilter();
-                MarkChanged();
+                // 从 DataContext 取（ListViewItem）
+                if (fe.DataContext is CategoryItem cat) targetCat = cat;
+                else if (CategorySidebar.SelectedItem is CategoryItem selectedCat) targetCat = selectedCat;
             }
+            if (targetCat == null) return;
+
+            // 改分类
+            foreach (var procName in procNames)
+            {
+                var rule = _allRules.FirstOrDefault(r => r.ProcessName == procName);
+                if (rule != null && rule.CategoryName != targetCat.Name)
+                {
+                    rule.CategoryName = targetCat.Name;
+                    rule.IsCustom = true; // 用户改过的标记为自定义
+                }
+            }
+
+            // 恢复背景
+            if (sender is Border b) b.Background = Brushes.Transparent;
+
+            // 重建面板 + 刷新侧边栏 Count
+            BuildRulesPanel();
+            LoadCategorySidebar();
+            MarkChanged();
         }
     }
 
-    private void RulesListView_Drop(object sender, DragEventArgs e)
+    // ========== 滚轮修复 ==========
+
+    private void RulesPanel_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        // 拖拽功能后续实现
+        if (sender is ScrollViewer sv)
+        {
+            sv.ScrollToVerticalOffset(sv.VerticalOffset - e.Delta);
+            e.Handled = true;
+        }
     }
 
     // ========== 保存设置 ==========
@@ -381,23 +627,13 @@ public partial class SettingsWindow : Window
 
     // ========== 删行按钮 + 颜色选择器 ==========
 
-    private void BtnDeleteRule_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button btn && btn.DataContext is RuleItem rule)
-        {
-            if (!rule.IsCustom) return; // 预置规则不可删
-
-            _allRules.Remove(rule);
-            ApplyRuleFilter();
-            MarkChanged();
-        }
-    }
+    // BtnDeleteRule_Click 已移除（新方案无删除按钮，改分类用拖拽）
 
     private void BtnDeleteCategory_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.DataContext is CategoryItem cat)
         {
-            if (cat.Id <= 8) return; // 预置分类不可删
+            if (cat.Id <= 13) return; // 预置分类不可删
 
             if (CategoriesGrid.ItemsSource is ObservableCollection<CategoryItem> cats)
             {
@@ -796,12 +1032,6 @@ public partial class SettingsWindow : Window
         {
             if (!char.IsDigit(c)) { e.Handled = true; return; }
         }
-    }
-
-    private void RulesListView_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_loading) return;
-        MarkChanged();
     }
 
     private void CategoriesGrid_Changed(object sender, RoutedEventArgs e)

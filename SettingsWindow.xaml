@@ -224,9 +224,9 @@
                             <Border Grid.Column="0" Background="White" CornerRadius="4" Padding="8,6">
                                 <DockPanel>
                                     <TextBlock Text="分类" FontSize="12" FontWeight="Bold" Margin="0,0,0,4" DockPanel.Dock="Top"/>
-                                    <TextBlock Text="拖拽进程到此分类" FontSize="10" Foreground="#AAA" Margin="0,0,0,6" DockPanel.Dock="Top"/>
+                                    <TextBlock Text="拖拽应用到分类" FontSize="10" Foreground="#AAA" Margin="0,0,0,6" DockPanel.Dock="Top"/>
                                     <ListView x:Name="CategorySidebar" Background="Transparent" BorderThickness="0"
-                                              AllowDrop="True" Drop="CategorySidebar_Drop"
+                                              AllowDrop="True" Drop="CategorySidebar_Drop" DragEnter="CategorySidebar_DragEnter" DragLeave="CategorySidebar_DragLeave"
                                               SelectionChanged="CategorySidebar_SelectionChanged"
                                               ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                         <ListView.ItemTemplate>
@@ -248,51 +248,25 @@
 
                             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="#E0E0E0"/>
 
-                            <!-- 右侧：规则列表 -->
+                            <!-- 右侧：折叠面板 -->
                             <Border Grid.Column="2" Background="White" CornerRadius="4" Padding="8,6">
                                 <DockPanel>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8" DockPanel.Dock="Top">
-                                        <TextBox x:Name="TxtRuleSearch" Width="160" Padding="4,2"
-                                                 TextChanged="TxtRuleSearch_TextChanged"/>
-                                        <ComboBox x:Name="CbxRuleFilter" Width="100" Margin="8,0,0,0" Padding="4,2"
-                                                  SelectionChanged="CbxRuleFilter_SelectionChanged">
-                                            <ComboBoxItem Content="全部分类" Tag=""/>
-                                        </ComboBox>
-                                        <Button Content="新增规则" Click="BtnAddRule_Click" Margin="8,0,0,0" Padding="8,2" FontSize="12"/>
-                                    </StackPanel>
+                                    <!-- 顶部：搜索 + 退出选择 -->
+                                    <Grid Margin="0,0,0,8" DockPanel.Dock="Top">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="TxtRuleSearch" Grid.Column="0" Width="200" HorizontalAlignment="Left"
+                                                 Padding="4,2" TextChanged="TxtRuleSearch_TextChanged"/>
+                                        <Button x:Name="BtnExitSelect" Grid.Column="1" Content="退出选择"
+                                                Click="BtnExitSelect_Click" Padding="8,2" FontSize="12" Visibility="Collapsed"/>
+                                    </Grid>
 
-                                    <ListView x:Name="RulesListView" Background="Transparent" BorderThickness="0"
-                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                                        <ListView.View>
-                                            <GridView>
-                                                <GridViewColumn Header="进程名" Width="180" DisplayMemberBinding="{Binding ProcessName}"/>
-                                                <GridViewColumn Header="分类" Width="100">
-                                                    <GridViewColumn.CellTemplate>
-                                                        <DataTemplate>
-                                                            <ComboBox SelectedItem="{Binding CategoryName}"
-                                                                      ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=_categoryNames}"
-                                                                      FontSize="11" Padding="2,0"/>
-                                                        </DataTemplate>
-                                                    </GridViewColumn.CellTemplate>
-                                                </GridViewColumn>
-                                                <GridViewColumn Header="类型" Width="50">
-                                                    <GridViewColumn.CellTemplate>
-                                                        <DataTemplate>
-                                                            <TextBlock Text="{Binding TypeLabel}" FontSize="10" Foreground="{Binding TypeBrush}"/>
-                                                        </DataTemplate>
-                                                    </GridViewColumn.CellTemplate>
-                                                </GridViewColumn>
-                                                <GridViewColumn Header="操作" Width="50">
-                                                    <GridViewColumn.CellTemplate>
-                                                        <DataTemplate>
-                                                            <Button Content="删除" Click="BtnDeleteRule_Click" FontSize="10" Padding="4,1"
-                                                                    IsEnabled="{Binding IsCustom}"/>
-                                                        </DataTemplate>
-                                                    </GridViewColumn.CellTemplate>
-                                                </GridViewColumn>
-                                            </GridView>
-                                        </ListView.View>
-                                    </ListView>
+                                    <!-- 折叠面板列表 -->
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" PreviewMouseWheel="RulesPanel_PreviewMouseWheel">
+                                        <StackPanel x:Name="RulesPanel"/>
+                                    </ScrollViewer>
                                 </DockPanel>
                             </Border>
                         </Grid>
