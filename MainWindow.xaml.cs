@@ -241,8 +241,9 @@ public partial class MainWindow : Window
         if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
             _engine.IdleThresholdSeconds = idle;
 
-        // 分类器重载规则
+        // 分类器重载规则 + 重新分类历史数据
         _classifier.ReloadRules();
+        try { DatabaseHelper.ReclassifyAll(_classifier.Classify); } catch { }
 
         // 重载分类颜色（用户可能改了分类颜色）
         LoadCategoryColors();

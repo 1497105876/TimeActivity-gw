@@ -37,11 +37,16 @@ public partial class SettingsWindow : Window
         _loading = true;
         LoadSettings();
         LoadCategories();
-        LoadRules();
-        UpdateEstimates();
-        UpdateDiskUsage();
+        // LoadRules 延迟到用户切到分类规则页才加载
         _loading = false;
         _hasChanges = false;
+        SaveSnapshot(); // 记录初始快照，BtnApply 才能正常启用
+        // 耗时操作异步执行
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            UpdateEstimates();
+            UpdateDiskUsage();
+        }), System.Windows.Threading.DispatcherPriority.Background);
         }
         catch (Exception ex)
         {
@@ -58,11 +63,10 @@ public partial class SettingsWindow : Window
                 "screenshot" => 1,
                 "rules" => 2,
                 "categories" => 3,
-                "display" => 4,
-                "data" => 5,
-                "ai" => 6,
-                "system" => 7,
-                "io" => 8,
+                "data" => 4,
+                "ai" => 5,
+                "system" => 6,
+                "io" => 7,
                 _ => -1
             };
             if (index >= 0 && NavList != null)
@@ -83,24 +87,31 @@ public partial class SettingsWindow : Window
         PanelScreenshot.Visibility = Visibility.Collapsed;
         PanelRules.Visibility = Visibility.Collapsed;
         PanelCategories.Visibility = Visibility.Collapsed;
-        PanelDisplay.Visibility = Visibility.Collapsed;
         PanelData.Visibility = Visibility.Collapsed;
         PanelAI.Visibility = Visibility.Collapsed;
         PanelSystem.Visibility = Visibility.Collapsed;
         PanelIO.Visibility = Visibility.Collapsed;
 
-        // 根据选中索引显示对应面板
+        // 根据选中索引显示对应面板（显示设置已删除，编号调整）
         switch (NavList.SelectedIndex)
         {
             case 0: PanelTracking.Visibility = Visibility.Visible; break;
             case 1: PanelScreenshot.Visibility = Visibility.Visible; break;
-            case 2: PanelRules.Visibility = Visibility.Visible; break;
+            case 2: PanelRules.Visibility = Visibility.Visible;
+                    // 限制 PanelRules 高度让左右独立滚动
+                    PanelRules.MaxHeight = Math.Max(300, SettingsScroll.ViewportHeight - 50);
+                    // 延迟加载：首次切到分类规则页才加载规则
+                    if (_allRules.Count == 0 && !_rulesLoaded)
+                    {
+                        _rulesLoaded = true;
+                        LoadRules();
+                    }
+                    break;
             case 3: PanelCategories.Visibility = Visibility.Visible; break;
-            case 4: PanelDisplay.Visibility = Visibility.Visible; break;
-            case 5: PanelData.Visibility = Visibility.Visible; break;
-            case 6: PanelAI.Visibility = Visibility.Visible; break;
-            case 7: PanelSystem.Visibility = Visibility.Visible; break;
-            case 8: PanelIO.Visibility = Visibility.Visible; break;
+            case 4: PanelData.Visibility = Visibility.Visible; break;
+            case 5: PanelAI.Visibility = Visibility.Visible; break;
+            case 6: PanelSystem.Visibility = Visibility.Visible; break;
+            case 7: PanelIO.Visibility = Visibility.Visible; break;
         }
     }
 
@@ -197,10 +208,18 @@ public partial class SettingsWindow : Window
     {
         if (CategorySidebar == null) return;
         var sidebarItems = new ObservableCollection<CategoryItem>();
-        var rules = RuleRepository.GetAll();
+        // 从内存 _allRules 算 Count（如果已加载），否则查数据库
+        var rulesSource = _allRules.Count > 0 ? _allRules.Select(r => new { CategoryName = r.CategoryName }).ToList() : null;
         foreach (var c in _categories)
         {
-            int count = rules.Count(r => r.CategoryId == c.Id);
+            int count;
+            if (rulesSource != null)
+                count = rulesSource.Count(r => r.CategoryName == c.Name);
+            else
+            {
+                var dbRules = RuleRepository.GetAll();
+                count = dbRules.Count(r => r.CategoryId == c.Id);
+            }
             sidebarItems.Add(new CategoryItem { Id = c.Id, Name = c.Name, Color = c.Color, SortOrder = c.SortOrder, Count = count });
         }
         CategorySidebar.ItemsSource = sidebarItems;
@@ -209,18 +228,22 @@ public partial class SettingsWindow : Window
     // ========== 分类规则（折叠面板版） ==========
 
     private List<RuleItem> _allRules = new();
+    private bool _rulesLoaded = false;
     private HashSet<string> _selectedProcessNames = new(); // 多选的进程名
     private string? _lastClickedProcess = null; // Shift 范围选择用
-    private bool _isSelecting = false; // 是否处于选择模式（有选中项）
 
     private async void LoadRules()
     {
         await Task.Run(() =>
         {
+            // 获取用户实际使用过的进程名
+            var usedProcesses = ActivityRepository.GetUsedProcessNames();
             var rules = RuleRepository.GetAll();
             var ruleItems = new List<RuleItem>();
             foreach (var r in rules)
             {
+                // 只展示用户用过的应用
+                if (!usedProcesses.Contains(r.ProcessName)) continue;
                 var cat = _categories.FirstOrDefault(c => c.Id == r.CategoryId);
                 ruleItems.Add(new RuleItem
                 {
@@ -231,9 +254,26 @@ public partial class SettingsWindow : Window
                     IsCustom = r.IsCustom
                 });
             }
+            // 用户用过但没有规则匹配的进程，显示为“未分类”
+            var ruleedProcessNames = new HashSet<string>(rules.Select(r => r.ProcessName), StringComparer.OrdinalIgnoreCase);
+            foreach (var proc in usedProcesses)
+            {
+                if (!ruleedProcessNames.Contains(proc))
+                {
+                    ruleItems.Add(new RuleItem
+                    {
+                        Id = 0,
+                        ProcessName = proc,
+                        TitleKeyword = "",
+                        CategoryName = "未分类",
+                        IsCustom = false
+                    });
+                }
+            }
             _allRules = ruleItems;
         });
         BuildRulesPanel();
+        LoadCategorySidebar(); // 规则加载完后刷新侧边栏 Count（从内存算）
     }
 
     /// <summary>
@@ -287,6 +327,18 @@ public partial class SettingsWindow : Window
             Padding = new Thickness(8, 4, 8, 4),
             BorderBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
             BorderThickness = new Thickness(0, 0, 0, 1),
+            Tag = forceExpand ? "search" : null, // 标记搜索模式
+        };
+
+        // 手风琴：展开一个收起其他（非搜索模式）
+        expander.Expanded += (s, e) =>
+        {
+            if (expander.Tag as string == "search") return; // 搜索模式不折叠
+            foreach (var child in RulesPanel.Children)
+            {
+                if (child is Expander other && other != expander && other.Tag as string != "search")
+                    other.IsExpanded = false;
+            }
         };
 
         // 内容：应用列表
@@ -501,13 +553,40 @@ public partial class SettingsWindow : Window
 
     // ========== 拖拽到左侧分类 ==========
 
+    private void CategorySidebar_DragOver(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent("ProcessNames"))
+        {
+            e.Effects = DragDropEffects.None;
+            return;
+        }
+        e.Effects = DragDropEffects.Move;
+
+        // 高亮当前悬停的 ListBoxItem
+        var dep = e.OriginalSource as DependencyObject;
+        ListBoxItem? hoveredItem = null;
+        while (dep != null && dep is not ListBoxItem)
+            dep = VisualTreeHelper.GetParent(dep);
+        hoveredItem = dep as ListBoxItem;
+
+        foreach (var item in CategorySidebar.Items)
+        {
+            if (CategorySidebar.ItemContainerGenerator.ContainerFromItem(item) is ListBoxItem lbi)
+            {
+                if (lbi == hoveredItem && lbi.DataContext is CategoryItem)
+                    lbi.Background = new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD));
+                else
+                    lbi.Background = Brushes.Transparent;
+            }
+        }
+        e.Handled = true;
+    }
+
     private void CategorySidebar_DragEnter(object sender, DragEventArgs e)
     {
         if (e.Data.GetDataPresent("ProcessNames"))
         {
             e.Effects = DragDropEffects.Move;
-            // 高亮目标
-            if (sender is Border b) b.Background = new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD));
         }
         else
         {
@@ -518,37 +597,58 @@ public partial class SettingsWindow : Window
 
     private void CategorySidebar_DragLeave(object sender, DragEventArgs e)
     {
-        if (sender is Border b) b.Background = Brushes.Transparent;
+        // 清除所有项的高亮
+        foreach (var item in CategorySidebar.Items)
+        {
+            if (CategorySidebar.ItemContainerGenerator.ContainerFromItem(item) is ListBoxItem lbi)
+            {
+                lbi.Background = Brushes.Transparent;
+            }
+        }
     }
 
     private void CategorySidebar_Drop(object sender, DragEventArgs e)
     {
-        if (e.Data.GetData("ProcessNames") is List<string> procNames && procNames.Count > 0)
+        // 清除高亮
+        foreach (var item in CategorySidebar.Items)
         {
-            // 找到目标分类
-            CategoryItem? targetCat = null;
-            if (sender is FrameworkElement fe)
+            if (CategorySidebar.ItemContainerGenerator.ContainerFromItem(item) is ListBoxItem lbi)
             {
-                // 从 DataContext 取（ListViewItem）
-                if (fe.DataContext is CategoryItem cat) targetCat = cat;
-                else if (CategorySidebar.SelectedItem is CategoryItem selectedCat) targetCat = selectedCat;
+                lbi.Background = Brushes.Transparent;
             }
-            if (targetCat == null) return;
+        }
 
-            // 改分类
-            foreach (var procName in procNames)
+        if (!e.Data.GetDataPresent("ProcessNames")) return;
+        var procNames = e.Data.GetData("ProcessNames") as List<string>;
+        if (procNames == null || procNames.Count == 0) return;
+
+        // 找到目标分类：从 Drop 位置取 ListBoxItem
+        CategoryItem? targetCat = null;
+        var dep = e.OriginalSource as DependencyObject;
+        while (dep != null && dep is not ListBoxItem)
+            dep = VisualTreeHelper.GetParent(dep);
+        if (dep is ListBoxItem lbiItem && lbiItem.DataContext is CategoryItem cat)
+            targetCat = cat;
+        else if (CategorySidebar.SelectedItem is CategoryItem selectedCat)
+            targetCat = selectedCat;
+
+        if (targetCat == null) return;
+
+        // 改分类
+        int changed = 0;
+        foreach (var procName in procNames)
+        {
+            var rule = _allRules.FirstOrDefault(r => r.ProcessName.Equals(procName, StringComparison.OrdinalIgnoreCase));
+            if (rule != null && rule.CategoryName != targetCat.Name)
             {
-                var rule = _allRules.FirstOrDefault(r => r.ProcessName == procName);
-                if (rule != null && rule.CategoryName != targetCat.Name)
-                {
-                    rule.CategoryName = targetCat.Name;
-                    rule.IsCustom = true; // 用户改过的标记为自定义
-                }
+                rule.CategoryName = targetCat.Name;
+                rule.IsCustom = true;
+                changed++;
             }
+        }
 
-            // 恢复背景
-            if (sender is Border b) b.Background = Brushes.Transparent;
-
+        if (changed > 0)
+        {
             // 重建面板 + 刷新侧边栏 Count
             BuildRulesPanel();
             LoadCategorySidebar();
@@ -556,9 +656,16 @@ public partial class SettingsWindow : Window
         }
     }
 
-    // ========== 滚轮修复 ==========
-
     private void RulesPanel_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (sender is ScrollViewer sv)
+        {
+            sv.ScrollToVerticalOffset(sv.VerticalOffset - e.Delta);
+            e.Handled = true;
+        }
+    }
+
+    private void CategorySidebar_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer sv)
         {
@@ -582,12 +689,10 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            // 全删全插（预置规则修改也能生效）
-            using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-            conn.Open();
-            using var del = new SqliteCommand("DELETE FROM Rules", conn);
-            del.ExecuteNonQuery();
-
+            // 只更新/插入用户改过的规则，不删预置规则
+            // _allRules 里只有用户用过的应用，但预置规则表有全部 377 条
+            // 用户拖拽改分类 → IsCustom=true，需要 UPDATE 该规则的 CategoryId
+            // 用户用过但没规则的进程 → Id=0，需要 INSERT
             foreach (var r in _allRules)
             {
                 if (string.IsNullOrWhiteSpace(r.ProcessName))
@@ -595,13 +700,31 @@ public partial class SettingsWindow : Window
                 var cat = _categories.FirstOrDefault(c => c.Name == r.CategoryName);
                 if (cat == null) continue;
 
-                using var ins = new SqliteCommand(
-                    "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn);
-                ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
-                ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
-                ins.Parameters.AddWithValue("@c", cat.Id);
-                ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
-                ins.ExecuteNonQuery();
+                if (r.Id > 0)
+                {
+                    // 已有规则，更新分类
+                    using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+                    conn.Open();
+                    using var upd = new SqliteCommand(
+                        "UPDATE Rules SET CategoryId=@c, IsCustom=@ic WHERE Id=@id", conn);
+                    upd.Parameters.AddWithValue("@c", cat.Id);
+                    upd.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
+                    upd.Parameters.AddWithValue("@id", r.Id);
+                    upd.ExecuteNonQuery();
+                }
+                else
+                {
+                    // 新规则（用户用过但之前没规则匹配的进程）
+                    using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+                    conn.Open();
+                    using var ins = new SqliteCommand(
+                        "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn);
+                    ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
+                    ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
+                    ins.Parameters.AddWithValue("@c", cat.Id);
+                    ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
+                    ins.ExecuteNonQuery();
+                }
             }
         }
         catch { }
@@ -672,6 +795,15 @@ public partial class SettingsWindow : Window
                     var tmp = cats[idx];
                     cats[idx] = new CategoryItem { Id = tmp.Id, Name = tmp.Name, Color = item.Color, SortOrder = tmp.SortOrder };
                 }
+            }
+            // 同步刷新分类规则页的侧边栏和面板颜色
+            if (_rulesLoaded)
+            {
+                // 更新 _categories 内存中的颜色
+                var cat = _categories.FirstOrDefault(c => c.Name == item.Name);
+                if (cat != null) cat.Color = item.Color;
+                LoadCategorySidebar();
+                BuildRulesPanel();
             }
             MarkChanged();
         }
@@ -761,7 +893,10 @@ public partial class SettingsWindow : Window
         SaveRules();
         SaveCategories();
 
-        // 通知主窗口重启服务
+        // 刷新侧边栏 Count
+        LoadCategorySidebar();
+
+        // 通知主窗口重启服务 + 重新分类历史数据
         SettingsSaved?.Invoke();
 
         // 刷新预估值
@@ -1098,51 +1233,99 @@ public partial class SettingsWindow : Window
         MessageBox.Show("所有数据已清空", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
-    // ========== 恢复默认 ==========
+    // ========== 恢复此页默认 ==========
 
     private void BtnRestoreDefault_Click(object sender, RoutedEventArgs e)
     {
+        string pageName = NavList.SelectedIndex switch
+        {
+            0 => "追踪设置",
+            1 => "截图设置",
+            2 => "分类规则",
+            3 => "分类管理",
+            4 => "数据设置",
+            5 => "AI 设置",
+            6 => "系统设置",
+            7 => "导入/导出",
+            _ => "当前页"
+        };
+
         var result = MessageBox.Show(
-            "恢复所有设置为默认值？\n（分类规则和分类管理不会被重置）",
+            $"恢复「{pageName}」到默认值并保存？",
             "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (result != MessageBoxResult.Yes) return;
 
-        // 重置数据库设置到默认
-        var defaults = new Dictionary<string, string>
+        switch (NavList.SelectedIndex)
         {
-            {"PollIntervalSeconds", "3"},
-            {"IdleThresholdSeconds", "300"},
-            {"AutoStartTracking", "true"},
-            {"EnableScreenshot", "false"},
-            {"ScreenshotOnSwitch", "true"},
-            {"ScreenshotIntervalMinutes", "5"},
-            {"ScreenshotFormat", "jpg"},
-            {"ScreenshotPath", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots")},
-            {"ScreenshotQuality", "medium"},
-            {"EnableMaxSize", "true"},
-            {"MaxScreenshotSizeMB", "5120"},
-            {"EnableMaxAge", "true"},
-            {"MaxScreenshotAgeDays", "30"},
-            {"DataRetentionDays", "90"},
-            {"EnableAI", "true"},
-            {"AIMode", "lan"},
-            {"AIApiUrl", "http://localhost:11434"},
-            {"AIApiKey", ""},
-            {"AIModel", "qwen2.5:7b"},
-            {"AutoDailySummary", "true"},
-            {"AutoStartWithWindows", "false"},
-            {"MinimizeToTray", "true"},
-        };
-        foreach (var kv in defaults)
-            SettingsRepository.Set(kv.Key, kv.Value);
+            case 0: // 追踪设置
+                SettingsRepository.Set("PollIntervalSeconds", "3");
+                SettingsRepository.Set("IdleThresholdSeconds", "300");
+                SettingsRepository.Set("AutoStartTracking", "true");
+                break;
+
+            case 1: // 截图设置
+                SettingsRepository.Set("EnableScreenshot", "false");
+                SettingsRepository.Set("ScreenshotOnSwitch", "true");
+                SettingsRepository.Set("ScreenshotIntervalMinutes", "5");
+                SettingsRepository.Set("ScreenshotFormat", "jpg");
+                SettingsRepository.Set("ScreenshotPath", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots"));
+                SettingsRepository.Set("ScreenshotQuality", "medium");
+                SettingsRepository.Set("EnableMaxSize", "true");
+                SettingsRepository.Set("MaxScreenshotSizeMB", "5120");
+                SettingsRepository.Set("EnableMaxAge", "true");
+                SettingsRepository.Set("MaxScreenshotAgeDays", "30");
+                break;
+
+            case 2: // 分类规则
+                RuleRepository.ClearAll();
+                _rulesLoaded = false;
+                _allRules.Clear();
+                if (PanelRules.Visibility == Visibility.Visible)
+                {
+                    _rulesLoaded = true;
+                    LoadRules();
+                }
+                break;
+
+            case 3: // 分类管理
+                CategoryRepository.ResetToDefault();
+                LoadCategories();
+                break;
+
+            case 4: // 数据设置
+                SettingsRepository.Set("DataRetentionDays", "90");
+                break;
+
+            case 5: // AI 设置
+                SettingsRepository.Set("EnableAI", "true");
+                SettingsRepository.Set("AIMode", "lan");
+                SettingsRepository.Set("AIApiUrl", "http://localhost:11434");
+                SettingsRepository.Set("AIApiKey", "");
+                SettingsRepository.Set("AIModel", "qwen2.5:7b");
+                SettingsRepository.Set("AutoDailySummary", "true");
+                break;
+
+            case 6: // 系统设置
+                SettingsRepository.Set("AutoStartWithWindows", "false");
+                SettingsRepository.Set("MinimizeToTray", "true");
+                break;
+
+            case 7: // 导入/导出
+                MessageBox.Show("导入/导出页无需恢复默认", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+        }
 
         _loading = true;
         LoadSettings();
+        if (_rulesLoaded && NavList.SelectedIndex == 2) LoadRules();
+        if (NavList.SelectedIndex == 3) LoadCategories();
         UpdateEstimates();
         UpdateDiskUsage();
         _loading = false;
-        _hasChanges = true;
-        TxtUnsaved.Text = "● 已恢复默认，请点保存生效";
+
+        // 直接保存（不关窗）
+        DoSave();
+        TxtUnsaved.Text = "✓ 已恢复默认并保存";
     }
 
     // ========== 导入导出 ==========
@@ -1191,7 +1374,7 @@ public partial class SettingsWindow : Window
             _loading = true;
             LoadSettings();
             LoadCategories();
-            LoadRules();
+            if (_rulesLoaded) LoadRules();
             UpdateEstimates();
             UpdateDiskUsage();
             _loading = false;

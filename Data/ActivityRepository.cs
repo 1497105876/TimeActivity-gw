@@ -232,4 +232,24 @@ public static class ActivityRepository
             result[reader.GetString(0)] = reader.GetInt32(1);
         return result;
     }
+
+    /// <summary>
+    /// 获取所有用户实际使用过的进程名（去重）
+    /// </summary>
+    public static HashSet<string> GetUsedProcessNames()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(
+            "SELECT DISTINCT ProcessName FROM Activities WHERE IsIdle = 0", conn);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var name = reader.GetString(0);
+            if (!string.IsNullOrEmpty(name) && name != "(空闲)")
+                result.Add(name);
+        }
+        return result;
+    }
 }
