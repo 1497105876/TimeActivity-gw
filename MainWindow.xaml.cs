@@ -54,6 +54,9 @@ public partial class MainWindow : Window
     // 缓存
     private List<ActivityRecord> _cachedActivities = new();
 
+    // 自动周/月总结检查日期缓存（同一天只查一次）
+    private DateTime _lastAutoSummaryCheckDate = DateTime.MinValue;
+
     // Popup 标志
     private bool _popupOpen = false;
     private string? _lastScreenshotPath = null;
@@ -473,6 +476,10 @@ public partial class MainWindow : Window
     /// </summary>
     private async Task CheckAutoSummaryAsync()
     {
+        // 同一天只执行一次，避免 30 秒刷新重复查库
+        if (_lastAutoSummaryCheckDate == DateTime.Today) return;
+        _lastAutoSummaryCheckDate = DateTime.Today;
+
         try
         {
             if (SettingsRepository.Get("EnableAI", "true") != "true") return;

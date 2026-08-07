@@ -117,6 +117,12 @@ public partial class StatisticsPage : Page
     /// </summary>
     private void LoadAISummary()
     {
+        // 切换周期时重置按钮文字（避免"正在生成..."串到其他周期）
+        if (_isGenerating && _generatingPeriod != _period)
+            BtnGenerateAI.Content = "生成总结";
+        else if (_isGenerating && _generatingPeriod == _period)
+            BtnGenerateAI.Content = "正在生成...";
+
         string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
 
         if (_period == "day")
@@ -170,10 +176,9 @@ public partial class StatisticsPage : Page
                 }
                 else
                 {
-                    // 没有 auto 总结记录，写一条占位
-                    string placeholder = _period == "week" ? "本周没有活动记录。" : "本月没有活动记录。";
-                    AISummaryRepository.Insert(_periodStart, placeholder, summaryType, "auto");
-                    AISummaryText.Markdown = placeholder;
+                    // 没有 auto 总结记录，只显示提示，不写数据库
+                    string hint = _period == "week" ? "上周的总结将在下次启动程序时自动生成。" : "上个月的总结将在下次启动程序时自动生成。";
+                    AISummaryText.Markdown = hint;
                     AISummaryTime.Text = "";
                     _currentAISummary = null;
                 }
@@ -387,6 +392,7 @@ public partial class StatisticsPage : Page
     // 当前 AI 总结内容
     private string? _currentAISummary = null;
     private bool _isGenerating = false;
+    private string? _generatingPeriod = null; // 记录正在生成的是哪个周期
 
     private async void BtnGenerateAI_Click(object sender, RoutedEventArgs e)
     {
@@ -408,6 +414,7 @@ public partial class StatisticsPage : Page
         // 锁定当前 period 和日期，防止 await 期间用户切换导致串台
         string lockPeriod = _period;
         DateTime lockPeriodStart = _periodStart;
+        _generatingPeriod = lockPeriod;
 
         try
         {
@@ -445,8 +452,6 @@ public partial class StatisticsPage : Page
                 if (lockPeriod == _period && lockPeriodStart == _periodStart)
                 {
                     LoadAISummary();
-                    if (savePath != null)
-                        AISummaryText.Markdown = $"{_currentAISummary}\n\n---\n已自动保存到：{savePath}";
                 }
             }
             else
@@ -463,6 +468,7 @@ public partial class StatisticsPage : Page
         finally
         {
             _isGenerating = false;
+            _generatingPeriod = null;
             BtnGenerateAI.Content = "生成总结";
         }
     }
