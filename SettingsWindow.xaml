@@ -259,7 +259,8 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBox x:Name="TxtRuleSearch" Grid.Column="0" Width="200" HorizontalAlignment="Left"
-                                                 Padding="4,2" TextChanged="TxtRuleSearch_TextChanged"/>
+                                                 Padding="4,2" TextChanged="TxtRuleSearch_TextChanged"
+                                                 ToolTip="搜索进程名或分类名"/>
                                         <Button x:Name="BtnExitSelect" Grid.Column="1" Content="退出选择"
                                                 Click="BtnExitSelect_Click" Padding="8,2" FontSize="12" Visibility="Collapsed"/>
                                     </Grid>
@@ -393,14 +394,6 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="模型名称" VerticalAlignment="Center"/>
                                     <TextBox x:Name="TxtAIModel" Grid.Column="1" Margin="0,0,8,0"/>
-                                </Grid>
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="自动生成每日总结" VerticalAlignment="Center"/>
-                                    <CheckBox x:Name="ChkAutoSummary" Grid.Column="1" VerticalAlignment="Center"/>
                                 </Grid>
                                 <Border Background="#F8F8F8" CornerRadius="4" Padding="8,6" Margin="0,8,0,8">
                                     <StackPanel>

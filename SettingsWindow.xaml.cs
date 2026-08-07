@@ -868,7 +868,6 @@ public partial class SettingsWindow : Window
         SettingsRepository.Set("AIApiUrl", TxtApiUrl.Text);
         SettingsRepository.Set("AIApiKey", TxtApiKey.Password);
         SettingsRepository.Set("AIModel", TxtAIModel.Text);
-        SettingsRepository.Set("AutoDailySummary", ChkAutoSummary.IsChecked == true ? "true" : "false");
 
         // AI 总结文件保存
         SettingsRepository.Set("AISummaryPath", TxtAISummaryPath.Text);

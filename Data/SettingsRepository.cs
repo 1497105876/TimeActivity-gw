@@ -81,7 +81,6 @@ public static class SettingsRepository
         ["AIApiUrl"] = "http://localhost:11434",
         ["AIApiKey"] = "",
         ["AIModel"] = "qwen2.5:7b",
-        ["AutoDailySummary"] = "true",
         ["AISummaryPath"] = "",
         ["AISummaryMaxCount"] = "30",
         ["AISummaryMaxSizeMB"] = "50",
@@ -99,7 +98,7 @@ public static class SettingsRepository
             "ScreenshotFormat", "ScreenshotPath", "ScreenshotQuality",
             "EnableMaxSize", "MaxScreenshotSizeMB", "EnableMaxAge", "MaxScreenshotAgeDays"),
         4 => FilterDefaults("DataRetentionDays"),
-        5 => FilterDefaults("EnableAI", "AIMode", "AIApiUrl", "AIApiKey", "AIModel", "AutoDailySummary"),
+        5 => FilterDefaults("EnableAI", "AIMode", "AIApiUrl", "AIApiKey", "AIModel"),
         6 => FilterDefaults("AutoStartWithWindows", "MinimizeToTray"),
         _ => new()
     };

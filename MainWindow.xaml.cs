@@ -237,7 +237,8 @@ public partial class MainWindow : Window
 
         // 分类器重载规则 + 重新分类历史数据
         _classifier.ReloadRules();
-        try { DatabaseHelper.ReclassifyAll(_classifier.Classify); } catch { }
+        try { DatabaseHelper.ReclassifyAll(_classifier.Classify); }
+        catch (Exception ex) { Logger.Error("OnSettingsSaved 重新分类失败", ex); }
 
         // 重载分类颜色（用户可能改了分类颜色）
         LoadCategoryColors();
@@ -1112,6 +1113,9 @@ public partial class MainWindow : Window
             }
             else
             {
+                // 没有截图时清空缓存和 Source，防止残留旧图
+                _lastScreenshotPath = null;
+                PopupScreenshot.Source = null;
                 PopupScreenshot.Visibility = Visibility.Collapsed;
             }
         }
@@ -1131,6 +1135,9 @@ public partial class MainWindow : Window
     {
         DetailPopup.IsOpen = false;
         _popupOpen = false;
+        _lastScreenshotPath = null;
+        PopupScreenshot.Source = null;
+        PopupScreenshot.Visibility = Visibility.Collapsed;
     }
 
     // ========== 图例 ==========
