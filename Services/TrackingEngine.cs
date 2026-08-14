@@ -73,7 +73,8 @@ public class TrackingEngine
             Poll();
             try
             {
-                await Task.Delay(PollIntervalSeconds * 1000, token);
+                int delayMs = Math.Clamp(PollIntervalSeconds, 1, 3600) * 1000;
+                await Task.Delay(delayMs, token);
             }
             catch (TaskCanceledException)
             {
@@ -118,8 +119,9 @@ public class TrackingEngine
         string processName = Win32Api.GetProcessName(hWnd);
         string windowTitle = Win32Api.GetWindowTitle(hWnd);
 
-        // 如果窗口标题为空，跳过
-        if (string.IsNullOrEmpty(windowTitle)) return;
+        // 窗口标题为空时用进程名兜底（全屏游戏/DirectX 独占可能标题为空）
+        if (string.IsNullOrEmpty(windowTitle))
+            windowTitle = processName;
 
         string category = _classifier.Classify(processName, windowTitle);
 

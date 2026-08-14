@@ -148,17 +148,13 @@ public class DatabaseHelper
                     Logger.Info("数据库迁移：AISummaries 表已加 AutoType 字段");
                 }
             }
-            catch { }
-
-            // 创建唯一索引（如果不存在）— 用于 UPSERT
+            catch (Exception ex) { Logger.Error("AISummaries AutoType 列迁移失败", ex); }
             try
             {
                 using var idxCmd = new SqliteCommand("CREATE UNIQUE INDEX IF NOT EXISTS UX_AISummaries_Type ON AISummaries(Date, SummaryType, AutoType)", conn);
                 idxCmd.ExecuteNonQuery();
             }
-            catch { }
-
-            // 插入预置分类（如果还没有）
+            catch (Exception ex) { Logger.Error("AISummaries 唯一索引创建失败", ex); }
             var countCmd = new SqliteCommand("SELECT COUNT(*) FROM Categories", conn);
             if ((long)countCmd.ExecuteScalar()! == 0)
             {
@@ -219,14 +215,21 @@ public class DatabaseHelper
                 // JSON 文件: Data/seed_rules.json
                 var seedPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data", "seed_rules.json");
                 var procRuleList = new List<(string proc, string cat)>();
-                using (var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(seedPath)))
+                try
                 {
-                    foreach (var item in doc.RootElement.EnumerateArray())
+                    using (var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(seedPath)))
                     {
-                        var proc = item.GetProperty("process").GetString() ?? "";
-                        var cat = item.GetProperty("category").GetString() ?? "";
-                        procRuleList.Add((proc, cat));
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            var proc = item.GetProperty("process").GetString() ?? "";
+                            var cat = item.GetProperty("category").GetString() ?? "";
+                            procRuleList.Add((proc, cat));
+                        }
                     }
+                }
+                catch (Exception seedEx)
+                {
+                    Logger.Error($"预置规则 JSON 加载失败（{seedPath}），跳过预置规则。用户可在设置中手动添加规则。", seedEx);
                 }
                 foreach (var (proc, cat) in procRuleList)
                 {
@@ -309,46 +312,61 @@ public class DatabaseHelper
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
 
-        // 取所有非空闲活动记录
-        using var selCmd = new SqliteCommand(
-            "SELECT Id, ProcessName, WindowTitle FROM Activities WHERE IsIdle=0", conn);
-        using var reader = selCmd.ExecuteReader();
+        // 用事务包裹整个操作，失败时回滚保证数据一致性
+        using var transaction = conn.BeginTransaction();
 
-        var updates = new List<(long id, string category)>();
-        while (reader.Read())
+        try
         {
-            long id = reader.GetInt64(0);
-            string proc = reader.GetString(1);
-            string title = reader.IsDBNull(2) ? "" : reader.GetString(2);
-            string newCat = classifyFunc(proc, title);
-            updates.Add((id, newCat));
+            // 取所有非空闲活动记录
+            using var selCmd = new SqliteCommand(
+                "SELECT Id, ProcessName, WindowTitle FROM Activities WHERE IsIdle=0", conn, transaction);
+            using var reader = selCmd.ExecuteReader();
+
+            var updates = new List<(long id, string category)>();
+            while (reader.Read())
+            {
+                long id = reader.GetInt64(0);
+                string proc = reader.GetString(1);
+                string title = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                string newCat = classifyFunc(proc, title);
+                updates.Add((id, newCat));
+            }
+
+            reader.Close();
+
+            foreach (var (id, cat) in updates)
+            {
+                using var updCmd = new SqliteCommand(
+                    "UPDATE Activities SET Category=@c WHERE Id=@id", conn, transaction);
+                updCmd.Parameters.AddWithValue("@c", cat);
+                updCmd.Parameters.AddWithValue("@id", id);
+                updated += updCmd.ExecuteNonQuery();
+            }
+
+            // 重新生成每日汇总
+            using var datesCmd = new SqliteCommand(
+                "SELECT DISTINCT date(StartTime) FROM Activities", conn, transaction);
+            using var dateReader = datesCmd.ExecuteReader();
+            var dates = new List<string>();
+            while (dateReader.Read())
+                dates.Add(dateReader.GetString(0));
+            dateReader.Close();
+
+            // 汇总生成需要在事务内完成
+            foreach (var date in dates)
+                DailySummaryRepository.GenerateForDate(date, conn, transaction);
+
+            transaction.Commit();
+
+            if (updated > 0)
+                Logger.Info($"重新分类完成：更新 {updated} 条活动记录，重新生成 {dates.Count} 天汇总");
         }
-
-        reader.Close();
-
-        foreach (var (id, cat) in updates)
+        catch (Exception ex)
         {
-            using var updCmd = new SqliteCommand(
-                "UPDATE Activities SET Category=@c WHERE Id=@id", conn);
-            updCmd.Parameters.AddWithValue("@c", cat);
-            updCmd.Parameters.AddWithValue("@id", id);
-            updated += updCmd.ExecuteNonQuery();
+            transaction.Rollback();
+            Logger.Error("重新分类失败，已回滚", ex);
+            throw;
         }
-
-        // 重新生成每日汇总
-        using var datesCmd = new SqliteCommand(
-            "SELECT DISTINCT date(StartTime) FROM Activities", conn);
-        using var dateReader = datesCmd.ExecuteReader();
-        var dates = new List<string>();
-        while (dateReader.Read())
-            dates.Add(dateReader.GetString(0));
-        dateReader.Close();
-
-        foreach (var date in dates)
-            DailySummaryRepository.GenerateForDate(date);
-
-        if (updated > 0)
-            Logger.Info($"重新分类完成：更新 {updated} 条活动记录，重新生成 {dates.Count} 天汇总");
 
         return updated;
     }
@@ -384,7 +402,7 @@ public class DatabaseHelper
                     string fullPath = Path.IsPathRooted(p) ? p : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, p);
                     if (File.Exists(fullPath)) File.Delete(fullPath);
                 }
-                catch { }
+                catch (Exception ex) { Logger.Error($"删除旧截图文件失败", ex); }
             }
         }
         using var cmd3 = new SqliteCommand("DELETE FROM Screenshots WHERE CapturedAt < @Cutoff", conn);

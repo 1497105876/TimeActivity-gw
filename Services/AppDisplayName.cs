@@ -97,7 +97,7 @@ public static class AppDisplayName
                     return path;
                 }
             }
-            catch { }
+            catch (Exception ex) { Logger.Error("GetExePathByProcessName MainModule 失败", ex); }
 
             // fallback：QueryFullProcessImageName
             try
@@ -125,7 +125,7 @@ public static class AppDisplayName
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Logger.Error("QueryFullProcessImageNameW 失败", ex); }
 
             proc.Dispose();
         }

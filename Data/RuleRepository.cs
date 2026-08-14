@@ -46,6 +46,26 @@ public static class RuleRepository
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// 按进程名更新分类（预置规则改 IsCustom=1，自定义规则直接改）
+    /// </summary>
+    public static void UpdateCategory(string processName, int categoryId)
+    {
+        EnsureInit();
+        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(
+            "UPDATE Rules SET CategoryId=@C, IsCustom=1 WHERE ProcessName=@P", conn);
+        cmd.Parameters.AddWithValue("@C", categoryId);
+        cmd.Parameters.AddWithValue("@P", processName);
+        int rows = cmd.ExecuteNonQuery();
+        if (rows == 0)
+        {
+            // 没有这条规则，插入一条自定义规则
+            Insert(processName, null, categoryId);
+        }
+    }
+
     public static void ClearAll()
     {
         EnsureInit();

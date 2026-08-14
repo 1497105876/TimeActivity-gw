@@ -1,6 +1,6 @@
 using System.Windows.Media;
 
-namespace TimeActivity;
+namespace TimeActivity.Models;
 
 /// <summary>
 /// 分类规则项 — 用于设置页规则列表显示

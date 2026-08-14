@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Windows.Media;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Data;
+using TimeActivity.Services;
 
 namespace TimeActivity.Helpers;
 
@@ -29,8 +30,10 @@ public class CategoryColorHelper
             while (reader.Read())
                 _colors[reader.GetString(0)] = reader.GetString(1);
         }
-        catch
+        catch (Exception ex)
         {
+            // 数据库读取失败时用硬编码预置颜色兜底
+            Logger.Error("加载分类颜色失败，使用默认值", ex);
             _colors = new Dictionary<string, string>
             {
                 { "开发工具", "#4A90D9" }, { "社交通讯", "#E67E22" }, { "游戏", "#E74C3C" },
@@ -44,10 +47,19 @@ public class CategoryColorHelper
     }
 
     /// <summary>
-    /// 解析十六进制颜色字符串为 Color
+    /// 解析十六进制颜色字符串为 Color（非法值回退灰色）
     /// </summary>
     public static Color ParseHex(string hex)
-        => (Color)ColorConverter.ConvertFromString(hex);
+    {
+        try
+        {
+            return (Color)ColorConverter.ConvertFromString(hex);
+        }
+        catch
+        {
+            return (Color)ColorConverter.ConvertFromString("#90A4AE");
+        }
+    }
 
     /// <summary>
     /// 获取某个分类对应的颜色

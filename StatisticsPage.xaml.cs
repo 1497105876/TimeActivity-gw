@@ -199,7 +199,7 @@ public partial class StatisticsPage : Page
             var dt = DateTime.Parse(createdAt);
             return $"{dt:M/d} {dt:HH:mm} 总结";
         }
-        catch { return ""; }
+        catch (Exception ex) { Logger.Error("格式化总结时间失败", ex); return ""; }
     }
 
     private void BtnPrev_Click(object sender, RoutedEventArgs e)
@@ -253,7 +253,7 @@ public partial class StatisticsPage : Page
                 CategoryFilter.Items.Add(new ComboBoxItem { Content = cat.Name, Tag = cat.Name });
             }
         }
-        catch { }
+        catch (Exception ex) { Logger.Error("加载分类筛选列表失败", ex); }
         CategoryFilter.SelectedIndex = 0;
     }
 

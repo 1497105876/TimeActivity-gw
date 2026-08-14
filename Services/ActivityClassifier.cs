@@ -59,7 +59,7 @@ public class ActivityClassifier
                 {
                     _processRules[rule.ProcessName] = catName;
 
-                    // 如果规则分类是"网页"，把进程加入浏览器集合
+                    // 如果规则分类是"浏览器"，把进程加入浏览器集合
                     if (rule.CategoryId == webCatId)
                         _browsers.Add(rule.ProcessName);
                 }

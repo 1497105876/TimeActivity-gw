@@ -11,8 +11,10 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Data;
+using TimeActivity.Models;
 using TimeActivity.Services;
 
 namespace TimeActivity;
@@ -32,11 +34,17 @@ public partial class SettingsWindow : Window
     public SettingsWindow(string initialSection = null)
     {
         InitializeComponent();
-        _loading = true;
-        LoadSettings();
-        LoadCategories();
-        // LoadRules 延迟到用户切到分类规则页才加载
-        _loading = false;
+        try
+        {
+            _loading = true;
+            LoadSettings();
+            LoadCategories();
+            // LoadRules 延迟到用户切到分类规则页才加载
+        }
+        finally
+        {
+            _loading = false;
+        }
         _hasChanges = false;
         SaveSnapshot(); // 记录初始快照，BtnApply 才能正常启用
         // 耗时操作异步执行
@@ -517,8 +525,21 @@ public partial class SettingsWindow : Window
 
     // ========== 搜索 ==========
 
+    private DispatcherTimer? _searchDebounceTimer;
+
     private void TxtRuleSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
+        if (_loading) return;
+        _searchDebounceTimer?.Stop();
+        _searchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        _searchDebounceTimer.Tick -= SearchDebounce_Tick;
+        _searchDebounceTimer.Tick += SearchDebounce_Tick;
+        _searchDebounceTimer.Start();
+    }
+
+    private void SearchDebounce_Tick(object? sender, EventArgs e)
+    {
+        _searchDebounceTimer!.Stop();
         BuildRulesPanel();
     }
 
@@ -686,9 +707,11 @@ public partial class SettingsWindow : Window
         try
         {
             // 只更新/插入用户改过的规则，不删预置规则
-            // _allRules 里只有用户用过的应用，但预置规则表有全部 377 条
-            // 用户拖拽改分类 → IsCustom=true，需要 UPDATE 该规则的 CategoryId
-            // 用户用过但没规则的进程 → Id=0，需要 INSERT
+            // 共用一个连接 + 事务，避免逐条开关连接
+            using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+            conn.Open();
+            using var transaction = conn.BeginTransaction();
+
             foreach (var r in _allRules)
             {
                 if (string.IsNullOrWhiteSpace(r.ProcessName))
@@ -699,10 +722,8 @@ public partial class SettingsWindow : Window
                 if (r.Id > 0)
                 {
                     // 已有规则，更新分类
-                    using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-                    conn.Open();
                     using var upd = new SqliteCommand(
-                        "UPDATE Rules SET CategoryId=@c, IsCustom=@ic WHERE Id=@id", conn);
+                        "UPDATE Rules SET CategoryId=@c, IsCustom=@ic WHERE Id=@id", conn, transaction);
                     upd.Parameters.AddWithValue("@c", cat.Id);
                     upd.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
                     upd.Parameters.AddWithValue("@id", r.Id);
@@ -711,10 +732,8 @@ public partial class SettingsWindow : Window
                 else
                 {
                     // 新规则（用户用过但之前没规则匹配的进程）
-                    using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-                    conn.Open();
                     using var ins = new SqliteCommand(
-                        "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn);
+                        "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn, transaction);
                     ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
                     ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
                     ins.Parameters.AddWithValue("@c", cat.Id);
@@ -722,6 +741,8 @@ public partial class SettingsWindow : Window
                     ins.ExecuteNonQuery();
                 }
             }
+
+            transaction.Commit();
         }
         catch (Exception ex) { Logger.Error("SaveRules 保存失败", ex); }
     }
@@ -732,12 +753,25 @@ public partial class SettingsWindow : Window
         {
             if (CategoriesGrid.ItemsSource is ObservableCollection<CategoryItem> cats)
             {
+                // 收集当前 UI 中存在的分类 Id
+                var currentIds = new HashSet<int>();
                 foreach (var c in cats)
                 {
                     if (string.IsNullOrWhiteSpace(c.Name)) continue;
+                    currentIds.Add(c.Id);
                     // Id<=0 表示新分类，插入后获新 Id
                     // Id>0 更新已有分类
                     CategoryRepository.UpdateOrInsert(c.Id, c.Name, c.Color ?? "#808080", c.SortOrder);
+                }
+
+                // 删除用户在 UI 中删掉的自定义分类（预置 Id<=13 不可删）
+                var dbCats = CategoryRepository.GetAll();
+                foreach (var dbCat in dbCats)
+                {
+                    if (dbCat.Id > 13 && !currentIds.Contains(dbCat.Id))
+                    {
+                        CategoryRepository.Delete(dbCat.Id);
+                    }
                 }
             }
         }
@@ -777,7 +811,7 @@ public partial class SettingsWindow : Window
             var current = (Color)ColorConverter.ConvertFromString(item.Color ?? "#808080");
             dlg.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
         }
-        catch { /* 颜色解析失败用默认黑色 */ }
+        catch (Exception ex) { Logger.Error($"颜色解析失败: {item.Color}", ex); }
 
         if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
@@ -1036,8 +1070,9 @@ public partial class SettingsWindow : Window
             double ratio = (double)(w * h) / (2560 * 1440);
             return (int)(GetEstPerShotKB() * ratio);
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error("获取屏幕大小失败", ex);
             return GetEstPerShotKB();
         }
     }
@@ -1106,8 +1141,9 @@ public partial class SettingsWindow : Window
                 TxtDiskUsage.Text = "文件夹不存在";
             }
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Error("截图磁盘占用计算失败", ex);
             TxtDiskUsage.Text = "-";
         }
     }
@@ -1245,9 +1281,16 @@ public partial class SettingsWindow : Window
             _ => "当前页"
         };
 
-        var result = MessageBox.Show(
-            $"恢复「{pageName}」到默认值并保存？",
-            "确认", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        // 分类规则页恢复默认会清空用户自定义规则，需额外提醒
+        string hint = NavList.SelectedIndex switch
+        {
+            2 => "恢复「分类规则」到默认值将清空所有自定义分类映射，此操作不可撤销。\n\n确定继续？",
+            3 => "恢复「分类管理」将删除所有自定义分类并重置预置分类颜色。\n\n确定继续？",
+            _ => $"恢复「{pageName}」到默认值并保存？"
+        };
+
+        var result = MessageBox.Show(hint, "确认",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes) return;
 
         switch (NavList.SelectedIndex)

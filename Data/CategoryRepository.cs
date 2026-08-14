@@ -60,7 +60,7 @@ public static class CategoryRepository
     }
 
     /// <summary>
-    /// 删除自定义分类（预置 Id 1-8 不可删）
+    /// 删除自定义分类（预置 Id 1-13 不可删）
     /// </summary>
     public static bool Delete(int id)
     {

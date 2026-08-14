@@ -54,9 +54,16 @@ public static class DailySummaryRepository
         EnsureInit();
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
+        GenerateForDate(date, conn, null);
+    }
 
-        // 1. DailyTotal — 总活跃时长
+    /// <summary>
+    /// 生成某天的汇总数据（可在外部事务内执行）
+    /// </summary>
+    public static void GenerateForDate(string date, SqliteConnection conn, SqliteTransaction? transaction = null)
+    {
         using var totalCmd = conn.CreateCommand();
+        if (transaction != null) totalCmd.Transaction = transaction;
         totalCmd.CommandText = "SELECT COALESCE(SUM(Duration),0), COALESCE(SUM(CASE WHEN IsIdle=0 THEN Duration ELSE 0 END),0) FROM Activities WHERE date(StartTime)=@date";
         totalCmd.Parameters.AddWithValue("@date", date);
         using var totalReader = totalCmd.ExecuteReader();
@@ -69,6 +76,7 @@ public static class DailySummaryRepository
         totalReader.Close();
 
         using var upsertTotal = conn.CreateCommand();
+        if (transaction != null) upsertTotal.Transaction = transaction;
         upsertTotal.CommandText = @"INSERT INTO DailyTotal (Date, TotalActiveSeconds, TotalSeconds)
             VALUES (@date, @active, @total)
             ON CONFLICT(Date) DO UPDATE SET TotalActiveSeconds=@active, TotalSeconds=@total, CreatedAt=datetime('now','localtime')";
@@ -77,12 +85,15 @@ public static class DailySummaryRepository
         upsertTotal.Parameters.AddWithValue("@total", totalSeconds);
         upsertTotal.ExecuteNonQuery();
 
-        // 2. DailyCategorySummary — 按类别汇总
-        using var delCat = new SqliteCommand("DELETE FROM DailyCategorySummary WHERE Date=@date", conn);
+        // 2. DailyCategorySummary — 按类别汇总（先删旧数据再插入）
+        using var delCat = conn.CreateCommand();
+        if (transaction != null) delCat.Transaction = transaction;
+        delCat.CommandText = "DELETE FROM DailyCategorySummary WHERE Date=@date";
         delCat.Parameters.AddWithValue("@date", date);
         delCat.ExecuteNonQuery();
 
         using var catCmd = conn.CreateCommand();
+        if (transaction != null) catCmd.Transaction = transaction;
         catCmd.CommandText = @"SELECT Category, SUM(Duration) as Total FROM Activities 
             WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY Category";
         catCmd.Parameters.AddWithValue("@date", date);
@@ -96,6 +107,7 @@ public static class DailySummaryRepository
         foreach (var (cat, sec) in catRows)
         {
             using var insCat = conn.CreateCommand();
+            if (transaction != null) insCat.Transaction = transaction;
             insCat.CommandText = "INSERT INTO DailyCategorySummary (Date, Category, Seconds) VALUES (@d, @c, @s)";
             insCat.Parameters.AddWithValue("@d", date);
             insCat.Parameters.AddWithValue("@c", cat);
@@ -104,11 +116,14 @@ public static class DailySummaryRepository
         }
 
         // 3. DailyProcessSummary — 按进程汇总
-        using var delProc = new SqliteCommand("DELETE FROM DailyProcessSummary WHERE Date=@date", conn);
+        using var delProc = conn.CreateCommand();
+        if (transaction != null) delProc.Transaction = transaction;
+        delProc.CommandText = "DELETE FROM DailyProcessSummary WHERE Date=@date";
         delProc.Parameters.AddWithValue("@date", date);
         delProc.ExecuteNonQuery();
 
         using var procCmd = conn.CreateCommand();
+        if (transaction != null) procCmd.Transaction = transaction;
         procCmd.CommandText = @"SELECT ProcessName, Category, SUM(Duration) as Total FROM Activities 
             WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY ProcessName, Category
             ORDER BY ProcessName, Total DESC";
@@ -126,6 +141,7 @@ public static class DailySummaryRepository
         {
             if (!seen.Add(proc)) continue; // 已有该进程，跳过
             using var insProc = conn.CreateCommand();
+            if (transaction != null) insProc.Transaction = transaction;
             insProc.CommandText = "INSERT INTO DailyProcessSummary (Date, ProcessName, Category, Seconds) VALUES (@d, @p, @c, @s)";
             insProc.Parameters.AddWithValue("@d", date);
             insProc.Parameters.AddWithValue("@p", proc);

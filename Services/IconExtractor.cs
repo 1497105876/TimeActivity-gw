@@ -140,7 +140,7 @@ public static class IconExtractor
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Logger.Error("IconExtractor GetExePath 失败", ex); }
 
             proc.Dispose();
         }

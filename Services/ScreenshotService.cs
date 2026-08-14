@@ -40,18 +40,34 @@ public class ScreenshotService
     /// </summary>
     public void ReloadSettings()
     {
-        _intervalMinutes = int.Parse(
-            SettingsRepository.Get("ScreenshotIntervalMinutes", "5") ?? "5");
+        _intervalMinutes = int.TryParse(
+            SettingsRepository.Get("ScreenshotIntervalMinutes", "5"), out int iv) && iv > 0
+            ? Math.Clamp(iv, 1, 1440) : 5;
 
         _captureOnSwitch = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true";
 
         string? userPath = SettingsRepository.Get("ScreenshotPath", "");
         if (!string.IsNullOrWhiteSpace(userPath))
-            _screenshotDir = userPath;
+        {
+            // 校验路径合法性
+            try
+            {
+                _screenshotDir = userPath;
+                Directory.CreateDirectory(_screenshotDir);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"截图路径无效「{userPath}」，回退到默认路径", ex);
+                _screenshotDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots");
+                try { Directory.CreateDirectory(_screenshotDir); }
+                catch (Exception ex2) { Logger.Error("创建截图目录失败", ex2); }
+            }
+        }
         else
+        {
             _screenshotDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots");
-
-        Directory.CreateDirectory(_screenshotDir);
+            Directory.CreateDirectory(_screenshotDir);
+        }
     }
 
     public void Start()
@@ -108,7 +124,8 @@ public class ScreenshotService
                 {
                     if (f.CreationTime < cutoff)
                     {
-                        try { f.Delete(); } catch { }
+                        try { f.Delete(); }
+                        catch (Exception ex) { Logger.Error($"删除旧截图失败: {f.Name}", ex); }
                     }
                 }
                 files = files.Where(f => f.Exists).ToList();
@@ -128,12 +145,15 @@ public class ScreenshotService
                         currentSize -= oldest.Length;
                         oldest.Delete();
                     }
-                    catch { }
+                    catch (Exception ex) { Logger.Error($"删除旧截图失败: {oldest.Name}", ex); }
                     files.RemoveAt(0);
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.Error("截图清理失败", ex);
+        }
     }
 
     /// <summary>
@@ -190,6 +210,10 @@ public class ScreenshotService
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
             string dbPath = filePath.StartsWith(appDir) ? filePath.Substring(appDir.Length) : filePath;
             ScreenshotRepository.Insert(dbPath, fileSize);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.Error($"截图保存失败：路径「{_screenshotDir}」无写入权限，请在设置中修改截图保存路径", ex);
         }
         catch (Exception ex)
         {

@@ -19,7 +19,7 @@ namespace TimeActivity.Services;
 /// </summary>
 public class AISummaryService
 {
-    private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(120) };
 
     private string ApiUrl => SettingsRepository.Get("AIApiUrl", "http://localhost:11434");
     private string ApiKey => SettingsRepository.Get("AIApiKey", "");
@@ -72,6 +72,28 @@ public class AISummaryService
     /// </summary>
     private async Task<string?> CallOllama(string prompt)
     {
+        if (string.IsNullOrWhiteSpace(ApiUrl))
+        {
+            Logger.Error("Ollama API Url 为空，请在设置中配置", null);
+            return null;
+        }
+
+        // 调用前检测 Ollama 连通性
+        try
+        {
+            using var checkResp = await _httpClient.GetAsync(ApiUrl.TrimEnd('/') + "/api/tags");
+            if (!checkResp.IsSuccessStatusCode)
+            {
+                Logger.Error($"Ollama 服务返回错误状态 {checkResp.StatusCode}，请确认 Ollama 正在运行", null);
+                return null;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Logger.Error($"无法连接到 Ollama 服务（{ApiUrl}），请确认 Ollama 已启动", null);
+            return null;
+        }
+
         var requestBody = new
         {
             model = AiModel,
@@ -106,6 +128,12 @@ public class AISummaryService
     /// </summary>
     private async Task<string?> CallCustomAPI(string prompt)
     {
+        if (string.IsNullOrWhiteSpace(ApiUrl))
+        {
+            Logger.Error("自定义 AI API Url 为空，请在设置中配置", null);
+            return null;
+        }
+
         var requestBody = new
         {
             model = AiModel,
@@ -250,7 +278,10 @@ public class AISummaryService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Logger.Error("AI 总结文件清理失败", ex);
+        }
     }
 
     // ========== 周/月总结 ==========

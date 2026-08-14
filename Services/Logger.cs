@@ -20,7 +20,12 @@ public static class Logger
             if (!Directory.Exists(_logDir))
                 Directory.CreateDirectory(_logDir);
         }
-        catch { }
+        catch (Exception)
+        {
+            // 日志目录创建失败时用临时目录兜底
+            try { _logDir = Path.GetTempPath(); }
+            catch { _logDir = ""; } // 临时目录都拿不到，日志功能失效但不崩溃
+        }
     }
 
     public static void Info(string message)
@@ -64,6 +69,6 @@ public static class Logger
                 File.AppendAllText(filePath, line, Encoding.UTF8);
             }
         }
-        catch { }
+        catch { /* 写日志失败不能抛异常，静默忽略 */ }
     }
 }

@@ -1,7 +1,8 @@
 using System.Windows.Media;
 using SWMColor = System.Windows.Media.Color;
+using TimeActivity.Helpers;
 
-namespace TimeActivity;
+namespace TimeActivity.Models;
 
 /// <summary>
 /// 分类项 — 用于设置页分类管理显示
@@ -15,10 +16,5 @@ public class CategoryItem
     public bool CanDelete => Id > 13; // 预置分类（Id 1-13）不可删
     public int Count { get; set; } // 该分类下的规则数
 
-    private static SWMColor ParseColor(string hex)
-    {
-        try { return (SWMColor)ColorConverter.ConvertFromString(hex); }
-        catch { return SWMColor.FromRgb(128, 128, 128); }
-    }
-    public SWMColor ColorValue => ParseColor(Color);
+    public SWMColor ColorValue => CategoryColorHelper.ParseHex(Color);
 }

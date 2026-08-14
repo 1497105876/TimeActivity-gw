@@ -73,8 +73,6 @@ public partial class MainWindow : Window
     // === 使用占比高亮 ===
     private readonly HashSet<string> _checkedApps = new();          // 勾选高亮的应用名
     private readonly HashSet<string> _checkedCategories = new();    // 勾选高亮的类别名
-    private readonly Dictionary<string, string> _appBarColors = new(); // 应用名→占比条颜色缓存
-    private readonly Random _colorRandom = new();
 
     // 勾选高亮集合（唯一高亮来源）
     private HashSet<string> ActiveAppHighlights => _checkedApps;
@@ -107,9 +105,9 @@ public partial class MainWindow : Window
         }
 
         if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
-            _engine.PollIntervalSeconds = poll;
+            _engine.PollIntervalSeconds = Math.Clamp(poll, 1, 3600);
         if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
-            _engine.IdleThresholdSeconds = idle;
+            _engine.IdleThresholdSeconds = Math.Clamp(idle, 10, 86400);
 
         _engine.OnActivityRecorded += OnActivityRecorded;
         _engine.OnStatusChanged += OnStatusChanged;
@@ -177,7 +175,7 @@ public partial class MainWindow : Window
 
             // 每次自动刷新都更新当天的汇总（一天的数据量不大，GROUP BY 很快）
             try { DailySummaryRepository.GenerateForDate(DateTime.Today.ToString("yyyy-MM-dd")); }
-            catch { }
+            catch (Exception ex) { Logger.Error("自动刷新生成每日汇总失败", ex); }
         };
         _autoRefreshTimer.Start();
 
@@ -231,9 +229,9 @@ public partial class MainWindow : Window
 
         // 追踪引擎重读采样间隔和空闲阈值
         if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
-            _engine.PollIntervalSeconds = poll;
+            _engine.PollIntervalSeconds = Math.Clamp(poll, 1, 3600);
         if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
-            _engine.IdleThresholdSeconds = idle;
+            _engine.IdleThresholdSeconds = Math.Clamp(idle, 10, 86400);
 
         // 分类器重载规则 + 重新分类历史数据
         _classifier.ReloadRules();
@@ -344,7 +342,7 @@ public partial class MainWindow : Window
                         var c = CategoryColorHelper.ParseHex(current);
                         dlg.Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
                     }
-                    catch { }
+                    catch (Exception ex) { Logger.Error("颜色解析失败", ex); }
                     if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                     {
                         var hex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
@@ -358,7 +356,52 @@ public partial class MainWindow : Window
             menu.Items.Add(miColor);
 
             var miCategory = new MenuItem { Header = "更改类别" };
-            miCategory.Click += (s, ev) => OpenSettings("rules");
+            miCategory.Click += (s, ev) =>
+            {
+                try
+                {
+                    // 弹出分类选择小窗口
+                    var cats = CategoryRepository.GetAll();
+                    var selWin = new Window
+                    {
+                        Title = $"将「{processName}」改到哪个类别？",
+                        Width = 320,
+                        SizeToContent = SizeToContent.Height,
+                        WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                        Owner = this,
+                        ResizeMode = ResizeMode.NoResize
+                    };
+                    var panel = new StackPanel { Margin = new Thickness(12) };
+                    foreach (var cat in cats.Where(c => c.Name != "空闲"))
+                    {
+                        var btn = new Button
+                        {
+                            Content = cat.Name,
+                            Tag = cat,
+                            Margin = new Thickness(0, 0, 0, 6),
+                            Padding = new Thickness(12, 6, 12, 6),
+                            HorizontalAlignment = HorizontalAlignment.Stretch
+                        };
+                        btn.Click += (s2, e2) =>
+                        {
+                            var selected = (Category)((Button)s2).Tag;
+                            RuleRepository.UpdateCategory(processName, selected.Id);
+                            _classifier.ReloadRules();
+                            try { DatabaseHelper.ReclassifyAll(_classifier.Classify); }
+                            catch (Exception ex) { Logger.Error("ReclassifyAll 失败", ex); }
+                            DrawAll();
+                            LoadStatsLists();
+                            UpdateTodayTotal();
+                            selWin.Close();
+                            ShowStatus($"已将「{processName}」改到「{selected.Name}」");
+                        };
+                        panel.Children.Add(btn);
+                    }
+                    selWin.Content = panel;
+                    selWin.ShowDialog();
+                }
+                catch (Exception ex) { MessageBox.Show($"更改类别失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
+            };
             menu.Items.Add(miCategory);
 
             menu.IsOpen = true;
@@ -698,21 +741,24 @@ public partial class MainWindow : Window
 
     private void ScheduleDebounceRefresh()
     {
-        _debounceTimer?.Stop();
-        _debounceTimer = new System.Windows.Threading.DispatcherTimer
+        if (_debounceTimer == null)
         {
-            Interval = TimeSpan.FromMilliseconds(DebounceMs)
-        };
-        _debounceTimer.Tick += (s, e) =>
-        {
-            _debounceTimer!.Stop();
-            if (_currentDate == DateTime.Today)
+            _debounceTimer = new System.Windows.Threading.DispatcherTimer
             {
-                _cachedActivities = ActivityRepository.GetByDate(DateTime.Today);
-                DrawAll();
-                UpdateTodayTotal();
-            }
-        };
+                Interval = TimeSpan.FromMilliseconds(DebounceMs)
+            };
+            _debounceTimer.Tick += (s, e) =>
+            {
+                _debounceTimer!.Stop();
+                if (_currentDate == DateTime.Today)
+                {
+                    _cachedActivities = ActivityRepository.GetByDate(DateTime.Today);
+                    DrawAll();
+                    UpdateTodayTotal();
+                }
+            };
+        }
+        _debounceTimer.Stop();
         _debounceTimer.Start();
     }
 
@@ -772,22 +818,6 @@ public partial class MainWindow : Window
     }
 
     // ========== 使用占比列表 ==========
-
-    private string GetRandomBarColor()
-    {
-        var colors = new[] { "#4A90D9", "#E67E22", "#E74C3C", "#2ECC71", "#9B59B6", "#1ABC9C", "#F39C12", "#E91E63", "#00BCD4", "#8BC34A", "#FF5722", "#3F51B5" };
-        return colors[_colorRandom.Next(colors.Length)];
-    }
-
-    private string GetAppBarColor(string appName)
-    {
-        if (!_appBarColors.TryGetValue(appName, out var color))
-        {
-            color = GetRandomBarColor();
-            _appBarColors[appName] = color;
-        }
-        return color;
-    }
 
     private void LoadStatsLists()
     {

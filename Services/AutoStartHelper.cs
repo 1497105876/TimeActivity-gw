@@ -23,7 +23,7 @@ public static class AutoStartHelper
             string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName;
             CreateShortcut(shortcutPath, exePath, "--minimized");
         }
-        catch { }
+        catch (Exception ex) { Logger.Error("启用开机自启失败", ex); }
     }
 
     /// <summary>
@@ -37,7 +37,7 @@ public static class AutoStartHelper
             string shortcutPath = Path.Combine(startupFolder, ShortcutName);
             if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
         }
-        catch { }
+        catch (Exception ex) { Logger.Error("禁用开机自启失败", ex); }
     }
 
     /// <summary>
@@ -51,7 +51,7 @@ public static class AutoStartHelper
             string shortcutPath = Path.Combine(startupFolder, ShortcutName);
             return File.Exists(shortcutPath);
         }
-        catch { return false; }
+        catch (Exception ex) { Logger.Error("检查开机自启状态失败", ex); return false; }
     }
 
     /// <summary>
