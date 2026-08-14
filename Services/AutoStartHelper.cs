@@ -9,10 +9,11 @@ namespace TimeActivity.Services;
 /// </summary>
 public static class AutoStartHelper
 {
+    // 快捷方式文件名
     private const string ShortcutName = "TimeActivity.lnk";
 
     /// <summary>
-    /// 启用开机自启（创建快捷方式到启动文件夹，带 --minimized 参数）
+    /// 启用开机自启：在启动文件夹创建快捷方式，带 --minimized 参数启动后最小化到托盘。
     /// </summary>
     public static void Enable()
     {
@@ -20,6 +21,7 @@ public static class AutoStartHelper
         {
             string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
             string shortcutPath = Path.Combine(startupFolder, ShortcutName);
+            // 获取当前 exe 的完整路径
             string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName;
             CreateShortcut(shortcutPath, exePath, "--minimized");
         }
@@ -27,7 +29,7 @@ public static class AutoStartHelper
     }
 
     /// <summary>
-    /// 禁用开机自启（删除启动文件夹中的快捷方式）
+    /// 禁用开机自启：删除启动文件夹中的快捷方式。
     /// </summary>
     public static void Disable()
     {
@@ -41,8 +43,9 @@ public static class AutoStartHelper
     }
 
     /// <summary>
-    /// 查询当前是否已启用开机自启
+    /// 查询当前是否已启用开机自启（检查快捷方式是否存在）。
     /// </summary>
+    /// <returns>已启用返回 true</returns>
     public static bool IsEnabled()
     {
         try
@@ -55,17 +58,21 @@ public static class AutoStartHelper
     }
 
     /// <summary>
-    /// 创建 .lnk 快捷方式（通过 WScript.Shell COM）
+    /// 创建 .lnk 快捷方式（通过 WScript.Shell COM 对象）。
     /// </summary>
+    /// <param name="shortcutPath">快捷方式保存路径</param>
+    /// <param name="targetPath">目标 exe 路径</param>
+    /// <param name="arguments">启动参数</param>
     private static void CreateShortcut(string shortcutPath, string targetPath, string arguments)
     {
+        // 通过 COM 调用 WScript.Shell 创建快捷方式
         var shellType = Type.GetTypeFromProgID("WScript.Shell")!;
         dynamic shell = Activator.CreateInstance(shellType)!;
         dynamic shortcut = shell.CreateShortcut(shortcutPath);
-        shortcut.TargetPath = targetPath;
-        shortcut.Arguments = arguments;
-        shortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);
-        shortcut.WindowStyle = 1;
+        shortcut.TargetPath = targetPath;       // 目标程序路径
+        shortcut.Arguments = arguments;          // 启动参数
+        shortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);  // 工作目录
+        shortcut.WindowStyle = 1;                // 1 = 正常窗口
         shortcut.Save();
     }
 }

@@ -17,79 +17,110 @@ using TimeActivity.Services;
 
 namespace TimeActivity;
 
+/// <summary>
+/// 主窗口 — TimeActivity 的核心界面，包含时间轴可视化、活动列表、
+/// 使用占比统计、追踪控制、托盘图标、设置入口等全部主要功能。
+/// 负责协调追踪引擎、截图服务、分类器、渲染器等多个子系统。
+/// </summary>
 public partial class MainWindow : Window
 {
+    // 追踪引擎：定时轮询当前活动窗口
     private readonly TrackingEngine _engine;
+
+    // 分类器：根据规则把进程名/窗口标题归到某个分类
     private readonly ActivityClassifier _classifier;
+
+    // 截图服务：定时或切换应用时截屏
     private readonly ScreenshotService _screenshotService;
+
+    // 活动列表的数据源（ObservableCollection 支持双向绑定自动刷新）
     private readonly ObservableCollection<ActivityDisplayItem> _items = new();
+
+    // 统计报表页（嵌入到 Tab 2 的 Frame 里）
     private StatisticsPage? _statsPage;
 
+    // 分类颜色助手
     private readonly CategoryColorHelper _colorHelper = new();
+
+    // 时间轴渲染器和概览条渲染器
     private readonly TimelineRenderer _timelineRenderer;
     private readonly OverviewRenderer _overviewRenderer;
+
+    // 分类名 → 颜色十六进制字符串的缓存
     private Dictionary<string, string> _categoryColors = new();
+
+    // 当前查看的日期（默认今天）
     private DateTime _currentDate = DateTime.Today;
 
     // === 时间轴核心参数 ===
-    // 可见时间范围（秒），1x 时 = 86400（全天）
-    // 滚轮缩放改这个值，越小越放大
+    // 可见时间范围（秒），1x 时 = 86400（全天）。滚轮缩放改这个值，越小越放大
     private double _visibleSeconds = 86400;
-    private const double MinVisibleSeconds = 300; // 最小5分钟
-    private const double MaxVisibleSeconds = 86400; // 最大24小时
+
+    // 缩放范围限制：最小 5 分钟，最大 24 小时
+    private const double MinVisibleSeconds = 300;
+    private const double MaxVisibleSeconds = 86400;
 
     // 可见范围起始时间（秒，0~86400-visibleSeconds）
     private double _viewStartSeconds = 0;
 
+    // 时间轴和概览条的高度（像素）
     private const int TimelineHeight = 44;
     private const int OverviewHeight = 20;
 
-    // 防抖
+    // 防抖定时器：活动记录频繁触发时延迟刷新，避免卡顿
     private System.Windows.Threading.DispatcherTimer? _debounceTimer;
     private const int DebounceMs = 500;
 
-    // 自动刷新
+    // 自动刷新定时器：每 30 秒轻量刷新数据
     private System.Windows.Threading.DispatcherTimer? _autoRefreshTimer;
 
-    // 缓存
+    // 当前日期的活动数据缓存
     private List<ActivityRecord> _cachedActivities = new();
 
     // 自动周/月总结检查日期缓存（同一天只查一次）
     private DateTime _lastAutoSummaryCheckDate = DateTime.MinValue;
 
-    // Popup 标志
+    // Popup（浮动详情框）状态标志
     private bool _popupOpen = false;
-    private string? _lastScreenshotPath = null;
+    private string? _lastScreenshotPath = null; // 上次显示的截图路径，避免重复加载
 
-    // 概览条拖拽
+    // 概览条拖拽状态
     private bool _overviewDragging = false;
     private double _dragStartX = 0;
     private double _dragStartViewStart = 0;
 
-    // 托盘
+    // 托盘图标
     private TrayIcon? _trayIcon;
-    private bool _forceClose = false;
+    private bool _forceClose = false; // true=真正退出，false=最小化到托盘
 
     // === 使用占比高亮 ===
-    private readonly HashSet<string> _checkedApps = new();          // 勾选高亮的应用名
-    private readonly HashSet<string> _checkedCategories = new();    // 勾选高亮的类别名
+    // 勾选高亮的应用名集合和类别名集合
+    private readonly HashSet<string> _checkedApps = new();
+    private readonly HashSet<string> _checkedCategories = new();
 
-    // 勾选高亮集合（唯一高亮来源）
+    // 唯一高亮来源：直接引用上面的集合
     private HashSet<string> ActiveAppHighlights => _checkedApps;
     private HashSet<string> ActiveCategoryHighlights => _checkedCategories;
 
+    /// <summary>
+    /// 构造函数：初始化所有子系统（数据库、分类器、追踪引擎、截图服务、
+    /// 渲染器、托盘、自动刷新等），加载设置并启动追踪。
+    /// </summary>
     public MainWindow()
     {
         InitializeComponent();
 
+        // 初始化数据库
         DatabaseHelper.Initialize();
         LoadCategoryColors();
 
+        // 初始化渲染器，设置颜色查找回调
         _timelineRenderer = new TimelineRenderer(_colorHelper);
         _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
         _overviewRenderer = new OverviewRenderer(_colorHelper);
         _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
 
+        // 初始化分类器和追踪引擎
         _classifier = new ActivityClassifier();
         _engine = new TrackingEngine(_classifier);
         _screenshotService = new ScreenshotService();
@@ -104,17 +135,20 @@ public partial class MainWindow : Window
             Logger.Error("启动重新分类失败", ex);
         }
 
+        // 从设置读取采样间隔和空闲阈值
         if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
             _engine.PollIntervalSeconds = Math.Clamp(poll, 1, 3600);
         if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
             _engine.IdleThresholdSeconds = Math.Clamp(idle, 10, 86400);
 
+        // 订阅追踪引擎的事件
         _engine.OnActivityRecorded += OnActivityRecorded;
         _engine.OnStatusChanged += OnStatusChanged;
 
+        // 绑定活动列表数据源
         ActivityList.ItemsSource = _items;
 
-        // 加载颜色模式
+        // 加载颜色模式设置（按分类着色 or 按应用着色）
         _colorMode = SettingsRepository.Get("ColorMode", "category");
         if (_colorMode == "app")
         {
@@ -123,29 +157,31 @@ public partial class MainWindow : Window
         }
         AppColorAllocator.LoadFromDb();
 
+        // 画图例并加载当天数据
         DrawLegend();
         LoadDateData(_currentDate, isDateChange: true);
 
-        // 统计页
+        // 初始化统计报表页
         _statsPage = new StatisticsPage();
         StatsFrame.Navigate(_statsPage);
 
         // 设置页改为独立窗口，不再在 Tab 里加载
 
-        // 窗口大小变化时重绘 — 整体等比缩放
+        // 窗口大小变化时重绘时间轴 — 整体等比缩放
         TimelineContainer.SizeChanged += (s, e) =>
         {
             if (e.WidthChanged)
                 DrawAll();
         };
 
-        // 自动刷新
+        // 自动刷新定时器：每 30 秒轻量刷新（查库 + 重绘，不重建 ListView）
         _autoRefreshTimer = new System.Windows.Threading.DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(30)
         };
         _autoRefreshTimer.Tick += (s, e) =>
         {
+            // 只刷新今天的数据
             if (_currentDate == DateTime.Today)
             {
                 // 轻量刷新：只查库+重绘时间轴，不重建 ListView（避免卡顿）
@@ -171,6 +207,7 @@ public partial class MainWindow : Window
                 DrawAll();
                 UpdateTodayTotal();
             }
+            // 检查是否需要自动生成周/月总结
             _ = CheckAutoSummaryAsync();
 
             // 每次自动刷新都更新当天的汇总（一天的数据量不大，GROUP BY 很快）
@@ -179,12 +216,13 @@ public partial class MainWindow : Window
         };
         _autoRefreshTimer.Start();
 
-        // 启动时执行数据保留清理
+        // 启动时执行数据保留清理（按设置的天数删旧数据）
         PerformDataRetention();
 
         // 启动时检查是否需要补生成上周/上月的自动总结
         _ = CheckAutoSummaryAsync();
 
+        // 如果设置了自动开始追踪，则启动引擎和截图服务
         if (SettingsRepository.Get("AutoStartTracking", "true") == "true")
         {
             _engine.Start();
@@ -212,6 +250,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 设置窗口保存后回调：重启截图服务、重读追踪参数、重载规则并重新分类、刷新颜色和图表
+    /// </summary>
     private void OnSettingsSaved()
     {
         // 截图服务：如果在跑就重启（重新读设置）
@@ -251,8 +292,12 @@ public partial class MainWindow : Window
 
     // ========== 设置窗口 + 颜色模式 + 右键菜单 ==========
 
-    private string _colorMode = "category"; // "category" or "app"
+    // 颜色模式："category"=按分类着色，"app"=按应用着色
+    private string _colorMode = "category";
 
+    /// <summary>
+    /// 打开设置窗口
+    /// </summary>
     private void BtnSettings_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -284,6 +329,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 颜色模式切换（按分类/按应用）事件处理：保存设置、刷新颜色和图表
+    /// </summary>
     private void ColorMode_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
@@ -299,20 +347,28 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 根据当前颜色模式获取某个应用的颜色
+    /// 根据当前颜色模式获取某个应用的颜色：按应用模式用应用色，否则用分类色
     /// </summary>
+    /// <param name="processName">进程名</param>
+    /// <param name="category">分类名</param>
+    /// <returns>WPF Color 对象</returns>
     private Color GetAppColor(string processName, string category)
     {
         if (_colorMode == "app")
         {
+            // 按应用着色：从分配器获取或自动分配一个颜色
             var hex = AppColorAllocator.GetOrAssign(processName);
             return CategoryColorHelper.ParseHex(hex);
         }
+        // 按分类着色
         return _colorHelper.GetColor(category);
     }
 
-    // ========== 右键菜单 ==========
+    // ========== 右键菜单：应用统计右键（改颜色/改分类） ==========
 
+    /// <summary>
+    /// 应用统计列表右键菜单：提供"颜色"和"更改类别"两个操作
+    /// </summary>
     private void AppStatsList_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
         try
@@ -324,11 +380,13 @@ public partial class MainWindow : Window
             if (item == null) return;
 
             // 从行中提取进程名
+            // 找到点击的行对应的进程名
             string? processName = GetTagFromStatsRow(item);
             if (string.IsNullOrEmpty(processName)) return;
 
             var menu = new ContextMenu();
 
+            // 菜单项 1：修改应用颜色
             var miColor = new MenuItem { Header = "颜色" };
             miColor.Click += (s, ev) =>
             {
@@ -355,12 +413,13 @@ public partial class MainWindow : Window
             };
             menu.Items.Add(miColor);
 
+            // 菜单项 2：更改应用所属分类
             var miCategory = new MenuItem { Header = "更改类别" };
             miCategory.Click += (s, ev) =>
             {
                 try
                 {
-                    // 弹出分类选择小窗口
+                    // 弹出分类选择小窗口，列出所有非空闲分类
                     var cats = CategoryRepository.GetAll();
                     var selWin = new Window
                     {
@@ -409,6 +468,11 @@ public partial class MainWindow : Window
         catch (Exception ex) { MessageBox.Show($"右键菜单失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
     }
 
+    // ========== 右键菜单：类别统计右键（改颜色/查看规则） ==========
+
+    /// <summary>
+    /// 类别统计列表右键菜单：提供"颜色"（跳转设置）和"查看类别"（跳转规则）
+    /// </summary>
     private void CategoryStatsList_PreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
         try
@@ -436,6 +500,9 @@ public partial class MainWindow : Window
 
     // ========== 右键菜单辅助方法 ==========
 
+    /// <summary>
+    /// 根据鼠标点击位置找到对应的 ListViewItem（可视树命中测试）
+    /// </summary>
     private static object? GetListViewItemFromPoint(System.Windows.Controls.ListView list, System.Windows.Point point)
     {
         var hit = list.InputHitTest(point) as DependencyObject;
@@ -444,6 +511,9 @@ public partial class MainWindow : Window
         return hit;
     }
 
+    /// <summary>
+    /// 把 ActivityRecord 转成列表绑定的 ActivityDisplayItem
+    /// </summary>
     private static ActivityDisplayItem CreateDisplayItem(ActivityRecord a)
     {
         return new ActivityDisplayItem
@@ -459,6 +529,9 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// 从统计行中提取进程名（存在 Border.Tag 里）
+    /// </summary>
     private static string? GetTagFromStatsRow(object item)
     {
         // item 是 ListViewItem，里面包裹的是 Border（CreateStatsRow 返回的）
@@ -474,6 +547,9 @@ public partial class MainWindow : Window
         return null;
     }
 
+    /// <summary>
+    /// 递归查找指定类型的子元素（可视树遍历）
+    /// </summary>
     private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
     {
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
@@ -516,7 +592,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 检查是否需要自动生成周/月总结（启动兆底 + 定时检查）
+    /// 检查是否需要自动生成周/月总结（启动兆底 + 定时检查）。
+    /// 同一天只查一次，避免 30 秒刷新重复查库。
     /// </summary>
     private async Task CheckAutoSummaryAsync()
     {
@@ -575,6 +652,9 @@ public partial class MainWindow : Window
     }
 
 
+    /// <summary>
+    /// 在底部状态栏显示临时提示信息，3.5 秒后自动清除
+    /// </summary>
     private void ShowStatus(string message)
     {
         StatusBar.Text = message;
@@ -587,8 +667,11 @@ public partial class MainWindow : Window
         timer.Start();
     }
 
-    // ========== 托盘 ==========
+    // ========== 托盘图标 ==========
 
+    /// <summary>
+    /// 初始化系统托盘图标：注册 Windows 消息钩子，设置双击/右键/退出回调
+    /// </summary>
     private void InitTray()
     {
         var hwndSource = System.Windows.Interop.HwndSource.FromHwnd(
@@ -615,6 +698,9 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// Windows 消息处理：接收托盘图标的消息（点击、双击等）
+    /// </summary>
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == TrayIcon.WM_TRAYICON)
@@ -625,6 +711,9 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
+    /// <summary>
+    /// 从托盘恢复窗口：显示并激活
+    /// </summary>
     private void ShowFromTray()
     {
         Show();
@@ -632,6 +721,9 @@ public partial class MainWindow : Window
         Activate();
     }
 
+    /// <summary>
+    /// 关闭按钮处理：默认最小化到托盘，只有 _forceClose=true 时才真正退出
+    /// </summary>
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         // 关闭按钮 → 最小化到托盘（除非是强制退出）
@@ -652,11 +744,17 @@ public partial class MainWindow : Window
 
     // ========== 分类颜色 ==========
 
+    /// <summary>
+    /// 从数据库加载分类颜色到缓存
+    /// </summary>
     private void LoadCategoryColors()
     {
         _categoryColors = _colorHelper.Load();
     }
 
+    /// <summary>
+    /// 从缓存获取分类颜色
+    /// </summary>
     private Color GetCategoryColor(string category)
     {
         return _colorHelper.GetColor(category);
@@ -664,7 +762,7 @@ public partial class MainWindow : Window
 
     // ========== 宽度计算 ==========
 
-    /// <summary>容器实际可用宽度</summary>
+    /// <summary>获取时间轴容器的实际可用宽度（减去 Padding）</summary>
     private double GetContainerWidth()
     {
         double w = TimelineContainer.ActualWidth - 16; // 减去 Padding
@@ -674,6 +772,7 @@ public partial class MainWindow : Window
 
     // ========== 按钮事件 ==========
 
+    /// <summary>开始追踪按钮</summary>
     private void BtnStart_Click(object sender, RoutedEventArgs e)
     {
         _engine.Start();
@@ -684,6 +783,7 @@ public partial class MainWindow : Window
         StatusText.Text = "追踪中...";
     }
 
+    /// <summary>停止追踪按钮</summary>
     private void BtnStop_Click(object sender, RoutedEventArgs e)
     {
         _engine.Stop();
@@ -693,14 +793,17 @@ public partial class MainWindow : Window
         StatusText.Text = "已停止";
     }
 
+    /// <summary>刷新按钮：重新加载当天数据</summary>
     private void BtnRefresh_Click(object sender, RoutedEventArgs e) => LoadDateData(_currentDate, isDateChange: true);
 
+    /// <summary>上一天按钮</summary>
     private void BtnPrevDay_Click(object sender, RoutedEventArgs e)
     {
         _currentDate = _currentDate.AddDays(-1);
         LoadDateData(_currentDate, isDateChange: true);
     }
 
+    /// <summary>下一天按钮（不能超过今天）</summary>
     private void BtnNextDay_Click(object sender, RoutedEventArgs e)
     {
         if (_currentDate >= DateTime.Today) return;
@@ -708,6 +811,7 @@ public partial class MainWindow : Window
         LoadDateData(_currentDate, isDateChange: true);
     }
 
+    /// <summary>跳回今天按钮</summary>
     private void BtnToday_Click(object sender, RoutedEventArgs e)
     {
         _currentDate = DateTime.Today;
@@ -716,6 +820,9 @@ public partial class MainWindow : Window
 
     // ========== 追踪回调 ==========
 
+    /// <summary>
+    /// 追踪引擎状态变化回调：更新状态栏显示当前活动窗口和分类
+    /// </summary>
     private void OnStatusChanged(string process, string title, string category)
     {
         Dispatcher.BeginInvoke(() =>
@@ -725,8 +832,12 @@ public partial class MainWindow : Window
         });
     }
 
+    /// <summary>
+    /// 追踪引擎记录到新活动回调：插入到列表顶部并触发防抖刷新
+    /// </summary>
     private void OnActivityRecorded(ActivityRecord activity)
     {
+        // Dispatcher.BeginInvoke: 切回 UI 线程更新界面
         Dispatcher.BeginInvoke(() =>
         {
             if (_currentDate == DateTime.Today)
@@ -739,6 +850,9 @@ public partial class MainWindow : Window
         });
     }
 
+    /// <summary>
+    /// 防抖刷新：500ms 内多次触发只执行最后一次，避免频繁查库重绘
+    /// </summary>
     private void ScheduleDebounceRefresh()
     {
         if (_debounceTimer == null)
@@ -764,8 +878,14 @@ public partial class MainWindow : Window
 
     // ========== 数据加载 ==========
 
+    /// <summary>
+    /// 加载指定日期的活动数据：更新日期文字、填充列表、重绘时间轴
+    /// </summary>
+    /// <param name="date">要加载的日期</param>
+    /// <param name="isDateChange">是否是切换日期（true=清空勾选+重建统计列表）</param>
     private void LoadDateData(DateTime date, bool isDateChange = false)
     {
+        // 设置日期显示文字
         if (date == DateTime.Today)
             DateText.Text = "今天";
         else if (date == DateTime.Today.AddDays(-1))
@@ -773,8 +893,10 @@ public partial class MainWindow : Window
         else
             DateText.Text = date.ToString("MM-dd");
 
+        // 下一天按钮在查看今天时禁用
         BtnNextDay.IsEnabled = date < DateTime.Today;
 
+        // 清空旧列表，倒序填充（最新的在最上面）
         _items.Clear();
         var activities = ActivityRepository.GetByDate(date);
         _cachedActivities = activities;
@@ -783,7 +905,7 @@ public partial class MainWindow : Window
             _items.Add(CreateDisplayItem(a));
         }
 
-        // 仅切日期时清空勾选 + 重建统计列表（自动刷新不动勾选）
+        // 切日期时清空勾选 + 重建统计列表（自动刷新不动勾选）
         if (isDateChange)
         {
             _checkedApps.Clear();
@@ -797,7 +919,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 切换列表显示模式：使用明细 / 使用占比
+    /// 列表模式切换：使用明细 / 使用占比
     /// </summary>
     private void RbListMode_Checked(object sender, RoutedEventArgs e)
     {
@@ -819,18 +941,23 @@ public partial class MainWindow : Window
 
     // ========== 使用占比列表 ==========
 
+    /// <summary>
+    /// 加载使用占比统计：按应用和按分类两个列表，各自计算时长和百分比
+    /// </summary>
     private void LoadStatsLists()
     {
+        // 清空两个列表
         AppStatsList.Items.Clear();
         CategoryStatsList.Items.Clear();
 
-        // 从缓存的活动数据聚合
+        // 从缓存数据聚合（排除空闲时段）
         var activities = _cachedActivities.Where(a => !a.IsIdle).ToList();
         if (activities.Count == 0) return;
 
+        // 总活跃秒数
         int totalSeconds = activities.Sum(a => a.Duration);
 
-        // 应用统计
+        // 应用统计：按进程名分组，按时长降序
         var appGroups = activities
             .GroupBy(a => a.ProcessName)
             .OrderByDescending(g => g.Sum(a => a.Duration))
@@ -848,7 +975,7 @@ public partial class MainWindow : Window
             AppStatsList.Items.Add(row);
         }
 
-        // 类别统计
+        // 类别统计：按分类名分组，按时长降序
         var catGroups = activities
             .GroupBy(a => a.Category)
             .OrderByDescending(g => g.Sum(a => a.Duration))
@@ -864,9 +991,22 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 创建一行统计行 UI（复杂方法）：复选框 + 图标 + 名称 + 类别 + 占比条 + 时长
+    /// </summary>
+    /// <param name="isCategory">true=类别统计行，false=应用统计行</param>
+    /// <param name="name">进程名或类别名</param>
+    /// <param name="category">分类名（应用行用）</param>
+    /// <param name="seconds">总时长秒数</param>
+    /// <param name="pct">百分比 0~100</param>
+    /// <param name="barColor">占比条颜色的十六进制</param>
+    /// <param name="icon">应用图标（类别行为 null）</param>
+    /// <param name="displayName">显示名（友好名）</param>
+    /// <returns>构建好的 Border 行</returns>
     private Border CreateStatsRow(bool isCategory, string name, string category, int seconds, double pct, string barColor, ImageSource? icon, string displayName)
     {
         var row = new Border { Padding = new Thickness(2), Margin = new Thickness(0, 1, 0, 1), Tag = name, Background = System.Windows.Media.Brushes.Transparent };
+        // 用 Grid 布局一行：复选框 + 图标 + 名称 + 类别 + 占比条 + 时长
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });   // checkbox
         if (!isCategory)
@@ -883,7 +1023,7 @@ public partial class MainWindow : Window
 
         int col = 0;
 
-        // Checkbox
+        // 复选框（勾选后高亮对应时间轴色块）
         var cb = new CheckBox { VerticalAlignment = VerticalAlignment.Center, Tag = name };
         if (isCategory)
         {
@@ -898,7 +1038,7 @@ public partial class MainWindow : Window
         Grid.SetColumn(cb, col++);
         grid.Children.Add(cb);
 
-        // Icon (apps only)
+        // 图标（仅应用行有）
         if (!isCategory)
         {
             var img = new Image { Source = icon, Width = 16, Height = 16, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center };
@@ -906,12 +1046,12 @@ public partial class MainWindow : Window
             grid.Children.Add(img);
         }
 
-        // Name
+        // 名称
         var nameTb = new TextBlock { Text = displayName, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         Grid.SetColumn(nameTb, col++);
         grid.Children.Add(nameTb);
 
-        // Category (apps only)
+        // 类别（仅应用行有）
         if (!isCategory)
         {
             var catTb = new TextBlock { Text = category, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)), FontSize = 11 };
@@ -919,17 +1059,17 @@ public partial class MainWindow : Window
             grid.Children.Add(catTb);
         }
 
-        // Bar — Canvas 实现，固定宽度 120
+        // 占比条 — 用 Canvas 实现，固定宽度 120px
         const double BarWidth = 120;
         const double BarHeight = 14;
         var barCanvas = new Canvas { Width = BarWidth, Height = BarHeight, Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center };
 
-        // 外框
+        // 外框（灰色边框）
         var barBorder = new Border { BorderBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)), BorderThickness = new Thickness(1), Height = BarHeight, CornerRadius = new CornerRadius(2) };
         Canvas.SetLeft(barBorder, 0); Canvas.SetTop(barBorder, 0);
         barCanvas.Children.Add(barBorder);
 
-        // 有色部分
+        // 有色部分（按百分比填充）
         double fillWidth = BarWidth * pct / 100.0;
         var fillColor = CategoryColorHelper.ParseHex(barColor);
         var fillBorder = new Border { Background = new SolidColorBrush(fillColor), Height = BarHeight - 2, CornerRadius = new CornerRadius(2, 0, 0, 2) };
@@ -937,7 +1077,7 @@ public partial class MainWindow : Window
         fillBorder.Width = Math.Max(0, fillWidth - 1);
         barCanvas.Children.Add(fillBorder);
 
-        // 百分比文字
+        // 百分比文字：>80% 放在有色部分上（白字），否则放在透明部分（黑字）
         string pctText = $"{pct:F1}%";
         var pctTb = new TextBlock { Text = pctText, FontSize = 10, VerticalAlignment = VerticalAlignment.Center };
         pctTb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -961,7 +1101,7 @@ public partial class MainWindow : Window
         Grid.SetColumn(barCanvas, col++);
         grid.Children.Add(barCanvas);
 
-        // Duration
+        // 时长
         var durTb = new TextBlock { Text = TimeFormatHelper.Format(seconds), VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Right };
         Grid.SetColumn(durTb, col++);
         grid.Children.Add(durTb);
@@ -970,6 +1110,9 @@ public partial class MainWindow : Window
         return row;
     }
 
+    /// <summary>
+    /// 应用统计行复选框变化：添加/移除高亮集合并重绘时间轴
+    /// </summary>
     private void AppStatsRow_CheckChanged(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox cb && cb.Tag is string appName)
@@ -982,6 +1125,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 类别统计行复选框变化：添加/移除高亮集合并重绘时间轴
+    /// </summary>
     private void CatStatsRow_CheckChanged(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox cb && cb.Tag is string catName)
@@ -994,6 +1140,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 更新今日（或选中日期）活跃总时长显示
+    /// </summary>
     private void UpdateTodayTotal()
     {
         var summary = ActivityRepository.GetCategorySummaryByDate(_currentDate);
@@ -1005,6 +1154,9 @@ public partial class MainWindow : Window
 
     // ========== 绘制：统一入口 ==========
 
+    /// <summary>
+    /// 统一绘制入口：画时间轴色块、刻度、概览条、图例，更新缩放显示
+    /// </summary>
     private void DrawAll()
     {
         double w = GetContainerWidth();
@@ -1030,6 +1182,9 @@ public partial class MainWindow : Window
 
     // ========== 滚轮缩放（跟随鼠标） ==========
 
+    /// <summary>
+    /// 鼠标滚轮缩放时间轴：以鼠标位置为缩放中心，保持鼠标处的时间不变
+    /// </summary>
     private void MainTimelineCanvas_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         // 鼠标在时间轴上的 X 坐标
@@ -1037,17 +1192,17 @@ public partial class MainWindow : Window
         double width = GetContainerWidth();
         if (width <= 0) return;
 
-        // 鼠标对应的时间（秒）
+        // 鼠标 X 坐标对应的时间（秒）
         double mouseTime = _viewStartSeconds + (mouseX / width) * _visibleSeconds;
 
-        // 缩放
+        // 滚轮上滚放大（×0.8），下滚缩小（×1.25）
         double factor = e.Delta > 0 ? 0.8 : 1.25;
         double newVisible = Math.Clamp(_visibleSeconds * factor, MinVisibleSeconds, MaxVisibleSeconds);
         if (newVisible == _visibleSeconds) { e.Handled = true; return; }
 
         _visibleSeconds = newVisible;
 
-        // 调整起始位置使鼠标时间不变
+        // 调整起始位置使鼠标处的时间保持不变
         _viewStartSeconds = mouseTime - (mouseX / width) * _visibleSeconds;
         _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, MaxVisibleSeconds - _visibleSeconds);
 
@@ -1057,6 +1212,7 @@ public partial class MainWindow : Window
 
     // ========== 概览条拖拽（平移可见范围） ==========
 
+    /// <summary>鼠标按下开始拖拽：记录起点</summary>
     private void OverviewCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _overviewDragging = true;
@@ -1065,6 +1221,7 @@ public partial class MainWindow : Window
         OverviewCanvas.CaptureMouse();
     }
 
+    /// <summary>鼠标移动拖拽中：按偏移量平移可见范围</summary>
     private void OverviewCanvas_MouseMove(object sender, MouseEventArgs e)
     {
         if (!_overviewDragging) return;
@@ -1075,6 +1232,7 @@ public partial class MainWindow : Window
         DrawAll();
     }
 
+    /// <summary>鼠标释放结束拖拽</summary>
     private void OverviewCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         _overviewDragging = false;
@@ -1083,12 +1241,16 @@ public partial class MainWindow : Window
 
     // ========== 鼠标悬停浮动详情框 ==========
 
+    /// <summary>
+    /// 鼠标在时间轴上移动时：查找当前位置对应的活动，显示浮动 Popup 详情（含截图）
+    /// </summary>
     private void MainTimelineCanvas_MouseMove(object sender, MouseEventArgs e)
     {
         double mouseX = e.GetPosition(MainTimelineCanvas).X;
         double width = GetContainerWidth();
         if (width <= 0) return;
 
+        // 鼠标 X 坐标对应的时间（秒）
         double mouseTime = _viewStartSeconds + (mouseX / width) * _visibleSeconds;
 
         // 查找鼠标时间落在哪个活动区间
@@ -1118,6 +1280,7 @@ public partial class MainWindow : Window
 
         if (hit != null)
         {
+            // 命中活动：显示颜色块、分类、时间、进程名、标题、截图
             PopupColor.Visibility = Visibility.Visible;
             PopupCategory.Visibility = Visibility.Visible;
             PopupProcess.Visibility = Visibility.Visible;
@@ -1151,6 +1314,7 @@ public partial class MainWindow : Window
         }
         else
         {
+            // 没命中活动时只显示时间
             TimeSpan ts = TimeSpan.FromSeconds(mouseTime);
             PopupColor.Visibility = Visibility.Collapsed;
             PopupCategory.Visibility = Visibility.Collapsed;
@@ -1161,6 +1325,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// 鼠标离开时间轴：关闭浮动详情框，清空截图缓存
+    /// </summary>
     private void MainTimelineCanvas_MouseLeave(object sender, MouseEventArgs e)
     {
         DetailPopup.IsOpen = false;
@@ -1172,6 +1339,9 @@ public partial class MainWindow : Window
 
     // ========== 图例 ==========
 
+    /// <summary>
+    /// 绘制分类颜色图例：每个分类一个色块 + 名称
+    /// </summary>
     private void DrawLegend()
     {
         LegendPanel.Children.Clear();

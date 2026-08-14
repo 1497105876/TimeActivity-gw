@@ -15,7 +15,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部状态栏 -->
+        <!-- 顶部状态栏：显示当前活动、类别、今日活跃时长 -->
         <Border Grid.Row="0" Background="#F0F0F0" CornerRadius="6" Padding="12,8" Margin="0,0,0,8">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="当前：" FontWeight="Bold" VerticalAlignment="Center"/>
@@ -26,7 +26,7 @@
             </StackPanel>
         </Border>
 
-        <!-- 控制按钮 -->
+        <!-- 控制按钮区：开始/停止追踪、刷新、设置 -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
             <Button x:Name="BtnStart" Content="开始追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStart_Click"/>
             <Button x:Name="BtnStop" Content="停止追踪" Width="100" Height="32" Margin="0,0,8,0" Click="BtnStop_Click" IsEnabled="False"/>
@@ -36,7 +36,7 @@
 
         <!-- 主内容区：Tab 切换 -->
         <TabControl Grid.Row="2" TabStripPlacement="Top">
-            <!-- Tab 1: 时间轴 -->
+            <!-- Tab 1: 时间轴页 -->
             <TabItem Header="时间轴">
                 <Grid Margin="4">
                     <Grid.RowDefinitions>
@@ -44,7 +44,7 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- 日期切换 + 缩放信息 + 颜色模式 -->
+                    <!-- 日期切换 + 缩放信息 + 配色模式选择 -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
                         <Border Background="#F0F0F0" CornerRadius="4">
                             <StackPanel Orientation="Horizontal">
@@ -64,7 +64,7 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- 时间轴 + 活动列表 -->
+                    <!-- 时间轴 + 活动列表容器 -->
                     <Border Grid.Row="1" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="8">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -73,31 +73,36 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
 
-                            <!-- 时间轴区域 -->
+                            <!-- 时间轴区域：刻度 + 主时间轴 + 概览条 + 图例 -->
                             <StackPanel x:Name="TimelineContainer" Grid.Row="0" Margin="0,0,0,8">
                                 <DockPanel Margin="0,0,0,6">
                                     <TextBlock Text="时间轴" FontWeight="Bold" DockPanel.Dock="Left"/>
                                 </DockPanel>
 
+                                <!-- 上方时间刻度画布 -->
                                 <Canvas x:Name="TopScaleCanvas" Height="18" Margin="0,0,0,2" ClipToBounds="True"/>
+                                <!-- 主时间轴画布：鼠标悬停显示详情、滚轮缩放 -->
                                 <Canvas x:Name="MainTimelineCanvas" Height="44" ClipToBounds="True" Background="#F5F5F5"
                                         MouseMove="MainTimelineCanvas_MouseMove" MouseLeave="MainTimelineCanvas_MouseLeave"
                                         PreviewMouseWheel="MainTimelineCanvas_PreviewMouseWheel"/>
+                                <!-- 概览条画布：可拖拽平移可见范围 -->
                                 <Canvas x:Name="OverviewCanvas" Height="20" Margin="0,4,0,0" ClipToBounds="True"
                                         MouseLeftButtonDown="OverviewCanvas_MouseLeftButtonDown"
                                         MouseMove="OverviewCanvas_MouseMove"
                                         MouseLeftButtonUp="OverviewCanvas_MouseLeftButtonUp"/>
+                                <!-- 概览条刻度画布 -->
                                 <Canvas x:Name="OverviewScaleCanvas" Height="14" Margin="0,1,0,0" ClipToBounds="True"/>
+                                <!-- 分类颜色图例 -->
                                 <WrapPanel x:Name="LegendPanel" Margin="0,6,0,0"/>
                             </StackPanel>
 
-                            <!-- 列表切换 -->
+                            <!-- 列表模式切换：使用明细 / 使用占比 -->
                             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,4">
                                 <RadioButton x:Name="RbDetailList" Content="使用明细" IsChecked="True" Margin="0,0,12,0" Checked="RbListMode_Checked" Tag="detail"/>
                                 <RadioButton x:Name="RbStatsList" Content="使用占比" Checked="RbListMode_Checked" Tag="stats"/>
                             </StackPanel>
 
-                            <!-- 使用明细列表 -->
+                            <!-- 使用明细列表：图标 + 应用名 + 标题 + 类别 + 开始/结束/时长 -->
                             <ListView x:Name="ActivityList" Grid.Row="2" FontSize="13"
                                      VirtualizingStackPanel.IsVirtualizing="True"
                                      VirtualizingStackPanel.VirtualizationMode="Recycling">
@@ -120,20 +125,20 @@
                                 </ListView.View>
                             </ListView>
 
-                            <!-- 使用占比列表（左右两列） -->
+                            <!-- 使用占比列表：左列应用统计 + 右列类别统计 -->
                             <Grid x:Name="StatsListPanel" Grid.Row="2" Visibility="Collapsed">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="4"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <!-- 左列：应用统计 -->
+                                <!-- 左列：应用统计（右键可改颜色/类别） -->
                                 <DockPanel Grid.Column="0">
                                     <TextBlock Text="应用统计" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <ListView x:Name="AppStatsList" FontSize="12" BorderThickness="0" PreviewMouseRightButtonDown="AppStatsList_PreviewMouseRightButtonUp"/>
                                 </DockPanel>
                                 <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#E0E0E0"/>
-                                <!-- 右列：类别统计 -->
+                                <!-- 右列：类别统计（右键可改颜色/查看规则） -->
                                 <DockPanel Grid.Column="2">
                                     <TextBlock Text="类别统计" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4"/>
                                     <ListView x:Name="CategoryStatsList" FontSize="12" BorderThickness="0" PreviewMouseRightButtonDown="CategoryStatsList_PreviewMouseRightButtonUp"/>
@@ -144,16 +149,16 @@
                 </Grid>
             </TabItem>
 
-            <!-- Tab 2: 统计报表 -->
+            <!-- Tab 2: 统计报表页（嵌入 Frame 加载 StatisticsPage） -->
             <TabItem Header="统计报表">
                 <Frame x:Name="StatsFrame" NavigationUIVisibility="Hidden"/>
             </TabItem>
         </TabControl>
 
-        <!-- 底部状态栏 -->
+        <!-- 底部状态栏：显示临时提示信息 -->
         <TextBlock x:Name="StatusBar" Grid.Row="3" Height="20" FontSize="11" Foreground="#888" Padding="8,0" VerticalAlignment="Center" Text=""/>
 
-        <!-- 跟随鼠标的浮动详情框 -->
+        <!-- 跟随鼠标的浮动详情框（Popup）：鼠标悬停时间轴时显示活动详情和截图 -->
         <Popup x:Name="DetailPopup" AllowsTransparency="True" Placement="RelativePoint" PlacementTarget="{Binding ElementName=MainTimelineCanvas}" IsOpen="False" StaysOpen="True">
             <Border Background="White" BorderBrush="#CCC" BorderThickness="1" CornerRadius="4" Padding="8,5">
                 <StackPanel>

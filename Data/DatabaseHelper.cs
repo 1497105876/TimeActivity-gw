@@ -11,11 +11,14 @@ namespace TimeActivity.Data;
 /// </summary>
 public class DatabaseHelper
 {
+    // 数据库文件路径，放在程序目录下
     private static readonly string DbPath = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "timeactivity.db");
 
+    // SQLite 连接字符串，直接指向数据库文件
     public static string ConnectionString => $"Data Source={DbPath}";
 
+    // 防止重复初始化的标记
     private static bool _initialized = false;
 
     /// <summary>
@@ -30,14 +33,14 @@ public class DatabaseHelper
             using var conn = new SqliteConnection(ConnectionString);
             conn.Open();
 
-            // 开启 WAL 模式提升并发性能
+            // 开启 WAL 模式提升并发读写性能，NORMAL 同步级别兼顾安全和速度
             using var pragmaCmd = conn.CreateCommand();
             pragmaCmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;";
             pragmaCmd.ExecuteNonQuery();
 
             Logger.Info("数据库初始化：WAL 已开启");
 
-            // 建表
+            // 建表 SQL——一次性创建所有表和索引，IF NOT EXISTS 保证重复执行不报错
             var sql = @"
             CREATE TABLE IF NOT EXISTS Categories (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +50,7 @@ public class DatabaseHelper
                 SortOrder INTEGER NOT NULL DEFAULT 0
             );
 
+            -- 活动记录表：每条记录代表一个时间段的使用
             CREATE TABLE IF NOT EXISTS Activities (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ProcessName TEXT NOT NULL,
@@ -54,20 +58,22 @@ public class DatabaseHelper
                 Category TEXT NOT NULL DEFAULT '未分类',
                 StartTime TEXT NOT NULL,
                 EndTime TEXT NOT NULL,
-                Duration INTEGER NOT NULL DEFAULT 0,
-                IsIdle INTEGER NOT NULL DEFAULT 0,
+                Duration INTEGER NOT NULL DEFAULT 0,          -- 时长，单位秒
+                IsIdle INTEGER NOT NULL DEFAULT 0,            -- 0=活跃，1=空闲
                 CreatedAt TEXT NOT NULL DEFAULT (datetime('now','localtime'))
             );
 
+            -- 分类规则表：进程名/窗口标题关键词 → 分类的映射
             CREATE TABLE IF NOT EXISTS Rules (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ProcessName TEXT NOT NULL,
-                TitleKeyword TEXT,
+                TitleKeyword TEXT,                            -- 可为 NULL，表示只按进程名匹配
                 CategoryId INTEGER NOT NULL,
-                IsCustom INTEGER NOT NULL DEFAULT 0,
+                IsCustom INTEGER NOT NULL DEFAULT 0,          -- 0=预置不可删，1=用户自定义
                 FOREIGN KEY (CategoryId) REFERENCES Categories(Id)
             );
 
+            -- 截图记录表
             CREATE TABLE IF NOT EXISTS Screenshots (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 FilePath TEXT NOT NULL,
@@ -76,13 +82,15 @@ public class DatabaseHelper
                 CreatedAt TEXT NOT NULL DEFAULT (datetime('now','localtime'))
             );
 
+            -- 每日总时长汇总表（预聚合，加速查询）
             CREATE TABLE IF NOT EXISTS DailyTotal (
                 Date TEXT NOT NULL PRIMARY KEY,
-                TotalActiveSeconds INTEGER NOT NULL DEFAULT 0,
-                TotalSeconds INTEGER NOT NULL DEFAULT 0,
+                TotalActiveSeconds INTEGER NOT NULL DEFAULT 0,  -- 活跃时长（排除空闲）
+                TotalSeconds INTEGER NOT NULL DEFAULT 0,         -- 总时长（含空闲）
                 CreatedAt TEXT NOT NULL DEFAULT (datetime('now','localtime'))
             );
 
+            -- 每日分类汇总表（预聚合）
             CREATE TABLE IF NOT EXISTS DailyCategorySummary (
                 Date TEXT NOT NULL,
                 Category TEXT NOT NULL,
@@ -91,6 +99,7 @@ public class DatabaseHelper
                 PRIMARY KEY (Date, Category)
             );
 
+            -- 每日进程汇总表（预聚合）
             CREATE TABLE IF NOT EXISTS DailyProcessSummary (
                 Date TEXT NOT NULL,
                 ProcessName TEXT NOT NULL,
@@ -100,6 +109,7 @@ public class DatabaseHelper
                 PRIMARY KEY (Date, ProcessName)
             );
 
+            -- AI 总结记录表
             CREATE TABLE IF NOT EXISTS AISummaries (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 Date TEXT NOT NULL,
@@ -108,18 +118,21 @@ public class DatabaseHelper
                 CreatedAt TEXT NOT NULL DEFAULT (datetime('now','localtime'))
             );
 
+            -- 设置项表（键值对存储）
             CREATE TABLE IF NOT EXISTS Settings (
                 Id INTEGER PRIMARY KEY AUTOINCREMENT,
                 Key TEXT NOT NULL UNIQUE,
                 Value TEXT
             );
 
+            -- 应用单独颜色表（独立于分类颜色，给特定应用自定义颜色）
             CREATE TABLE IF NOT EXISTS AppColors (
                 ProcessName TEXT NOT NULL PRIMARY KEY,
                 Color TEXT NOT NULL,
                 UpdatedAt TEXT NOT NULL DEFAULT (datetime('now','localtime'))
             );
 
+            -- 索引：加速常用查询（按时间、分类、进程名查活动记录）
             CREATE INDEX IF NOT EXISTS IX_Activities_StartTime ON Activities(StartTime);
             CREATE INDEX IF NOT EXISTS IX_Activities_Category ON Activities(Category);
             CREATE INDEX IF NOT EXISTS IX_Activities_ProcessName ON Activities(ProcessName);
@@ -131,7 +144,7 @@ public class DatabaseHelper
             using var createCmd = new SqliteCommand(sql, conn);
             createCmd.ExecuteNonQuery();
 
-            // 迁移：检查 AISummaries 是否有 AutoType 列，没有就加
+            // 迁移：检查 AISummaries 表是否有 AutoType 列，没有就加（老版本数据库升级用）
             try
             {
                 using var checkCol = new SqliteCommand("PRAGMA table_info(AISummaries)", conn);
@@ -149,15 +162,18 @@ public class DatabaseHelper
                 }
             }
             catch (Exception ex) { Logger.Error("AISummaries AutoType 列迁移失败", ex); }
+            // 创建唯一索引：同一天同一类型同一来源只能有一条总结
             try
             {
                 using var idxCmd = new SqliteCommand("CREATE UNIQUE INDEX IF NOT EXISTS UX_AISummaries_Type ON AISummaries(Date, SummaryType, AutoType)", conn);
                 idxCmd.ExecuteNonQuery();
             }
             catch (Exception ex) { Logger.Error("AISummaries 唯一索引创建失败", ex); }
+            // Categories 表为空时插入预置分类（首次运行）
             var countCmd = new SqliteCommand("SELECT COUNT(*) FROM Categories", conn);
             if ((long)countCmd.ExecuteScalar()! == 0)
             {
+                // 预置分类列表：名称、颜色、图标标识、排序序号
                 var cats = new[]
                 {
                     ("开发工具", "#4A90D9", "code", 1),
@@ -186,10 +202,11 @@ public class DatabaseHelper
                 }
             }
 
-            // 插入预置设置项（如果还没有）
+            // Settings 表为空时插入预置设置项（首次运行）
             countCmd = new SqliteCommand("SELECT COUNT(*) FROM Settings", conn);
             if ((long)countCmd.ExecuteScalar()! == 0)
             {
+                // 从 SettingsRepository.Defaults 读取默认设置写入数据库
                 foreach (var kv in SettingsRepository.Defaults)
                 {
                     var insertSet = new SqliteCommand(
@@ -200,11 +217,11 @@ public class DatabaseHelper
                 }
             }
 
-            // 插入预置分类规则（如果 Rules 表为空）
+            // Rules 表为空时插入预置分类规则（首次运行）
             countCmd = new SqliteCommand("SELECT COUNT(*) FROM Rules", conn);
             if ((long)countCmd.ExecuteScalar()! == 0)
             {
-                // 查分类名→ID 映射
+                // 先查分类名 → Id 映射，后面插入规则要用
                 var catMap = new Dictionary<string, int>();
                 using (var catQ = new SqliteCommand("SELECT Id, Name FROM Categories", conn))
                 using (var catR = catQ.ExecuteReader())
@@ -231,6 +248,7 @@ public class DatabaseHelper
                 {
                     Logger.Error($"预置规则 JSON 加载失败（{seedPath}），跳过预置规则。用户可在设置中手动添加规则。", seedEx);
                 }
+                // 逐条插入预置规则，进程名匹配分类名对应的 Id
                 foreach (var (proc, cat) in procRuleList)
                 {
                     if (catMap.TryGetValue(cat, out int catId))
@@ -257,8 +275,9 @@ public class DatabaseHelper
     }
 
     /// <summary>
-    /// 测试数据库连接（同时初始化）
+    /// 测试数据库连接是否正常（顺带触发初始化）
     /// </summary>
+    /// <returns>连接成功返回 true，否则 false</returns>
     public static bool TestConnection()
     {
         try
@@ -273,10 +292,12 @@ public class DatabaseHelper
     }
 
     /// <summary>
-    /// 备份数据库到指定路径（VACUUM INTO，不需要停引擎）
+    /// 备份数据库到指定路径（使用 VACUUM INTO，不需要停引擎，在线备份）
     /// </summary>
+    /// <param name="targetPath">备份文件保存路径</param>
     public static void BackupTo(string targetPath)
     {
+        // VACUUM INTO 相当于在线导出一个干净的副本，不需要停数据库
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
         using var cmd = conn.CreateCommand();
@@ -286,7 +307,7 @@ public class DatabaseHelper
     }
 
     /// <summary>
-    /// 清空所有数据（保留设置和分类）
+    /// 清空所有用户数据（活动记录、截图、AI总结、每日汇总），保留设置和分类
     /// </summary>
     public static void ClearAllData()
     {
@@ -294,6 +315,7 @@ public class DatabaseHelper
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
 
+        // 按表逐个清空，不删 Categories/Settings/AppColors/Rules
         string[] tables = { "Activities", "Screenshots", "DailyTotal", "DailyCategorySummary", "DailyProcessSummary", "AISummaries" };
         foreach (var table in tables)
         {
@@ -305,6 +327,8 @@ public class DatabaseHelper
     /// <summary>
     /// 重新分类所有历史活动记录（规则更新后调用）
     /// </summary>
+    /// <param name="classifyFunc">分类函数：传入进程名和窗口标题，返回分类名</param>
+    /// <returns>更新的记录数</returns>
     public static int ReclassifyAll(System.Func<string, string, string> classifyFunc)
     {
         Initialize();
@@ -317,7 +341,7 @@ public class DatabaseHelper
 
         try
         {
-            // 取所有非空闲活动记录
+            // 取所有非空闲活动记录，读到内存里再批量更新（避免 reader 打开时执行命令）
             using var selCmd = new SqliteCommand(
                 "SELECT Id, ProcessName, WindowTitle FROM Activities WHERE IsIdle=0", conn, transaction);
             using var reader = selCmd.ExecuteReader();
@@ -343,7 +367,7 @@ public class DatabaseHelper
                 updated += updCmd.ExecuteNonQuery();
             }
 
-            // 重新生成每日汇总
+            // 重新生成每日汇总（在同一个事务内）
             using var datesCmd = new SqliteCommand(
                 "SELECT DISTINCT date(StartTime) FROM Activities", conn, transaction);
             using var dateReader = datesCmd.ExecuteReader();
@@ -352,7 +376,7 @@ public class DatabaseHelper
                 dates.Add(dateReader.GetString(0));
             dateReader.Close();
 
-            // 汇总生成需要在事务内完成
+            // 逐天重新生成汇总，全部在事务内完成
             foreach (var date in dates)
                 DailySummaryRepository.GenerateForDate(date, conn, transaction);
 
@@ -372,11 +396,14 @@ public class DatabaseHelper
     }
 
     /// <summary>
-    /// 清理超过指定天数的旧数据
+    /// 清理超过指定天数的旧数据（活动记录、截图、AI总结、每日汇总）
     /// </summary>
+    /// <param name="retentionDays">数据保留天数，超过此天数的将被删除</param>
+    /// <returns>总共删除的记录数</returns>
     public static int CleanOldData(int retentionDays)
     {
         Initialize();
+        // 计算截止时间：超过这个时间的数据将被清理
         string cutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd HH:mm:ss");
         string dateCutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd");
         int totalDeleted = 0;
@@ -384,12 +411,12 @@ public class DatabaseHelper
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
 
-        // 1. 清 Activities
+        // 1. 清 Activities——删除过期的活动记录
         using var cmd1 = new SqliteCommand("DELETE FROM Activities WHERE StartTime < @Cutoff", conn);
         cmd1.Parameters.AddWithValue("@Cutoff", cutoff);
         totalDeleted += cmd1.ExecuteNonQuery();
 
-        // 2. 清 Screenshots（同时删文件）
+        // 2. 清 Screenshots——先查出文件路径删物理文件，再删数据库记录
         using var cmd2 = new SqliteCommand("SELECT FilePath FROM Screenshots WHERE CapturedAt < @Cutoff", conn);
         cmd2.Parameters.AddWithValue("@Cutoff", cutoff);
         using (var reader = cmd2.ExecuteReader())
@@ -398,6 +425,7 @@ public class DatabaseHelper
             {
                 try
                 {
+                    // 相对路径拼接程序目录，绝对路径直接用
                     var p = reader.GetString(0);
                     string fullPath = Path.IsPathRooted(p) ? p : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, p);
                     if (File.Exists(fullPath)) File.Delete(fullPath);
@@ -409,12 +437,12 @@ public class DatabaseHelper
         cmd3.Parameters.AddWithValue("@Cutoff", cutoff);
         totalDeleted += cmd3.ExecuteNonQuery();
 
-        // 3. 清 AISummaries（手动总结超期也删，自动总结永久保留）
+        // 3. 清 AISummaries——手动总结超期删除，自动总结永久保留
         using var cmd4 = new SqliteCommand("DELETE FROM AISummaries WHERE Date < @DateCutoff AND AutoType='manual'", conn);
         cmd4.Parameters.AddWithValue("@DateCutoff", dateCutoff);
         totalDeleted += cmd4.ExecuteNonQuery();
 
-        // 4. 清每日汇总三张表
+        // 4. 清每日汇总三张表——按日期删除过期数据
         using var cmd5a = new SqliteCommand("DELETE FROM DailyTotal WHERE Date < @DateCutoff", conn);
         cmd5a.Parameters.AddWithValue("@DateCutoff", dateCutoff);
         totalDeleted += cmd5a.ExecuteNonQuery();

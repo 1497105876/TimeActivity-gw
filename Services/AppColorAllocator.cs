@@ -14,12 +14,16 @@ public static class AppColorAllocator
     // HSV 均匀分布的 24 色调色板（饱和度 0.75，亮度 0.65，明亮但不刺眼）
     private static readonly string[] Palette = GeneratePalette();
 
-    // 内存缓存：进程名 → 颜色
+    // 内存缓存：进程名 → 颜色十六进制字符串
     private static readonly Dictionary<string, string> _cache = new();
 
-    // 已加载标志
+    // 是否已从数据库加载过
     private static bool _loaded = false;
 
+    /// <summary>
+    /// 生成 24 色调色板：色相每 15° 取一个，饱和度 0.75，亮度 0.65。
+    /// </summary>
+    /// <returns>24 个十六进制颜色字符串</returns>
     private static string[] GeneratePalette()
     {
         var colors = new string[24];
@@ -84,20 +88,21 @@ public static class AppColorAllocator
     }
 
     /// <summary>
-    /// 挑一个还没被占用的颜色。调色板优先，用完了随机+色差检查。
+    /// 挑一个还没被占用的颜色。调色板优先，用完了随机生成 + 色差检查避免颜色太接近。
     /// </summary>
+    /// <returns>可用的颜色十六进制字符串</returns>
     private static string PickAvailableColor()
     {
         var used = GetUsedColors();
 
-        // 先从调色板找
+        // 先从调色板里找一个没被占用的
         foreach (var c in Palette)
         {
             if (!used.Contains(c))
                 return c;
         }
 
-        // 调色板用完了，随机生成 + 色差检查
+        // 调色板用完了，随机生成 HSV 颜色 + 色差检查
         var rng = new Random();
         string best = Palette[0];
         double bestMinDist = -1;
@@ -105,12 +110,12 @@ public static class AppColorAllocator
         for (int i = 0; i < 50; i++)
         {
             double h = rng.NextDouble() * 360;
-            double s = 0.6 + rng.NextDouble() * 0.25; // 0.6~0.85
-            double v = 0.55 + rng.NextDouble() * 0.2; // 0.55~0.75
+            double s = 0.6 + rng.NextDouble() * 0.25; // 饱和度 0.6~0.85
+            double v = 0.55 + rng.NextDouble() * 0.2;  // 亮度 0.55~0.75
             var candidate = HsvToColor(h, s, v);
             var candidateHex = $"#{candidate.R:X2}{candidate.G:X2}{candidate.B:X2}";
 
-            // 找跟所有已用颜色最小色差最大的那个（最不容易撞）
+            // 找跟所有已用颜色最小色差最大的那个（最不容易撞色）
             double minDist = double.MaxValue;
             foreach (var usedColor in used)
             {
@@ -125,7 +130,7 @@ public static class AppColorAllocator
                 best = candidateHex;
             }
 
-            // 色差够大就直接用
+            // 色差够大就直接用，不用再试了
             if (bestMinDist >= 30.0) break;
         }
 
@@ -134,6 +139,13 @@ public static class AppColorAllocator
 
     // ========== HSV / 色差工具 ==========
 
+    /// <summary>
+    /// HSV 转 RGB 颜色。
+    /// </summary>
+    /// <param name="h">色相 0~360</param>
+    /// <param name="s">饱和度 0~1</param>
+    /// <param name="v">亮度 0~1</param>
+    /// <returns>RGB 颜色</returns>
     private static Color HsvToColor(double h, double s, double v)
     {
         h = h % 360;
@@ -155,6 +167,11 @@ public static class AppColorAllocator
             (byte)Math.Round((b + m) * 255));
     }
 
+    /// <summary>
+    /// 十六进制颜色字符串转 RGB 颜色。
+    /// </summary>
+    /// <param name="hex">如 "#FF8800"</param>
+    /// <returns>RGB 颜色</returns>
     private static Color HexToColor(string hex)
     {
         hex = hex.TrimStart('#');
@@ -164,7 +181,9 @@ public static class AppColorAllocator
             Convert.ToByte(hex.Substring(4, 2), 16));
     }
 
-    // 简单的 RGB 欧氏距离（够用了，不需要 Lab ΔE）
+    /// <summary>
+    /// 计算两个颜色的 RGB 欧氏距离，值越大颜色差异越大。够用了，不需要 Lab ΔE。
+    /// </summary>
     private static double ColorDistance(Color a, Color b)
     {
         double dr = a.R - b.R;

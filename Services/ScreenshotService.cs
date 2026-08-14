@@ -14,19 +14,24 @@ namespace TimeActivity.Services;
 /// </summary>
 public class ScreenshotService
 {
+    // 截图间隔（分钟），默认 5 分钟
     private int _intervalMinutes;
+    // 截图保存目录
     private string _screenshotDir = "";
+    // 定时截屏的计时器
     private System.Threading.Timer? _timer;
+    // 是否正在运行
     private bool _running;
 
-    // 是否在切换应用时截屏
+    // 是否在切换应用时截屏（仿 ManicTime）
     private bool _captureOnSwitch;
 
+    // Win32 API：获取屏幕尺寸（传 nIndex 参数指定要获取宽还是高）
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
 
-    private const int SM_CXSCREEN = 0;
-    private const int SM_CYSCREEN = 1;
+    private const int SM_CXSCREEN = 0;  // 屏幕宽度索引
+    private const int SM_CYSCREEN = 1;  // 屏幕高度索引
 
     public bool IsRunning => _running;
 
@@ -36,16 +41,19 @@ public class ScreenshotService
     }
 
     /// <summary>
-    /// 从数据库重新读取设置
+    /// 从数据库重新读取截图相关设置（间隔、路径、格式、开关等）。
+    /// 路径无效时回退到程序目录下的 screenshots/ 文件夹。
     /// </summary>
     public void ReloadSettings()
     {
+        // 截图间隔，限制在 1~1440 分钟
         _intervalMinutes = int.TryParse(
             SettingsRepository.Get("ScreenshotIntervalMinutes", "5"), out int iv) && iv > 0
             ? Math.Clamp(iv, 1, 1440) : 5;
 
         _captureOnSwitch = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true";
 
+        // 截图保存路径：用户配了就用配的，没配就用程序目录下 screenshots/
         string? userPath = SettingsRepository.Get("ScreenshotPath", "");
         if (!string.IsNullOrWhiteSpace(userPath))
         {
@@ -70,18 +78,22 @@ public class ScreenshotService
         }
     }
 
+    /// <summary>
+    /// 启动截图服务。检查开关、加载设置、立即截一张、启动定时器。
+    /// </summary>
     public void Start()
     {
         if (_running) return;
-        // 检查设置开关 — 没开截图就不启动
+        // 设置里没开截图功能就不启动
         if (SettingsRepository.Get("EnableScreenshot", "false") != "true") return;
         ReloadSettings();
         _running = true;
 
+        // 立即截一张并清理旧截图
         CaptureAndSave();
         CleanOldScreenshots();
 
-        // 定时截屏
+        // 启动定时器，每隔 N 分钟截一张
         _timer = new System.Threading.Timer(
             _ => { CaptureAndSave(); CleanOldScreenshots(); },
             null,
@@ -89,6 +101,9 @@ public class ScreenshotService
             TimeSpan.FromMinutes(_intervalMinutes));
     }
 
+    /// <summary>
+    /// 停止截图服务，释放定时器。
+    /// </summary>
     public void Stop()
     {
         _running = false;
@@ -97,7 +112,8 @@ public class ScreenshotService
     }
 
     /// <summary>
-    /// 清理旧截图 — 仿 ManicTime 存储限制
+    /// 清理旧截图 — 支持按最大天数和最大总大小两种策略，仿 ManicTime 存储限制。
+    /// 优先删最老的文件。
     /// </summary>
     private void CleanOldScreenshots()
     {
@@ -116,7 +132,7 @@ public class ScreenshotService
                 .OrderBy(f => f.CreationTime)
                 .ToList();
 
-            // 按最大年龄清理
+            // 按最大年龄清理：超过天数限制的旧截图直接删
             if (enableMaxAge && int.TryParse(SettingsRepository.Get("MaxScreenshotAgeDays", "30"), out int maxAge))
             {
                 var cutoff = DateTime.Now.AddDays(-maxAge);
@@ -131,7 +147,7 @@ public class ScreenshotService
                 files = files.Where(f => f.Exists).ToList();
             }
 
-            // 按最大总大小清理（删最老的）
+            // 按最大总大小清理：超了就从最老的开始删
             if (enableMaxSize && int.TryParse(SettingsRepository.Get("MaxScreenshotSizeMB", "5120"), out int maxMB))
             {
                 long maxBytes = (long)maxMB * 1024 * 1024;
@@ -157,8 +173,8 @@ public class ScreenshotService
     }
 
     /// <summary>
-    /// 切换应用时调用 — 仿 ManicTime "在每次应用程序切换时截屏"
-    /// 切换后重置定时器倒计时
+    /// 切换应用时调用 — 仿 ManicTime "在每次应用程序切换时截屏"。
+    /// 截完图后重置定时器倒计时，从此刻起重新计时。
     /// </summary>
     public void OnAppSwitched()
     {
@@ -169,19 +185,26 @@ public class ScreenshotService
         _timer?.Change(TimeSpan.FromMinutes(_intervalMinutes), TimeSpan.FromMinutes(_intervalMinutes));
     }
 
+    /// <summary>
+    /// 截屏并保存到磁盘。用 GetSystemMetrics 拿屏幕尺寸，GDI 截屏，
+    /// 支持 JPG（可调质量）和 PNG 两种格式，保存后写一条数据库记录。
+    /// </summary>
     private void CaptureAndSave()
     {
         try
         {
+            // 用 Win32 API 获取屏幕分辨率
             int width = GetSystemMetrics(SM_CXSCREEN);
             int height = GetSystemMetrics(SM_CYSCREEN);
 
+            // GDI 截屏：创建 Bitmap + CopyFromScreen
             using var bmp = new Bitmap(width, height);
             using (var g = Graphics.FromImage(bmp))
             {
                 g.CopyFromScreen(0, 0, 0, 0, bmp.Size);
             }
 
+            // 根据设置选择保存格式
             string format = SettingsRepository.Get("ScreenshotFormat", "jpg") ?? "jpg";
             string ext = format == "png" ? "png" : "jpg";
             string fileName = $"screenshot_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.{ext}";
@@ -193,6 +216,7 @@ public class ScreenshotService
             }
             else
             {
+                // JPG 模式：根据设置调整压缩质量（high=80, medium=50, low=30）
                 var encoderParams = new EncoderParameters(1);
                 var quality = SettingsRepository.Get("ScreenshotQuality", "medium") switch
                 {
@@ -205,8 +229,8 @@ public class ScreenshotService
                 bmp.Save(filePath, jpegEncoder, encoderParams);
             }
 
+            // 存数据库：如果是程序目录下的路径就用相对路径，否则用绝对路径
             var fileSize = new FileInfo(filePath).Length;
-            // 数据库存相对路径（相对于程序目录）
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
             string dbPath = filePath.StartsWith(appDir) ? filePath.Substring(appDir.Length) : filePath;
             ScreenshotRepository.Insert(dbPath, fileSize);
@@ -221,6 +245,11 @@ public class ScreenshotService
         }
     }
 
+    /// <summary>
+    /// 查找指定图片格式对应的编码器（JPG/PNG 等）。
+    /// </summary>
+    /// <param name="format">目标图片格式</param>
+    /// <returns>对应的编码器信息</returns>
     private static ImageCodecInfo GetEncoder(ImageFormat format)
     {
         var codecs = ImageCodecInfo.GetImageEncoders();
@@ -232,7 +261,14 @@ public class ScreenshotService
         return codecs[0];
     }
 
+    /// <summary>
+    /// 获取屏幕宽度（通过 Win32 GetSystemMetrics）。
+    /// </summary>
     public static int GetScreenWidth() => GetSystemMetrics(SM_CXSCREEN);
+
+    /// <summary>
+    /// 获取屏幕高度（通过 Win32 GetSystemMetrics）。
+    /// </summary>
     public static int GetScreenHeight() => GetSystemMetrics(SM_CYSCREEN);
 
     /// <summary>

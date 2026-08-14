@@ -12,34 +12,48 @@ using TimeActivity.Rendering;
 
 namespace TimeActivity;
 
+/// <summary>
+/// 统计报表页 — 提供日/周/月三个维度的活动数据可视化，包括类别占比、
+/// 每日趋势折线图、Top 应用排行，以及 AI 总结生成。
+/// </summary>
 public partial class StatisticsPage : Page
 {
-    private string _period = "day"; // day / week / month
+    // 当前查看的周期模式：day / week / month
+    private string _period = "day";
+
+    // 当前周期的参考日期（日模式=当天，周模式=该周任意一天，月模式=该月任意一天）
     private DateTime _periodStart = DateTime.Today;
 
     private readonly CategoryColorHelper _colorHelper = new();
     private readonly ChartRenderer _chartRenderer;
 
+    // 分类名 → 颜色十六进制字符串
     private Dictionary<string, string> _categoryColors = new();
 
-    // 缓存当前趋势数据，SizeChanged 时重绘
+    // 缓存趋势数据，窗口 SizeChanged 时重绘用
     private Dictionary<string, int> _cachedDailyData = new();
     private DateTime _cachedRangeStart;
     private DateTime _cachedRangeEnd;
 
+    /// <summary>
+    /// 构造函数：初始化颜色、图表渲染器，加载分类筛选和默认数据
+    /// </summary>
     public StatisticsPage()
     {
         InitializeComponent();
         _categoryColors = _colorHelper.Load();
         _chartRenderer = new ChartRenderer(_colorHelper);
         LoadCategoryFilter();
-        RbDay.IsChecked = true;
+        RbDay.IsChecked = true; // 默认选日模式
         UpdateRange();
         LoadData();
     }
 
-    // ========== 期间切换 ==========
+    // ========== 周期切换 ==========
 
+    /// <summary>
+    /// 日/周/月单选按钮切换事件
+    /// </summary>
     private void RbPeriod_Checked(object sender, RoutedEventArgs e)
     {
         if (!IsLoaded) return;
@@ -51,6 +65,10 @@ public partial class StatisticsPage : Page
         LoadData();
     }
 
+    /// <summary>
+    /// 根据当前周期模式和参考日期，计算实际的日期范围（起止日期）
+    /// </summary>
+    /// <returns>(起始日期, 结束日期)</returns>
     private (DateTime start, DateTime end) GetRange()
     {
         switch (_period)
@@ -67,13 +85,18 @@ public partial class StatisticsPage : Page
         }
     }
 
+    /// <summary>
+    /// 更新日期范围显示文字、AI 总结标题、趋势图可见性，并加载 AI 总结
+    /// </summary>
     private void UpdateRange()
     {
         var (s, e) = GetRange();
+        // 根据周期模式设置显示文字和标题
         if (_period == "day")
         {
             RangeText.Text = s.ToString("MM-dd") + (s == DateTime.Today ? "（今天）" : "");
             AITitle.Text = "AI 每日总结";
+            // 日模式不需要趋势图
             TrendSection.Visibility = Visibility.Collapsed;
         }
         else if (_period == "week")
@@ -89,7 +112,7 @@ public partial class StatisticsPage : Page
             TrendSection.Visibility = Visibility.Visible;
         }
 
-        // 加载 AI 总结
+        // 加载对应周期的 AI 总结
         LoadAISummary();
     }
 
@@ -238,8 +261,11 @@ public partial class StatisticsPage : Page
         LoadData();
     }
 
-    // ========== 分类筛选加载 ==========
+    // ========== 分类筛选 ==========
 
+    /// <summary>
+    /// 加载分类筛选下拉框，第一项是"全部分类"
+    /// </summary>
     private void LoadCategoryFilter()
     {
         CategoryFilter.Items.Clear();
@@ -259,16 +285,23 @@ public partial class StatisticsPage : Page
 
     // ========== 数据加载 ==========
 
+    /// <summary>
+    /// 画布尺寸变化时用缓存数据重绘趋势图
+    /// </summary>
     private void TrendCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_cachedDailyData.Count > 0 || _cachedRangeStart != default)
             _chartRenderer.DrawTrendChart(TrendCanvas, _cachedDailyData, _cachedRangeStart, _cachedRangeEnd);
     }
 
+    /// <summary>
+    /// 从数据库加载当前周期的统计数据，刷新所有图表
+    /// </summary>
     private void LoadData()
     {
         var (start, end) = GetRange();
 
+        // 是否包含空闲时段、是否筛选了某个分类
         bool includeIdle = ChkSkipIdle.IsChecked != true;
         string filterCategory = GetSelectedFilterCategory();
 
@@ -278,12 +311,12 @@ public partial class StatisticsPage : Page
 
         if (_period == "day")
         {
-            // 日模式查原始表（数据量小，且需要明细）
+            // 日模式直接查原始活动表（数据量小，需要明细）
             catData = ActivityRepository.GetCategorySummaryByRange(start, end, includeIdle);
             procData = ActivityRepository.GetProcessSummaryByRange(start, end, includeIdle);
             dailyData = ActivityRepository.GetDailyTotalsByRange(start, end, includeIdle);
 
-            // 类别筛选
+            // 筛选了特定分类时，只保留该分类的数据
             if (!string.IsNullOrEmpty(filterCategory))
             {
                 catData = catData.Where(k => k.Key == filterCategory)
@@ -293,7 +326,7 @@ public partial class StatisticsPage : Page
         }
         else
         {
-            // 周/月模式读汇总表（大幅减少扫描行数）
+            // 周/月模式读每日汇总表（大幅减少扫描行数，性能好）
             catData = DailySummaryRepository.GetCategorySummary(start, end);
             dailyData = DailySummaryRepository.GetDailyTotals(start, end, includeIdle);
 
@@ -309,12 +342,13 @@ public partial class StatisticsPage : Page
             }
         }
 
+        // 计算总时长并显示
         int totalSeconds = catData.Values.Sum();
         TimeSpan ts = TimeSpan.FromSeconds(totalSeconds);
 
         TotalText.Text = $"总活跃时长：{ts.Hours + ts.Days * 24}h{ts.Minutes}m";
 
-        // 明细
+        // 补充信息：日均时长
         if (_period == "day")
             DetailText.Text = "";
         else if (_period == "week")
@@ -325,14 +359,16 @@ public partial class StatisticsPage : Page
             DetailText.Text = $"日均：{totalSeconds / days / 3600}h{totalSeconds / days % 3600 / 60}m";
         }
 
-        // 日模式筛选了某类别时隐藏类别占比栏
+        // 日模式筛选了某分类时隐藏类别占比栏（因为只有一个分类没意义）
         if (_period == "day" && !string.IsNullOrEmpty(filterCategory))
             CategorySection.Visibility = Visibility.Collapsed;
         else
             CategorySection.Visibility = Visibility.Visible;
 
+        // 画各类图表
         _chartRenderer.DrawCategoryBars(CategoryBarsPanel, catData, totalSeconds);
 
+        // 缓存趋势数据，SizeChanged 时重绘
         _cachedDailyData = dailyData;
         _cachedRangeStart = start;
         _cachedRangeEnd = end;
@@ -360,6 +396,9 @@ public partial class StatisticsPage : Page
         LoadData();
     }
 
+    /// <summary>
+    /// 日模式下按分类筛选进程：查原始活动表，过滤出指定分类的进程
+    /// </summary>
     private Dictionary<string, int> FilterProcessByCategory(DateTime start, DateTime end, string category)
     {
         // 日模式 start==end，查询需要 end+1 天
@@ -389,14 +428,19 @@ public partial class StatisticsPage : Page
     private DateTime _lastAICallTime = DateTime.MinValue;
     // Cooldown 秒数（后续可从设置读）
     private const int AICooldownSeconds = 30;
-    // 当前 AI 总结内容
+    // 当前显示的 AI 总结内容
     private string? _currentAISummary = null;
+    // 是否正在生成中
     private bool _isGenerating = false;
-    private string? _generatingPeriod = null; // 记录正在生成的是哪个周期
+    // 记录正在生成的是哪个周期，防止 await 期间用户切换导致串台
+    private string? _generatingPeriod = null;
 
+    /// <summary>
+    /// "生成总结"按钮点击事件：调用 AI 服务生成当前周期的总结，存库并自动保存文件
+    /// </summary>
     private async void BtnGenerateAI_Click(object sender, RoutedEventArgs e)
     {
-        // 防重复点击 — Cooldown 机制
+        // Cooldown 机制防止频繁调用
         var elapsed = (DateTime.Now - _lastAICallTime).TotalSeconds;
         if (elapsed < AICooldownSeconds)
         {
@@ -411,7 +455,7 @@ public partial class StatisticsPage : Page
         BtnGenerateAI.Content = "正在生成...";
         AISummaryText.Markdown = "正在生成...";
 
-        // 锁定当前 period 和日期，防止 await 期间用户切换导致串台
+        // 锁定当前周期，防止 await 期间用户切换页面导致结果串台
         string lockPeriod = _period;
         DateTime lockPeriodStart = _periodStart;
         _generatingPeriod = lockPeriod;
@@ -420,7 +464,7 @@ public partial class StatisticsPage : Page
         {
             var aiService = new AISummaryService();
 
-            // 根据锁定时的 period 调对应方法
+            // 根据锁定的周期调对应方法
             string? result;
             if (lockPeriod == "day")
                 result = await aiService.GenerateDailySummary(lockPeriodStart);
@@ -437,7 +481,7 @@ public partial class StatisticsPage : Page
                 string summaryType = lockPeriod switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
                 AISummaryRepository.Insert(lockPeriodStart, result, summaryType, "manual");
 
-                // 自动保存到文件（按日期文件夹分，每次保留不覆盖）
+                // 自动保存到文件（按日期分文件夹，每次保留不覆盖）
                 string? savePath = null;
                 try
                 {

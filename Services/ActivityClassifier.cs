@@ -11,13 +11,13 @@ namespace TimeActivity.Services;
 /// </summary>
 public class ActivityClassifier
 {
-    // 内存缓存：进程名 → 类别名
+    // 内存缓存：进程名 → 类别名（忽略大小写）
     private Dictionary<string, string> _processRules = new(StringComparer.OrdinalIgnoreCase);
 
-    // 内存缓存：标题关键词 → 类别名
+    // 内存缓存：标题关键词 → 类别名（列表，按顺序匹配）
     private List<(string keyword, string category)> _titleKeywordRules = new();
 
-    // 浏览器进程名（分类为"网页"的进程自动成为浏览器）
+    // 浏览器进程名集合（这些进程按标题关键词分类，而不是直接归为某个固定类别）
     private HashSet<string> _browsers = new(StringComparer.OrdinalIgnoreCase)
     {
         "chrome", "msedge", "firefox", "brave", "opera"
@@ -81,18 +81,21 @@ public class ActivityClassifier
     }
 
     /// <summary>
-    /// 给一个活动分类
+    /// 给一个活动分类。匹配优先级：进程名精确匹配 → 浏览器标题关键词 → 通用标题关键词 → 未分类。
     /// </summary>
+    /// <param name="processName">进程名</param>
+    /// <param name="windowTitle">窗口标题</param>
+    /// <returns>类别名称</returns>
     public string Classify(string processName, string windowTitle)
     {
         if (string.IsNullOrEmpty(processName))
             return "未分类";
 
-        // 1. 先按进程名精确匹配
+        // 1. 先按进程名精确匹配（最快）
         if (_processRules.TryGetValue(processName, out var category))
             return category;
 
-        // 2. 浏览器特殊处理 — 按标题关键词分类
+        // 2. 浏览器特殊处理 — 按标题关键词分类（因为同一个浏览器可能在做不同的事）
         if (_browsers.Contains(processName))
         {
             foreach (var (keyword, cat) in _titleKeywordRules)
@@ -103,7 +106,7 @@ public class ActivityClassifier
             return "浏览器"; // 浏览器但没匹配到关键词
         }
 
-        // 3. 按标题关键词兜底
+        // 3. 非浏览器按标题关键词兜底
         foreach (var (keyword, cat) in _titleKeywordRules)
         {
             if (windowTitle.Contains(keyword, StringComparison.OrdinalIgnoreCase))

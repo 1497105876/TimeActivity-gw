@@ -11,14 +11,14 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- 主体：侧边栏 + 内容 -->
+        <!-- 主体区域：左侧导航栏 + 右侧内容区 -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="160"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 侧边栏 -->
+            <!-- 左侧导航栏：点击切换右侧设置面板 -->
             <Border Grid.Column="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
                 <StackPanel Margin="0,8">
                     <ListBox x:Name="NavList" BorderThickness="0" Background="Transparent" SelectedIndex="0"
@@ -35,11 +35,11 @@
                 </StackPanel>
             </Border>
 
-            <!-- 内容区 -->
+            <!-- 右侧内容区：可滚动，包含各设置面板 -->
             <ScrollViewer Grid.Column="1" Padding="16" x:Name="SettingsScroll" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
 
-                    <!-- 追踪设置 -->
+                    <!-- 面板 1: 追踪设置 — 采样间隔、空闲阈值、自动开始 -->
                     <StackPanel x:Name="PanelTracking" Margin="0,0,0,8">
                         <TextBlock Text="追踪设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -90,7 +90,7 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- 截图设置 -->
+                    <!-- 面板 2: 截图设置 — 开关、间隔、格式、质量、路径、存储限制 -->
                     <StackPanel x:Name="PanelScreenshot" Margin="0,0,0,8" Visibility="Collapsed">
                         <TextBlock Text="截图设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -203,7 +203,7 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- 分类规则 -->
+                    <!-- 面板 3: 分类规则 — 左侧分类列表（拖拽目标） + 右侧折叠面板（应用列表） -->
                     <Grid x:Name="PanelRules" Margin="0,0,0,8" Visibility="Collapsed">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
@@ -219,7 +219,7 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- 左侧：分类列表（独立滚动） -->
+                            <!-- 左侧：分类列表（拖拽应用到此改分类，独立滚动） -->
                             <Border Grid.Column="0" Background="White" CornerRadius="4" Padding="8,6">
                                 <DockPanel>
                                     <TextBlock Text="分类" FontSize="12" FontWeight="Bold" Margin="0,0,0,4" DockPanel.Dock="Top"/>
@@ -249,7 +249,7 @@
 
                             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="#E0E0E0"/>
 
-                            <!-- 右侧：折叠面板 -->
+                            <!-- 右侧：折叠面板（按分类分组展示应用，支持搜索和多选拖拽） -->
                             <Border Grid.Column="2" Background="White" CornerRadius="4" Padding="8,6">
                                 <DockPanel>
                                     <!-- 顶部：搜索 + 退出选择 -->
@@ -274,7 +274,7 @@
                         </Grid>
                     </Grid>
 
-                    <!-- 分类管理 -->
+                    <!-- 面板 4: 分类管理 — DataGrid 编辑分类名和颜色 -->
                     <StackPanel x:Name="PanelCategories" Margin="0,0,0,8" Visibility="Collapsed">
                         <TextBlock Text="分类管理" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -303,7 +303,7 @@
                     </StackPanel>
 
 
-                    <!-- 数据设置 -->
+                    <!-- 面板 5: 数据设置 — 保留天数、清空数据、备份数据库 -->
                     <StackPanel x:Name="PanelData" Margin="0,0,0,8" Visibility="Collapsed">
                         <TextBlock Text="数据设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -347,7 +347,7 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- AI 设置 -->
+                    <!-- 面板 6: AI 设置 — 开关、模式（局域网/自定义API）、模型、总结文件保存 -->
                     <StackPanel x:Name="PanelAI" Margin="0,0,0,8" Visibility="Collapsed">
                         <TextBlock Text="AI 设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -430,7 +430,7 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- 系统设置 -->
+                    <!-- 面板 7: 系统设置 — 开机自启、最小化到托盘 -->
                     <StackPanel x:Name="PanelSystem" Margin="0,0,0,8" Visibility="Collapsed">
                         <TextBlock Text="系统设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -455,7 +455,7 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- 导入/导出 -->
+                    <!-- 面板 8: 导入/导出 — 导出设置到 JSON 文件 / 从 JSON 导入 -->
                     <StackPanel x:Name="PanelIO" Margin="0,0,0,8" Visibility="Collapsed">
                         <TextBlock Text="导入/导出" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -470,7 +470,7 @@
             </ScrollViewer>
         </Grid>
 
-        <!-- 底部固定栏 -->
+        <!-- 底部固定栏：未保存提示 + 恢复默认/应用/保存/取消按钮 -->
         <Border Grid.Row="1" Background="White" Padding="16,8" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>

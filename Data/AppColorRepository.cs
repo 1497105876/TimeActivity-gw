@@ -8,6 +8,7 @@ namespace TimeActivity.Data;
 /// </summary>
 public static class AppColorRepository
 {
+    // 确保数据库已初始化
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
     /// <summary>
@@ -29,13 +30,16 @@ public static class AppColorRepository
     }
 
     /// <summary>
-    /// 设置某个应用的颜色（UPSERT）
+    /// 设置某个应用的颜色，存在则更新，不存在则插入（UPSERT）
     /// </summary>
+    /// <param name="processName">进程名</param>
+    /// <param name="color">十六进制颜色值，如 #FF6B6B</param>
     public static void Set(string processName, string color)
     {
         EnsureInit();
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
+        // ON CONFLICT 主键冲突时更新颜色，实现 UPSERT
         using var cmd = new SqliteCommand(@"
             INSERT INTO AppColors (ProcessName, Color) VALUES (@p, @c)
             ON CONFLICT(ProcessName) DO UPDATE SET Color=@c", conn);
@@ -45,8 +49,10 @@ public static class AppColorRepository
     }
 
     /// <summary>
-    /// 获取某个应用的颜色，没有返回 null
+    /// 获取某个应用的颜色
     /// </summary>
+    /// <param name="processName">进程名</param>
+    /// <returns>颜色字符串，不存在则返回 null</returns>
     public static string? Get(string processName)
     {
         EnsureInit();

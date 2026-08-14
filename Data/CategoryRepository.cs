@@ -9,14 +9,20 @@ namespace TimeActivity.Data;
 /// </summary>
 public static class CategoryRepository
 {
+    // 确保数据库已初始化
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
+    /// <summary>
+    /// 获取全部分类，按 SortOrder 和 Id 排序
+    /// </summary>
+    /// <returns>分类列表，按排序字段升序</returns>
     public static List<Category> GetAll()
     {
         EnsureInit();
         var list = new List<Category>();
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
+        // 按 SortOrder 排序，SortOrder 相同的按 Id 排
         using var cmd = new SqliteCommand("SELECT Id, Name, Color, Icon, SortOrder FROM Categories ORDER BY SortOrder, Id", conn);
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -33,6 +39,13 @@ public static class CategoryRepository
         return list;
     }
 
+    /// <summary>
+    /// 更新或插入分类。Id > 0 时更新已有分类，否则插入新分类
+    /// </summary>
+    /// <param name="id">分类 Id，大于 0 表示更新，否则插入</param>
+    /// <param name="name">分类名称</param>
+    /// <param name="color">十六进制颜色值</param>
+    /// <param name="sortOrder">排序序号</param>
     public static void UpdateOrInsert(int id, string name, string color, int sortOrder)
     {
         EnsureInit();
@@ -40,6 +53,7 @@ public static class CategoryRepository
         conn.Open();
         if (id > 0)
         {
+            // 更新已有分类
             using var cmd = new SqliteCommand(
                 "UPDATE Categories SET Name=@Name, Color=@Color, SortOrder=@Sort WHERE Id=@Id", conn);
             cmd.Parameters.AddWithValue("@Name", name);
@@ -50,6 +64,7 @@ public static class CategoryRepository
         }
         else
         {
+            // 插入新分类，Icon 默认空字符串
             using var cmd = new SqliteCommand(
                 "INSERT INTO Categories (Name, Color, Icon, SortOrder) VALUES (@Name, @Color, '', @Sort)", conn);
             cmd.Parameters.AddWithValue("@Name", name);
@@ -60,10 +75,13 @@ public static class CategoryRepository
     }
 
     /// <summary>
-    /// 删除自定义分类（预置 Id 1-13 不可删）
+    /// 删除自定义分类。预置分类（Id 1-13）不可删除
     /// </summary>
+    /// <param name="id">要删除的分类 Id</param>
+    /// <returns>删除成功返回 true，预置分类或不存在则返回 false</returns>
     public static bool Delete(int id)
     {
+        // 预置分类 Id 1-13 受保护，不允许删除
         if (id <= 13) return false;
         EnsureInit();
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
@@ -87,6 +105,7 @@ public static class CategoryRepository
             delCmd.ExecuteNonQuery();
 
         // 重置预置分类的颜色和排序
+        // 预置分类的名称、颜色、排序——用于重置时恢复默认值
         var defaults = new[]
         {
             ("开发工具", "#4A90D9", 1),

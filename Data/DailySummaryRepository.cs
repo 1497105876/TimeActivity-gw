@@ -12,6 +12,7 @@ namespace TimeActivity.Data;
 /// </summary>
 public static class DailySummaryRepository
 {
+    // 确保数据库已初始化
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
     /// <summary>
@@ -23,7 +24,7 @@ public static class DailySummaryRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
 
-        // 找出 Activities 里有但 DailyTotal 里没有的日期
+        // 找出 Activities 里有但 DailyTotal 里没有的日期——即缺失汇总的日期
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
             SELECT DISTINCT date(StartTime) as D 
@@ -36,6 +37,7 @@ public static class DailySummaryRepository
             missingDates.Add(reader.GetString(0));
         reader.Close();
 
+        // 逐天补生成汇总，失败只记日志不中断
         foreach (var d in missingDates)
         {
             try { GenerateForDate(d); }
@@ -47,8 +49,9 @@ public static class DailySummaryRepository
     }
 
     /// <summary>
-    /// 生成某天的汇总数据（写入三张表）
+    /// 生成某天的汇总数据（写入三张表：DailyTotal / DailyCategorySummary / DailyProcessSummary）
     /// </summary>
+    /// <param name="date">日期字符串，格式 yyyy-MM-dd</param>
     public static void GenerateForDate(string date)
     {
         EnsureInit();
@@ -58,12 +61,17 @@ public static class DailySummaryRepository
     }
 
     /// <summary>
-    /// 生成某天的汇总数据（可在外部事务内执行）
+    /// 生成某天的汇总数据（可在外部事务内执行，保证原子性）
     /// </summary>
+    /// <param name="date">日期字符串，格式 yyyy-MM-dd</param>
+    /// <param name="conn">已打开的数据库连接</param>
+    /// <param name="transaction">外部事务（可选），传入则在该事务内执行</param>
     public static void GenerateForDate(string date, SqliteConnection conn, SqliteTransaction? transaction = null)
     {
+        // 1. DailyTotal — 计算当天总时长和活跃时长（排除空闲）
         using var totalCmd = conn.CreateCommand();
         if (transaction != null) totalCmd.Transaction = transaction;
+        // COALESCE 防 NULL，第二个 SUM 用 CASE WHEN 过滤空闲时长
         totalCmd.CommandText = "SELECT COALESCE(SUM(Duration),0), COALESCE(SUM(CASE WHEN IsIdle=0 THEN Duration ELSE 0 END),0) FROM Activities WHERE date(StartTime)=@date";
         totalCmd.Parameters.AddWithValue("@date", date);
         using var totalReader = totalCmd.ExecuteReader();
@@ -75,6 +83,7 @@ public static class DailySummaryRepository
         }
         totalReader.Close();
 
+        // UPSERT：日期已存在则更新，否则插入
         using var upsertTotal = conn.CreateCommand();
         if (transaction != null) upsertTotal.Transaction = transaction;
         upsertTotal.CommandText = @"INSERT INTO DailyTotal (Date, TotalActiveSeconds, TotalSeconds)
@@ -85,7 +94,7 @@ public static class DailySummaryRepository
         upsertTotal.Parameters.AddWithValue("@total", totalSeconds);
         upsertTotal.ExecuteNonQuery();
 
-        // 2. DailyCategorySummary — 按类别汇总（先删旧数据再插入）
+        // 2. DailyCategorySummary — 按类别汇总（先删旧数据再插入新的）
         using var delCat = conn.CreateCommand();
         if (transaction != null) delCat.Transaction = transaction;
         delCat.CommandText = "DELETE FROM DailyCategorySummary WHERE Date=@date";
@@ -94,10 +103,11 @@ public static class DailySummaryRepository
 
         using var catCmd = conn.CreateCommand();
         if (transaction != null) catCmd.Transaction = transaction;
+        // 按分类汇总时长，只统计非空闲记录
         catCmd.CommandText = @"SELECT Category, SUM(Duration) as Total FROM Activities 
             WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY Category";
         catCmd.Parameters.AddWithValue("@date", date);
-        // 先读到内存，再批量写入（避免 reader 打开时执行命令导致提前结束）
+        // 先读到内存，再批量写入（避免 reader 打开时执行命令导致 SQLite 报错）
         var catRows = new List<(string cat, long sec)>();
         using (var catReader = catCmd.ExecuteReader())
         {
@@ -124,6 +134,7 @@ public static class DailySummaryRepository
 
         using var procCmd = conn.CreateCommand();
         if (transaction != null) procCmd.Transaction = transaction;
+        // 按进程名+分类汇总，一个进程可能出现多个分类，取时长最长的那个
         procCmd.CommandText = @"SELECT ProcessName, Category, SUM(Duration) as Total FROM Activities 
             WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY ProcessName, Category
             ORDER BY ProcessName, Total DESC";
@@ -135,7 +146,7 @@ public static class DailySummaryRepository
             while (procReader.Read())
                 procRows.Add((procReader.GetString(0), procReader.GetString(1), procReader.GetInt64(2)));
         }
-        // 同进程只保留时长最大的那条
+        // 同进程只保留时长最大的那条（SQL 已按 Total DESC 排序，第一个就是最大的）
         var seen = new HashSet<string>();
         foreach (var (proc, cat, sec) in procRows)
         {

@@ -9,7 +9,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 顶部：日/周/月切换 + 日期范围 -->
+        <!-- 顶部：日/周/月切换 + 日期范围导航 + 分类筛选 + 空闲过滤 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
             <RadioButton x:Name="RbDay" Content="日" Width="48" Height="28" VerticalAlignment="Center" Margin="0,0,4,0"
                          Checked="RbPeriod_Checked" Tag="day"/>
@@ -28,10 +28,10 @@
             <CheckBox x:Name="ChkSkipIdle" Content="跳过空闲时段" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12" Checked="ChkSkipIdle_Changed" Unchecked="ChkSkipIdle_Changed"/>
         </StackPanel>
 
-        <!-- 内容区 -->
+        <!-- 统计内容区（可滚动） -->
         <ScrollViewer x:Name="MainScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <!-- 总览 -->
+                <!-- 总览：总活跃时长 + 日均等补充信息 -->
                 <Border Background="#F8F8F8" CornerRadius="6" Padding="16,10" Margin="0,0,0,12">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="TotalText" Text="总活跃时长：0h0m" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
@@ -39,7 +39,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 类别占比（条形图） -->
+                <!-- 类别占比（条形图）：每个分类一行，色条 + 时长 + 百分比 -->
                 <Border x:Name="CategorySection" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="类别占比" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
@@ -47,7 +47,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 每日趋势（仅周/月模式显示） -->
+                <!-- 每日活跃趋势（折线图，仅周/月模式显示） -->
                 <Border x:Name="TrendSection" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="每日活跃趋势" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
@@ -55,7 +55,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Top 应用 -->
+                <!-- Top 应用排行（按时长降序，最多 15 个） -->
                 <Border BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="Top 应用" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
@@ -63,7 +63,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- AI 总结 -->
+                <!-- AI 总结区域：Markdown 渲染 + 手动生成按钮 -->
                 <Border BorderBrush="#4A90D9" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">

@@ -12,6 +12,7 @@ namespace TimeActivity.Helpers;
 /// </summary>
 public class CategoryColorHelper
 {
+    // 分类名 → 颜色字符串的缓存字典
     private Dictionary<string, string> _colors = new();
 
     /// <summary>
@@ -32,7 +33,7 @@ public class CategoryColorHelper
         }
         catch (Exception ex)
         {
-            // 数据库读取失败时用硬编码预置颜色兜底
+            // 数据库读取失败时用硬编码预置颜色兜底，保证 UI 不崩
             Logger.Error("加载分类颜色失败，使用默认值", ex);
             _colors = new Dictionary<string, string>
             {
@@ -62,17 +63,21 @@ public class CategoryColorHelper
     }
 
     /// <summary>
-    /// 获取某个分类对应的颜色
+    /// 获取某个分类对应的颜色，找不到则回退灰色
     /// </summary>
+    /// <param name="category">分类名</param>
+    /// <returns>该分类的 WPF Color 对象</returns>
     public Color GetColor(string category)
     {
+        // 先从缓存字典查，查到就解析；查不到回退灰色
         if (_colors.TryGetValue(category, out var hex))
             return ParseHex(hex);
         return ParseHex("#90A4AE");
     }
 
     /// <summary>
-    /// 获取当前颜色字典
+    /// 获取当前加载的颜色字典（分类名 → 颜色字符串）
     /// </summary>
+    /// <returns>颜色字典的引用</returns>
     public Dictionary<string, string> GetColors() => _colors;
 }

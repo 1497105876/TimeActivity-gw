@@ -181,6 +181,9 @@ public partial class SettingsWindow : Window
 
     // ========== 分类管理 ==========
 
+    /// <summary>
+    /// 从数据库加载分类列表，更新 DataGrid 和侧边栏
+    /// </summary>
     private void LoadCategories()
     {
         _categories = new List<CategoryItem>();
@@ -204,6 +207,9 @@ public partial class SettingsWindow : Window
         LoadCategorySidebar();
     }
 
+    /// <summary>
+    /// 加载左侧分类侧边栏（含每个分类的规则数）
+    /// </summary>
     private void LoadCategorySidebar()
     {
         if (CategorySidebar == null) return;
@@ -231,11 +237,21 @@ public partial class SettingsWindow : Window
 
     // ========== 分类规则（折叠面板版） ==========
 
+    // 所有规则项（内存缓存）
     private List<RuleItem> _allRules = new();
-    private bool _rulesLoaded = false;
-    private HashSet<string> _selectedProcessNames = new(); // 多选的进程名
-    private string? _lastClickedProcess = null; // Shift 范围选择用
 
+    // 规则是否已加载（延迟加载，首次切到分类规则页才加载）
+    private bool _rulesLoaded = false;
+
+    // 多选的进程名集合
+    private HashSet<string> _selectedProcessNames = new();
+
+    // Shift 范围选择用的上次点击进程名
+    private string? _lastClickedProcess = null;
+
+    /// <summary>
+    /// 异步加载分类规则：查库 + 补充未分类进程，构建内存缓存后渲染折叠面板
+    /// </summary>
     private async void LoadRules()
     {
         await Task.Run(() =>
@@ -281,14 +297,14 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 构建右侧折叠面板
+    /// 构建右侧折叠面板：按分类分组，支持搜索过滤
     /// </summary>
     private void BuildRulesPanel()
     {
         if (RulesPanel == null) return;
         RulesPanel.Children.Clear();
 
-        // 搜索关键词
+        // 搜索关键词过滤
         string keyword = TxtRuleSearch?.Text?.Trim().ToLower() ?? "";
         bool hasSearch = !string.IsNullOrWhiteSpace(keyword);
 
@@ -319,7 +335,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 创建一个分类的折叠面板
+    /// 创建一个分类的折叠面板（Expander）：手风琴模式 + 搜索时全部展开
     /// </summary>
     private Expander CreateCategoryExpander(CategoryItem cat, List<RuleItem> rules, bool forceExpand)
     {
@@ -358,7 +374,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 创建分类头部（色块 + 名称 + 数量）
+    /// 创建分类头部 UI：色块 + 名称 + 数量
     /// </summary>
     private StackPanel CreateCategoryHeader(CategoryItem cat, int count)
     {
@@ -397,7 +413,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 创建一个应用行（CheckBox + 图标 + 友好名）
+    /// 创建一个应用行 UI：复选框 + 图标 + 友好名，支持拖拽
     /// </summary>
     private Border CreateAppRow(RuleItem rule)
     {
@@ -474,6 +490,7 @@ public partial class SettingsWindow : Window
 
     // ========== 多选逻辑 ==========
 
+    /// <summary>应用复选框变化：更新选中集合并显示"退出选择"按钮</summary>
     private void AppCheckbox_Changed(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox cb && cb.Tag is string procName)
@@ -487,6 +504,7 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>应用行鼠标按下：记录点击的进程名（用于 Shift 范围选择）</summary>
     private void AppRow_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is Border border && border.Tag is string procName)
@@ -496,6 +514,7 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>应用行鼠标移动：左键按下时启动拖拽操作</summary>
     private void AppRow_MouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton == MouseButtonState.Pressed && sender is Border border && border.Tag is string procName)
@@ -508,12 +527,14 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>更新选择模式 UI：有选中项时显示"退出选择"按钮</summary>
     private void UpdateSelectionMode()
     {
         bool hasSelection = _selectedProcessNames.Count > 0;
         BtnExitSelect.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    /// <summary>退出选择按钮：清空所有选中并重建面板</summary>
     private void BtnExitSelect_Click(object sender, RoutedEventArgs e)
     {
         _selectedProcessNames.Clear();
@@ -525,8 +546,10 @@ public partial class SettingsWindow : Window
 
     // ========== 搜索 ==========
 
+    // 搜索防抖定时器
     private DispatcherTimer? _searchDebounceTimer;
 
+    /// <summary>搜索框文字变化：300ms 防抖后重建面板</summary>
     private void TxtRuleSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_loading) return;
@@ -545,6 +568,7 @@ public partial class SettingsWindow : Window
 
     // ========== 左侧分类列表交互 ==========
 
+    /// <summary>点击左侧分类 → 展开右侧对应折叠分组</summary>
     private void CategorySidebar_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading || CategorySidebar == null) return;
@@ -570,6 +594,7 @@ public partial class SettingsWindow : Window
 
     // ========== 拖拽到左侧分类 ==========
 
+    /// <summary>拖拽经过分类项时：高亮当前悬停项</summary>
     private void CategorySidebar_DragOver(object sender, DragEventArgs e)
     {
         if (!e.Data.GetDataPresent("ProcessNames"))
@@ -599,6 +624,7 @@ public partial class SettingsWindow : Window
         e.Handled = true;
     }
 
+    /// <summary>拖拽进入：设置拖拽效果</summary>
     private void CategorySidebar_DragEnter(object sender, DragEventArgs e)
     {
         if (e.Data.GetDataPresent("ProcessNames"))
@@ -612,6 +638,7 @@ public partial class SettingsWindow : Window
         e.Handled = true;
     }
 
+    /// <summary>拖拽离开：清除所有高亮</summary>
     private void CategorySidebar_DragLeave(object sender, DragEventArgs e)
     {
         // 清除所有项的高亮
@@ -624,6 +651,7 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>拖拽放下：把拖来的进程改到目标分类</summary>
     private void CategorySidebar_Drop(object sender, DragEventArgs e)
     {
         // 清除高亮
@@ -673,6 +701,7 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>规则面板滚轮事件处理：手动滚动避免嵌套 ScrollViewer 冲突</summary>
     private void RulesPanel_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer sv)
@@ -682,6 +711,7 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>分类侧边栏滚轮事件处理</summary>
     private void CategorySidebar_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer sv)
@@ -693,8 +723,10 @@ public partial class SettingsWindow : Window
 
     // ========== 保存设置 ==========
 
+    /// <summary>设置保存后的事件通知（主窗口订阅后重启服务、重载规则等）</summary>
     public static event Action? SettingsSaved;
 
+    /// <summary>保存按钮：保存设置并关窗</summary>
     private void BtnSave_Click(object sender, RoutedEventArgs e)
     {
         DoSave();
@@ -702,6 +734,9 @@ public partial class SettingsWindow : Window
         this.Close();
     }
 
+    /// <summary>
+    /// 保存所有分类规则到数据库（用事务批量写入，避免逐条开关连接）
+    /// </summary>
     private void SaveRules()
     {
         try
@@ -747,6 +782,9 @@ public partial class SettingsWindow : Window
         catch (Exception ex) { Logger.Error("SaveRules 保存失败", ex); }
     }
 
+    /// <summary>
+    /// 保存分类管理数据：更新/新增/删除分类（预置分类 Id 1-13 不可删）
+    /// </summary>
     private void SaveCategories()
     {
         try
@@ -782,6 +820,7 @@ public partial class SettingsWindow : Window
 
     // BtnDeleteRule_Click 已移除（新方案无删除按钮，改分类用拖拽）
 
+    /// <summary>删除分类按钮：预置分类不可删，只删自定义分类</summary>
     private void BtnDeleteCategory_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.DataContext is CategoryItem cat)
@@ -796,7 +835,9 @@ public partial class SettingsWindow : Window
         }
     }
 
-    // 颜色选择器
+    /// <summary>
+    /// 颜色选择器按钮：弹出系统选色对话框，选好后更新分类颜色并刷新 UI
+    /// </summary>
     private void BtnPickColor_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
@@ -839,21 +880,26 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>取消按钮：不保存直接关窗</summary>
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {
         // 不保存直接关窗
         this.Close();
     }
 
+    /// <summary>应用按钮：保存设置但不关窗</summary>
     private void BtnApply_Click(object sender, RoutedEventArgs e)
     {
         // 和保存一样逻辑，但不关窗
         DoSave();
     }
 
+    /// <summary>
+    /// 实际保存逻辑：把 UI 上的值写回设置仓库、保存规则和分类、通知主窗口
+    /// </summary>
     private void DoSave()
     {
-        // 追踪设置
+        // 追踪设置：采样间隔和空闲阈值
         string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
         if (int.TryParse(samplingText, out int sv) && sv > 0)
             SettingsRepository.Set("PollIntervalSeconds", sv.ToString());
@@ -868,10 +914,11 @@ public partial class SettingsWindow : Window
 
         SettingsRepository.Set("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
 
-        // 截图设置
+        // 截图设置：开关、间隔、格式、质量、路径、存储限制
         SettingsRepository.Set("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
         SettingsRepository.Set("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
 
+        // 截图间隔
         string intervalText = CbxScreenshotInterval.Text.Replace("分钟", "").Trim();
         if (int.TryParse(intervalText, out int intervalVal) && intervalVal > 0)
             SettingsRepository.Set("ScreenshotIntervalMinutes", intervalVal.ToString());
@@ -912,13 +959,13 @@ public partial class SettingsWindow : Window
         SettingsRepository.Set("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
         SettingsRepository.Set("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
 
-        // 开机自启
+        // 开机自启设置
         if (ChkAutoStart.IsChecked == true)
             AutoStartHelper.Enable();
         else
             AutoStartHelper.Disable();
 
-        // 保存分类规则
+        // 保存分类规则和分类管理
         SaveRules();
         SaveCategories();
 
@@ -928,7 +975,7 @@ public partial class SettingsWindow : Window
         // 通知主窗口重启服务 + 重新分类历史数据
         SettingsSaved?.Invoke();
 
-        // 刷新预估值
+        // 刷新预估值和磁盘占用
         UpdateEstimates();
         UpdateDiskUsage();
 
@@ -947,7 +994,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 收集当前 UI 上所有设置项的值
+    /// 收集当前 UI 上所有设置项的值，用于变更检测
     /// </summary>
     private Dictionary<string, string> GetCurrentSettingsSnapshot()
     {
@@ -986,7 +1033,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 对比当前值和快照，检查是否有变更
+    /// 对比当前值和快照，检查是否有变更，更新未保存提示和应用按钮状态
     /// </summary>
     private void CheckHasChanges()
     {
@@ -1013,6 +1060,7 @@ public partial class SettingsWindow : Window
         return combo.Text ?? "";
     }
 
+    /// <summary>浏览截图保存路径按钮</summary>
     private void BtnBrowsePath_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
@@ -1031,6 +1079,7 @@ public partial class SettingsWindow : Window
 
     // ========== AI 总结路径浏览 ==========
 
+    /// <summary>浏览 AI 总结保存路径按钮</summary>
     private void BtnBrowseAISummaryPath_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
@@ -1048,6 +1097,7 @@ public partial class SettingsWindow : Window
 
     // ========== 预估占用大小 ==========
 
+    /// <summary>根据截图格式和质量预估单张截图大小（KB）</summary>
     private int GetEstPerShotKB()
     {
         // PNG 比 JPEG 大很多
@@ -1061,6 +1111,7 @@ public partial class SettingsWindow : Window
         };
     }
 
+    /// <summary>根据实际屏幕分辨率调整预估大小</summary>
     private int GetActualScreenKB()
     {
         try
@@ -1077,6 +1128,9 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>
+    /// 更新截图大小和每日占用预估显示
+    /// </summary>
     private void UpdateEstimates()
     {
         int perShotKB = GetActualScreenKB();
@@ -1112,6 +1166,9 @@ public partial class SettingsWindow : Window
         TxtEstDaily.Text = dailyStr;
     }
 
+    /// <summary>
+    /// 扫描截图目录计算实际磁盘占用和文件数
+    /// </summary>
     private void UpdateDiskUsage()
     {
         try
@@ -1150,13 +1207,14 @@ public partial class SettingsWindow : Window
 
     // ========== AI 模式切换 ==========
 
+    /// <summary>AI 模式下拉框变化：局域网模式预填 Ollama 地址，自定义模式清空</summary>
     private void AIMode_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
         string mode = CbxAIMode.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() ?? "lan" : "lan";
         if (mode == "lan")
         {
-            // 局域网共享：默认 Ollama 地址
+            // 局域网共享模式：默认 Ollama 地址
             if (string.IsNullOrWhiteSpace(TxtApiUrl.Text) || TxtApiUrl.Text.Contains("minimax") || TxtApiUrl.Text.Contains("openai"))
             {
                 TxtApiUrl.Text = "http://localhost:11434";
@@ -1166,7 +1224,7 @@ public partial class SettingsWindow : Window
         }
         else
         {
-            // 自定义：清空让用户填
+            // 自定义模式：如果当前是 Ollama 地址就清空让用户填
             if (TxtApiUrl.Text.Contains("localhost:11434"))
             {
                 TxtApiUrl.Text = "";
@@ -1178,6 +1236,7 @@ public partial class SettingsWindow : Window
 
     // ========== 事件 ==========
 
+    /// <summary>截图间隔变化：更新预估并标记变更</summary>
     private void CbxScreenshotInterval_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -1185,6 +1244,7 @@ public partial class SettingsWindow : Window
         MarkChanged();
     }
 
+    /// <summary>存储限制变化：更新预估并标记变更</summary>
     private void StorageLimit_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -1192,6 +1252,7 @@ public partial class SettingsWindow : Window
         MarkChanged();
     }
 
+    /// <summary>数字输入框过滤：只允许输入数字</summary>
     private void NumberOnly_Preview(object sender, TextCompositionEventArgs e)
     {
         foreach (char c in e.Text)
@@ -1200,6 +1261,7 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>分类表格变化事件：标记变更</summary>
     private void CategoriesGrid_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -1208,6 +1270,7 @@ public partial class SettingsWindow : Window
 
     // ========== 未保存提示 ==========
 
+    /// <summary>标记有变更（加载期间除外），触发变更检测</summary>
     private void MarkChanged()
     {
         if (_loading) return;
@@ -1216,6 +1279,7 @@ public partial class SettingsWindow : Window
 
     // ========== 备份数据库 ==========
 
+    /// <summary>备份数据库按钮：用 VACUUM INTO 导出副本，不需要停引擎</summary>
     private void BtnBackupDb_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1247,6 +1311,7 @@ public partial class SettingsWindow : Window
 
     // ========== 清空数据 ==========
 
+    /// <summary>清空所有数据按钮：两次确认后清空活动记录、截图和统计数据</summary>
     private void BtnClearData_Click(object sender, RoutedEventArgs e)
     {
         var result = MessageBox.Show(
@@ -1266,6 +1331,7 @@ public partial class SettingsWindow : Window
 
     // ========== 恢复此页默认 ==========
 
+    /// <summary>恢复当前页面默认值按钮：根据选中的面板恢复对应设置</summary>
     private void BtnRestoreDefault_Click(object sender, RoutedEventArgs e)
     {
         string pageName = NavList.SelectedIndex switch
@@ -1340,6 +1406,7 @@ public partial class SettingsWindow : Window
 
     // ========== 导入导出 ==========
 
+    /// <summary>导出设置到 JSON 文件</summary>
     private void BtnExport_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.SaveFileDialog
@@ -1363,6 +1430,7 @@ public partial class SettingsWindow : Window
         }
     }
 
+    /// <summary>从 JSON 文件导入设置</summary>
     private void BtnImport_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFileDialog
@@ -1400,6 +1468,7 @@ public partial class SettingsWindow : Window
 
     // ========== 辅助方法 ==========
 
+    /// <summary>按 Tag 匹配选中 ComboBox 项</summary>
     private static void SelectComboByTag(ComboBox combo, string tag)
     {
         foreach (ComboBoxItem item in combo.Items)

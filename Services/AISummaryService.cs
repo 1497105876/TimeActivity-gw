@@ -19,32 +19,43 @@ namespace TimeActivity.Services;
 /// </summary>
 public class AISummaryService
 {
+    // 全局复用的 HTTP 客户端，超时 120 秒（AI 模型生成可能比较慢）
     private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(120) };
 
+    // AI 服务地址，Ollama 默认本机 11434 端口
     private string ApiUrl => SettingsRepository.Get("AIApiUrl", "http://localhost:11434");
+    // API Key，自定义模式才需要
     private string ApiKey => SettingsRepository.Get("AIApiKey", "");
+    // 模型名称，默认用 qwen2.5:7b
     private string AiModel => SettingsRepository.Get("AIModel", "qwen2.5:7b");
+    // 模式：lan=局域网 Ollama，custom=自定义 OpenAI 兼容 API
     private string AiMode => SettingsRepository.Get("AIMode", "lan");
+    // AI 功能总开关
     private bool Enabled => SettingsRepository.Get("EnableAI", "true") == "true";
 
     /// <summary>
-    /// 生成某一天的 AI 总结
+    /// 生成某一天的 AI 总结。从数据库拉当天活动数据，拼成 prompt 发给 AI，返回 Markdown 文本。
     /// </summary>
+    /// <param name="date">要总结的日期</param>
+    /// <returns>AI 生成的 Markdown 总结文本，失败或未启用时返回 null</returns>
     public async Task<string?> GenerateDailySummary(DateTime date)
     {
+        // 没开 AI 功能直接返回
         if (!Enabled) return null;
+        // Ollama 模式只需要 URL，自定义模式必须有 API Key
         if (AiMode == "lan" && string.IsNullOrEmpty(ApiUrl)) return null;
         if (AiMode == "custom" && string.IsNullOrEmpty(ApiKey)) return null;
 
-        // 获取当天活动数据
+        // 拉当天的活动记录和统计汇总
         var activities = ActivityRepository.GetByDate(date);
         if (activities.Count == 0)
             return "当天没有活动记录。";
 
-        // 获取类别统计
+        // 类别时长统计 + 进程时长统计
         var catSummary = ActivityRepository.GetCategorySummaryByRange(date, date.AddDays(1));
         var procSummary = ActivityRepository.GetProcessSummaryByRange(date, date.AddDays(1));
 
+        // 拼接发给 AI 的 prompt
         string prompt = BuildPrompt(date, catSummary, procSummary, activities.Count);
 
         try
@@ -68,8 +79,11 @@ public class AISummaryService
     }
 
     /// <summary>
-    /// Ollama 模式 — 调用 /api/chat 接口
+    /// Ollama 模式 — 调用本地 Ollama 的 /api/chat 接口获取 AI 回复。
+    /// 调用前会先检测 Ollama 服务是否在线。
     /// </summary>
+    /// <param name="prompt">拼好的用户提示词</param>
+    /// <returns>AI 回复的文本，失败返回 null</returns>
     private async Task<string?> CallOllama(string prompt)
     {
         if (string.IsNullOrWhiteSpace(ApiUrl))
@@ -78,7 +92,7 @@ public class AISummaryService
             return null;
         }
 
-        // 调用前检测 Ollama 连通性
+        // 先检测 Ollama 是否在线（请求 /api/tags 列出本地模型）
         try
         {
             using var checkResp = await _httpClient.GetAsync(ApiUrl.TrimEnd('/') + "/api/tags");
@@ -94,6 +108,7 @@ public class AISummaryService
             return null;
         }
 
+        // 构建请求体：模型名 + system/user 消息 + 关闭流式输出
         var requestBody = new
         {
             model = AiModel,
@@ -110,8 +125,14 @@ public class AISummaryService
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync(url, content);
-        if (!response.IsSuccessStatusCode) return null;
+        if (!response.IsSuccessStatusCode)
+        {
+            var errBody = await response.Content.ReadAsStringAsync();
+            Logger.Error($"Ollama /api/chat 返回 {response.StatusCode}，模型={AiModel}，响应={errBody.Substring(0, Math.Min(500, errBody.Length))}", null);
+            return null;
+        }
 
+        // 解析 Ollama 返回的 JSON：message.content 字段就是回复文本
         var respJson = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(respJson);
 
@@ -120,12 +141,16 @@ public class AISummaryService
         {
             return msgContent.GetString();
         }
+        Logger.Error($"Ollama 返回 JSON 无 message.content 字段，响应={respJson.Substring(0, Math.Min(500, respJson.Length))}", null);
         return null;
     }
 
     /// <summary>
-    /// 自定义模式 — OpenAI 兼容格式（MiniMax/OpenAI/DeepSeek 等）
+    /// 自定义模式 — 调用 OpenAI 兼容格式的 API（MiniMax/OpenAI/DeepSeek 等）。
+    /// 带 Bearer Token 认证，解析 choices[0].message.content。
     /// </summary>
+    /// <param name="prompt">拼好的用户提示词</param>
+    /// <returns>AI 回复的文本，失败返回 null</returns>
     private async Task<string?> CallCustomAPI(string prompt)
     {
         if (string.IsNullOrWhiteSpace(ApiUrl))
@@ -134,6 +159,7 @@ public class AISummaryService
             return null;
         }
 
+        // 构建请求体：模型名 + 消息 + 最大 token 数 + 温度
         var requestBody = new
         {
             model = AiModel,
@@ -148,12 +174,14 @@ public class AISummaryService
 
         var json = JsonSerializer.Serialize(requestBody);
         var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl);
+        // OpenAI 兼容格式用 Bearer Token 认证
         request.Headers.Add("Authorization", $"Bearer {ApiKey}");
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.SendAsync(request);
         if (!response.IsSuccessStatusCode) return null;
 
+        // 解析返回：choices 数组第一个元素的 message.content 就是回复文本
         var respJson = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(respJson);
 
@@ -167,6 +195,14 @@ public class AISummaryService
         return null;
     }
 
+    /// <summary>
+    /// 拼接每日总结的 prompt：日期、类别时长、Top5 应用、输出格式要求。
+    /// </summary>
+    /// <param name="date">日期</param>
+    /// <param name="catSummary">类别→秒数 的统计字典</param>
+    /// <param name="procSummary">进程名→秒数 的统计字典</param>
+    /// <param name="totalRecords">当天活动记录总数</param>
+    /// <returns>拼好的 prompt 字符串</returns>
     private string BuildPrompt(DateTime date, Dictionary<string, int> catSummary, Dictionary<string, int> procSummary, int totalRecords)
     {
         var sb = new StringBuilder();
@@ -174,6 +210,7 @@ public class AISummaryService
         sb.AppendLine($"活动记录数：{totalRecords} 条");
         sb.AppendLine();
 
+        // 类别时长汇总，顺便算总活跃时间
         sb.AppendLine("类别时长：");
         int totalSeconds = 0;
         foreach (var (cat, sec) in catSummary)
@@ -184,6 +221,7 @@ public class AISummaryService
         sb.AppendLine($"  总活跃时长：{TimeFormatHelper.Format(totalSeconds)}");
         sb.AppendLine();
 
+        // Top 5 应用
         sb.AppendLine("Top 5 应用：");
         int rank = 1;
         foreach (var (proc, sec) in procSummary)
@@ -193,6 +231,7 @@ public class AISummaryService
             rank++;
         }
 
+        // 告诉 AI 输出格式
         sb.AppendLine();
         sb.AppendLine("请根据以上数据生成今日总结，使用 Markdown 格式，包括：");
         sb.AppendLine("- ## 今日概况（整体时间使用概况）");
@@ -287,8 +326,10 @@ public class AISummaryService
     // ========== 周/月总结 ==========
 
     /// <summary>
-    /// 生成周总结
+    /// 生成周总结。拉一周的数据拼 prompt 发给 AI。
     /// </summary>
+    /// <param name="weekStart">周一日期</param>
+    /// <returns>AI 生成的 Markdown 周总结，未启用或无数据返回 null</returns>
     public async Task<string?> GenerateWeeklySummary(DateTime weekStart)
     {
         if (!Enabled) return null;
@@ -306,8 +347,10 @@ public class AISummaryService
     }
 
     /// <summary>
-    /// 生成月总结
+    /// 生成月总结。拉一个月的数据拼 prompt 发给 AI。
     /// </summary>
+    /// <param name="monthStart">月初日期</param>
+    /// <returns>AI 生成的 Markdown 月总结，未启用或无数据返回 null</returns>
     public async Task<string?> GenerateMonthlySummary(DateTime monthStart)
     {
         if (!Enabled) return null;
@@ -325,8 +368,10 @@ public class AISummaryService
     }
 
     /// <summary>
-    /// 统一 AI 调用入口
+    /// 统一 AI 调用入口，根据当前模式分发到 Ollama 或自定义 API。
     /// </summary>
+    /// <param name="prompt">拼好的提示词</param>
+    /// <returns>AI 回复文本，失败返回 null</returns>
     private async Task<string?> CallAIInternal(string prompt)
     {
         try
@@ -343,6 +388,15 @@ public class AISummaryService
         }
     }
 
+    /// <summary>
+    /// 拼接周总结 prompt：包含分类时长、Top 10 应用、活跃天数、每日明细。
+    /// </summary>
+    /// <param name="weekStart">周一日期</param>
+    /// <param name="weekEnd">周日日期</param>
+    /// <param name="catSummary">类别→秒数</param>
+    /// <param name="procSummary">进程名→秒数</param>
+    /// <param name="dailyTotals">日期字符串→秒数</param>
+    /// <returns>拼好的 prompt</returns>
     private string BuildWeeklyPrompt(DateTime weekStart, DateTime weekEnd,
         Dictionary<string, int> catSummary, Dictionary<string, int> procSummary,
         Dictionary<string, int> dailyTotals)
@@ -367,6 +421,7 @@ public class AISummaryService
         foreach (var p in procSummary.Take(10))
             sb.AppendLine($"{i++}. {p.Key}: {TimeFormatHelper.Format(p.Value)}");
 
+        // 计算活跃天数和日均时长
         int activeDays = dailyTotals.Count(d => d.Value > 0);
         long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
         sb.AppendLine($"\n### 活跃情况");
@@ -374,6 +429,7 @@ public class AISummaryService
         sb.AppendLine($"- 总活跃时长: {TimeFormatHelper.Format(totalSeconds)}");
         sb.AppendLine($"- 日均活跃: {TimeFormatHelper.Format(activeDays > 0 ? totalSeconds / activeDays : 0)}");
 
+        // 每日明细
         sb.AppendLine("\n### 每日明细");
         foreach (var d in dailyTotals)
             sb.AppendLine($"- {d.Key}: {TimeFormatHelper.Format(d.Value)}");
@@ -381,6 +437,15 @@ public class AISummaryService
         return sb.ToString();
     }
 
+    /// <summary>
+    /// 拼接月总结 prompt：包含分类时长、Top 15 应用、活跃天数、每周对比。
+    /// </summary>
+    /// <param name="monthStart">月初日期</param>
+    /// <param name="monthEnd">月末日期</param>
+    /// <param name="catSummary">类别→秒数</param>
+    /// <param name="procSummary">进程名→秒数</param>
+    /// <param name="dailyTotals">日期字符串→秒数</param>
+    /// <returns>拼好的 prompt</returns>
     private string BuildMonthlyPrompt(DateTime monthStart, DateTime monthEnd,
         Dictionary<string, int> catSummary, Dictionary<string, int> procSummary,
         Dictionary<string, int> dailyTotals)
@@ -406,6 +471,7 @@ public class AISummaryService
         foreach (var p in procSummary.Take(15))
             sb.AppendLine($"{i++}. {p.Key}: {TimeFormatHelper.Format(p.Value)}");
 
+        // 计算月内活跃天数和日均
         int activeDays = dailyTotals.Count(d => d.Value > 0);
         long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
         int daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
@@ -414,7 +480,7 @@ public class AISummaryService
         sb.AppendLine($"- 总活跃时长: {TimeFormatHelper.Format(totalSeconds)}");
         sb.AppendLine($"- 日均活跃: {TimeFormatHelper.Format(activeDays > 0 ? totalSeconds / activeDays : 0)}");
 
-        // 周对比
+        // 按周分组对比（每月按 7 天分 4~5 周）
         sb.AppendLine("\n### 每周对比");
         var weeklyGroups = dailyTotals
             .Select(d => { var dt = DateTime.Parse(d.Key); var weekNum = (dt.Day - 1) / 7 + 1; return (Week: weekNum, Seconds: d.Value); })

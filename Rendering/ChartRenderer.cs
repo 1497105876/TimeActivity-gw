@@ -10,25 +10,34 @@ using TimeActivity.Helpers;
 namespace TimeActivity.Rendering;
 
 /// <summary>
-/// 统计图表渲染器 — 类别占比条形图、每日趋势图、Top 应用
-/// 遵循 SRP：只管图表绘制，不管数据加载和 UI 事件
+/// 统计图表渲染器 — 负责类别占比条形图、每日趋势图、Top 应用列表的绘制。
+/// 遵循单一职责原则：只管画图，不管数据加载和 UI 事件。
 /// </summary>
 public class ChartRenderer
 {
+    // 分类颜色助手，根据分类名拿到对应颜色
     private readonly CategoryColorHelper _colorHelper;
 
+    /// <summary>
+    /// 构造函数，传入颜色助手
+    /// </summary>
+    /// <param name="colorHelper">分类颜色助手</param>
     public ChartRenderer(CategoryColorHelper colorHelper)
     {
         _colorHelper = colorHelper;
     }
 
     /// <summary>
-    /// 绘制类别占比条形图
+    /// 绘制类别占比条形图：每个分类一行，左边名称、中间色条、右边时长和百分比
     /// </summary>
+    /// <param name="panel">要填充的容器面板</param>
+    /// <param name="data">分类名 → 总秒数的字典</param>
+    /// <param name="totalSeconds">总活跃秒数，用于算百分比</param>
     public void DrawCategoryBars(Panel panel, Dictionary<string, int> data, int totalSeconds)
     {
         panel.Children.Clear();
 
+        // 没数据时显示占位文字
         if (data.Count == 0)
         {
             panel.Children.Add(new TextBlock
@@ -40,12 +49,14 @@ public class ChartRenderer
             return;
         }
 
+        // 遍历每个分类，画一行：名称 + 色条 + 时长 + 百分比
         foreach (var kvp in data)
         {
             var color = _colorHelper.GetColor(kvp.Key);
             double pct = totalSeconds > 0 ? (double)kvp.Value / totalSeconds : 0;
             string durStr = TimeFormatHelper.Format(kvp.Value);
 
+            // 一行用 Grid 布局，4 列：名称、色条、时长、百分比
             var row = new Grid { Margin = new Thickness(0, 0, 0, 6) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -101,12 +112,17 @@ public class ChartRenderer
     }
 
     /// <summary>
-    /// 绘制每日趋势柱状图
+    /// 绘制每日趋势折线图：X 轴是日期，Y 轴是活跃时长
     /// </summary>
+    /// <param name="canvas">画布</param>
+    /// <param name="dailyData">日期(yyyy-MM-dd) → 秒数的字典</param>
+    /// <param name="start">范围起始日期</param>
+    /// <param name="end">范围结束日期</param>
     public void DrawTrendChart(Canvas canvas, Dictionary<string, int> dailyData, DateTime start, DateTime end)
     {
         canvas.Children.Clear();
 
+        // 画布还没布局完时给个默认宽度
         double w = canvas.ActualWidth;
         if (w <= 0) w = 800;
         double h = canvas.Height;
@@ -114,10 +130,11 @@ public class ChartRenderer
         int days = (end - start).Days + 1;
         if (days <= 1) days = 1;
 
+        // 找最大值作为 Y 轴上限，默认 1 小时
         int maxSec = dailyData.Values.Count > 0 ? dailyData.Values.Max() : 3600;
         if (maxSec <= 0) maxSec = 3600;
 
-        // 背景刻度线
+        // 画 4 条水平刻度线 + Y 轴标签
         for (int i = 0; i <= 4; i++)
         {
             double y = h - 16 - (h - 32) * i / 4.0;
@@ -140,7 +157,7 @@ public class ChartRenderer
             canvas.Children.Add(label);
         }
 
-        // 折线图
+        // 计算每天的坐标点
         double barW = (w - 48) / days;
         var points = new List<Point>();
         for (int i = 0; i < days; i++)
@@ -149,10 +166,12 @@ public class ChartRenderer
             string key = day.ToString("yyyy-MM-dd");
             int sec = dailyData.ContainsKey(key) ? dailyData[key] : 0;
 
+            // 计算这天数据点的坐标
             double x = 40 + i * barW + barW / 2;
             double y = h - 16 - (sec > 0 ? (h - 32) * ((double)sec / maxSec) : 0);
             points.Add(new Point(x, y));
 
+            // 柱子够宽时才显示日期标签，否则太挤
             if (barW >= 30)
             {
                 var label = new TextBlock
@@ -167,7 +186,7 @@ public class ChartRenderer
             }
         }
 
-        // 画折线
+        // 画折线段
         if (points.Count > 1)
         {
             for (int i = 0; i < points.Count - 1; i++)
@@ -182,7 +201,7 @@ public class ChartRenderer
                 canvas.Children.Add(line);
             }
 
-            // 画点
+            // 画每个数据点的圆点
             foreach (var p in points)
             {
                 var dot = new Ellipse
@@ -198,12 +217,16 @@ public class ChartRenderer
     }
 
     /// <summary>
-    /// 绘制 Top 应用列表
+    /// 绘制 Top 应用排行榜：按时长降序排列，最多显示 topN 个
     /// </summary>
+    /// <param name="panel">容器面板</param>
+    /// <param name="data">进程名 → 总秒数的字典（已排好序）</param>
+    /// <param name="topN">最多显示多少个</param>
     public void DrawTopApps(Panel panel, Dictionary<string, int> data, int topN = 15)
     {
         panel.Children.Clear();
 
+        // 没数据时显示占位文字
         if (data.Count == 0)
         {
             panel.Children.Add(new TextBlock
@@ -215,6 +238,7 @@ public class ChartRenderer
             return;
         }
 
+        // 第一个就是最大值，用于算相对占比
         int top = Math.Min(data.Count, topN);
         int maxSec = data.Values.First();
 
@@ -223,6 +247,7 @@ public class ChartRenderer
         {
             double pct = maxSec > 0 ? (double)kvp.Value / maxSec : 0;
 
+            // 一行：排名 + 名称 + 色条 + 时长
             var row = new Grid { Margin = new Thickness(0, 0, 0, 4) };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
@@ -278,5 +303,5 @@ public class ChartRenderer
         }
     }
 
-    // FormatDuration 已移到 TimeFormatHelper
+    // FormatDuration 方法已移到 TimeFormatHelper 统一管理
 }
