@@ -26,10 +26,10 @@ public partial class SettingsWindow : Window
     private bool _hasChanges = false;
     private Dictionary<string, string> _originalSettings = new();
 
-    // 分类列表（用于规则下拉和分类管理）
+    // 分类列表(用于规则下拉和分类管理)
     private List<CategoryItem> _categories = new();
 
-    // 分类名列表（供 DataGridComboBoxColumn 绑定用）
+    // 分类名列表(供 DataGridComboBoxColumn 绑定用)
     public List<string> _categoryNames = new();
 
     public SettingsWindow(string initialSection = null)
@@ -47,7 +47,7 @@ public partial class SettingsWindow : Window
             _loading = false;
         }
         _hasChanges = false;
-        SaveSnapshot(); // 记录初始快照，BtnApply 才能正常启用
+        SaveSnapshot(); // 记录初始快照,BtnApply 才能正常启用
         // 耗时操作异步执行
         Dispatcher.BeginInvoke(new Action(() =>
         {
@@ -93,7 +93,7 @@ public partial class SettingsWindow : Window
         PanelSystem.Visibility = Visibility.Collapsed;
         PanelIO.Visibility = Visibility.Collapsed;
 
-        // 根据选中索引显示对应面板（显示设置已删除，编号调整）
+        // 根据选中索引显示对应面板(显示设置已删除,编号调整)
         switch (NavList.SelectedIndex)
         {
             case 0: PanelTracking.Visibility = Visibility.Visible; break;
@@ -101,7 +101,7 @@ public partial class SettingsWindow : Window
             case 2: PanelRules.Visibility = Visibility.Visible;
                     // 限制 PanelRules 高度让左右独立滚动
                     PanelRules.MaxHeight = Math.Max(300, SettingsScroll.ViewportHeight - 50);
-                    // 延迟加载：首次切到分类规则页才加载规则
+                    // 延迟加载:首次切到分类规则页才加载规则
                     if (_allRules.Count == 0 && !_rulesLoaded)
                     {
                         _rulesLoaded = true;
@@ -123,7 +123,7 @@ public partial class SettingsWindow : Window
         // 追踪设置
         SetComboByTagOrText(CbxSamplingInterval, SettingsRepository.Get("PollIntervalSeconds", "3"), "秒");
         SetComboByTagOrText(CbxIdleThreshold, SettingsRepository.Get("IdleThresholdSeconds", "300"), "分钟");
-        // 如果 Tag 匹配不上（自定义值），把秒转回分钟显示
+        // 如果 Tag 匹配不上(自定义值),把秒转回分钟显示
         if (CbxIdleThreshold.SelectedIndex == -1)
         {
             if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idleSec))
@@ -147,7 +147,7 @@ public partial class SettingsWindow : Window
         }
         CbxScreenshotFormat.SelectedIndex = fmt == "png" ? 1 : 0;
 
-        // PNG 格式时隐藏质量选项（PNG 无损，不涉及压缩质量）
+        // PNG 格式时隐藏质量选项(PNG 无损,不涉及压缩质量)
         QualityRow.Visibility = fmt == "png" ? Visibility.Collapsed : Visibility.Visible;
 
         SelectComboByTag(CbxScreenshotQuality, SettingsRepository.Get("ScreenshotQuality", "medium"));
@@ -187,7 +187,7 @@ public partial class SettingsWindow : Window
     // ========== 分类管理 ==========
 
     /// <summary>
-    /// 从数据库加载分类列表，更新 DataGrid 和侧边栏
+    /// 从数据库加载分类列表,更新 DataGrid 和侧边栏
     /// </summary>
     private void LoadCategories()
     {
@@ -207,19 +207,19 @@ public partial class SettingsWindow : Window
         // 更新分类名列表供规则下拉用
         _categoryNames = _categories.Select(c => c.Name).ToList();
 
-        // CbxRuleFilter 已移除（新方案用折叠面板）
+        // CbxRuleFilter 已移除(新方案用折叠面板)
 
         LoadCategorySidebar();
     }
 
     /// <summary>
-    /// 加载左侧分类侧边栏（含每个分类的规则数）
+    /// 加载左侧分类侧边栏(含每个分类的规则数)
     /// </summary>
     private void LoadCategorySidebar()
     {
         if (CategorySidebar == null) return;
         var sidebarItems = new ObservableCollection<CategoryItem>();
-        // 从内存 _allRules 算 Count（如果已加载），否则查一次数据库
+        // 从内存 _allRules 算 Count(如果已加载),否则查一次数据库
         if (_allRules.Count > 0)
         {
             foreach (var c in _categories)
@@ -240,12 +240,12 @@ public partial class SettingsWindow : Window
         CategorySidebar.ItemsSource = sidebarItems;
     }
 
-    // ========== 分类规则（折叠面板版） ==========
+    // ========== 分类规则(折叠面板版) ==========
 
-    // 所有规则项（内存缓存）
+    // 所有规则项(内存缓存)
     private List<RuleItem> _allRules = new();
 
-    // 规则是否已加载（延迟加载，首次切到分类规则页才加载）
+    // 规则是否已加载(延迟加载,首次切到分类规则页才加载)
     private bool _rulesLoaded = false;
 
     // 多选的进程名集合
@@ -255,54 +255,61 @@ public partial class SettingsWindow : Window
     private string? _lastClickedProcess = null;
 
     /// <summary>
-    /// 异步加载分类规则：查库 + 补充未分类进程，构建内存缓存后渲染折叠面板
+    /// 异步加载分类规则:查库 + 补充未分类进程,构建内存缓存后渲染折叠面板
     /// </summary>
     private async void LoadRules()
     {
-        await Task.Run(() =>
+        try
         {
-            // 获取用户实际使用过的进程名
-            var usedProcesses = ActivityRepository.GetUsedProcessNames();
-            var rules = RuleRepository.GetAll();
-            var ruleItems = new List<RuleItem>();
-            foreach (var r in rules)
+            await Task.Run(() =>
             {
-                // 只展示用户用过的应用
-                if (!usedProcesses.Contains(r.ProcessName)) continue;
-                var cat = _categories.FirstOrDefault(c => c.Id == r.CategoryId);
-                ruleItems.Add(new RuleItem
+                // 获取用户实际使用过的进程名
+                var usedProcesses = ActivityRepository.GetUsedProcessNames();
+                var rules = RuleRepository.GetAll();
+                var ruleItems = new List<RuleItem>();
+                foreach (var r in rules)
                 {
-                    Id = r.Id,
-                    ProcessName = r.ProcessName ?? "",
-                    TitleKeyword = r.TitleKeyword ?? "",
-                    CategoryName = cat?.Name ?? "",
-                    IsCustom = r.IsCustom
-                });
-            }
-            // 用户用过但没有规则匹配的进程，显示为“未分类”
-            var ruleedProcessNames = new HashSet<string>(rules.Select(r => r.ProcessName), StringComparer.OrdinalIgnoreCase);
-            foreach (var proc in usedProcesses)
-            {
-                if (!ruleedProcessNames.Contains(proc))
-                {
+                    // 只展示用户用过的应用
+                    if (!usedProcesses.Contains(r.ProcessName)) continue;
+                    var cat = _categories.FirstOrDefault(c => c.Id == r.CategoryId);
                     ruleItems.Add(new RuleItem
                     {
-                        Id = 0,
-                        ProcessName = proc,
-                        TitleKeyword = "",
-                        CategoryName = "未分类",
-                        IsCustom = false
+                        Id = r.Id,
+                        ProcessName = r.ProcessName ?? "",
+                        TitleKeyword = r.TitleKeyword ?? "",
+                        CategoryName = cat?.Name ?? "",
+                        IsCustom = r.IsCustom
                     });
                 }
-            }
-            _allRules = ruleItems;
-        });
-        BuildRulesPanel();
-        LoadCategorySidebar(); // 规则加载完后刷新侧边栏 Count（从内存算）
+                // 用户用过但没有规则匹配的进程，显示为"未分类"
+                var ruledProcessNames = new HashSet<string>(rules.Select(r => r.ProcessName), StringComparer.OrdinalIgnoreCase);
+                foreach (var proc in usedProcesses)
+                {
+                    if (!ruledProcessNames.Contains(proc))
+                    {
+                        ruleItems.Add(new RuleItem
+                        {
+                            Id = 0,
+                            ProcessName = proc,
+                            TitleKeyword = "",
+                            CategoryName = "未分类",
+                            IsCustom = false
+                        });
+                    }
+                }
+                _allRules = ruleItems;
+            });
+            BuildRulesPanel();
+            LoadCategorySidebar(); // 规则加载完后刷新侧边栏 Count（从内存算）
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("LoadRules 加载失败", ex);
+        }
     }
 
     /// <summary>
-    /// 构建右侧折叠面板：按分类分组，支持搜索过滤
+    /// 构建右侧折叠面板:按分类分组,支持搜索过滤
     /// </summary>
     private void BuildRulesPanel()
     {
@@ -340,14 +347,14 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 创建一个分类的折叠面板（Expander）：手风琴模式 + 搜索时全部展开
+    /// 创建一个分类的折叠面板(Expander):手风琴模式 + 搜索时全部展开
     /// </summary>
     private Expander CreateCategoryExpander(CategoryItem cat, List<RuleItem> rules, bool forceExpand)
     {
         var expander = new Expander
         {
             Header = CreateCategoryHeader(cat, rules.Count),
-            IsExpanded = forceExpand, // 搜索时全部展开，否则默认折叠
+            IsExpanded = forceExpand, // 搜索时全部展开,否则默认折叠
             Margin = new Thickness(0, 0, 0, 4),
             Padding = new Thickness(8, 4, 8, 4),
             BorderBrush = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
@@ -355,7 +362,7 @@ public partial class SettingsWindow : Window
             Tag = forceExpand ? "search" : null, // 标记搜索模式
         };
 
-        // 手风琴：展开一个收起其他（非搜索模式）
+        // 手风琴:展开一个收起其他(非搜索模式)
         expander.Expanded += (s, e) =>
         {
             if (expander.Tag as string == "search") return; // 搜索模式不折叠
@@ -366,7 +373,7 @@ public partial class SettingsWindow : Window
             }
         };
 
-        // 内容：应用列表
+        // 内容:应用列表
         var itemsPanel = new StackPanel();
         foreach (var rule in rules)
         {
@@ -379,7 +386,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 创建分类头部 UI：色块 + 名称 + 数量
+    /// 创建分类头部 UI:色块 + 名称 + 数量
     /// </summary>
     private StackPanel CreateCategoryHeader(CategoryItem cat, int count)
     {
@@ -418,7 +425,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 创建一个应用行 UI：复选框 + 图标 + 友好名，支持拖拽
+    /// 创建一个应用行 UI:复选框 + 图标 + 友好名,支持拖拽
     /// </summary>
     private Border CreateAppRow(RuleItem rule)
     {
@@ -495,7 +502,7 @@ public partial class SettingsWindow : Window
 
     // ========== 多选逻辑 ==========
 
-    /// <summary>应用复选框变化：更新选中集合并显示"退出选择"按钮</summary>
+    /// <summary>应用复选框变化:更新选中集合并显示"退出选择"按钮</summary>
     private void AppCheckbox_Changed(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox cb && cb.Tag is string procName)
@@ -509,22 +516,22 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>应用行鼠标按下：记录点击的进程名（用于 Shift 范围选择）</summary>
+    /// <summary>应用行鼠标按下:记录点击的进程名(用于 Shift 范围选择)</summary>
     private void AppRow_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is Border border && border.Tag is string procName)
         {
-            // Shift 范围选择（待实现，需记录视觉顺序）
+            // Shift 范围选择(待实现,需记录视觉顺序)
             _lastClickedProcess = procName;
         }
     }
 
-    /// <summary>应用行鼠标移动：左键按下时启动拖拽操作</summary>
+    /// <summary>应用行鼠标移动:左键按下时启动拖拽操作</summary>
     private void AppRow_MouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton == MouseButtonState.Pressed && sender is Border border && border.Tag is string procName)
         {
-            // 如果有选中项，拖拽选中的；否则拖拽当前项
+            // 如果有选中项,拖拽选中的;否则拖拽当前项
             var toDrag = _selectedProcessNames.Count > 0 ? _selectedProcessNames.ToList() : new List<string> { procName };
             var data = new DataObject();
             data.SetData("ProcessNames", toDrag);
@@ -532,14 +539,14 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>更新选择模式 UI：有选中项时显示"退出选择"按钮</summary>
+    /// <summary>更新选择模式 UI:有选中项时显示"退出选择"按钮</summary>
     private void UpdateSelectionMode()
     {
         bool hasSelection = _selectedProcessNames.Count > 0;
         BtnExitSelect.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    /// <summary>退出选择按钮：清空所有选中并重建面板</summary>
+    /// <summary>退出选择按钮:清空所有选中并重建面板</summary>
     private void BtnExitSelect_Click(object sender, RoutedEventArgs e)
     {
         _selectedProcessNames.Clear();
@@ -554,7 +561,7 @@ public partial class SettingsWindow : Window
     // 搜索防抖定时器
     private DispatcherTimer? _searchDebounceTimer;
 
-    /// <summary>搜索框文字变化：300ms 防抖后重建面板</summary>
+    /// <summary>搜索框文字变化:300ms 防抖后重建面板</summary>
     private void TxtRuleSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_loading) return;
@@ -599,7 +606,7 @@ public partial class SettingsWindow : Window
 
     // ========== 拖拽到左侧分类 ==========
 
-    /// <summary>拖拽经过分类项时：高亮当前悬停项</summary>
+    /// <summary>拖拽经过分类项时:高亮当前悬停项</summary>
     private void CategorySidebar_DragOver(object sender, DragEventArgs e)
     {
         if (!e.Data.GetDataPresent("ProcessNames"))
@@ -629,7 +636,7 @@ public partial class SettingsWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>拖拽进入：设置拖拽效果</summary>
+    /// <summary>拖拽进入:设置拖拽效果</summary>
     private void CategorySidebar_DragEnter(object sender, DragEventArgs e)
     {
         if (e.Data.GetDataPresent("ProcessNames"))
@@ -643,7 +650,7 @@ public partial class SettingsWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>拖拽离开：清除所有高亮</summary>
+    /// <summary>拖拽离开:清除所有高亮</summary>
     private void CategorySidebar_DragLeave(object sender, DragEventArgs e)
     {
         // 清除所有项的高亮
@@ -656,7 +663,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>拖拽放下：把拖来的进程改到目标分类</summary>
+    /// <summary>拖拽放下:把拖来的进程改到目标分类</summary>
     private void CategorySidebar_Drop(object sender, DragEventArgs e)
     {
         // 清除高亮
@@ -672,7 +679,7 @@ public partial class SettingsWindow : Window
         var procNames = e.Data.GetData("ProcessNames") as List<string>;
         if (procNames == null || procNames.Count == 0) return;
 
-        // 找到目标分类：从 Drop 位置取 ListBoxItem
+        // 找到目标分类:从 Drop 位置取 ListBoxItem
         CategoryItem? targetCat = null;
         var dep = e.OriginalSource as DependencyObject;
         while (dep != null && dep is not ListBoxItem)
@@ -706,7 +713,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>规则面板滚轮事件处理：手动滚动避免嵌套 ScrollViewer 冲突</summary>
+    /// <summary>规则面板滚轮事件处理:手动滚动避免嵌套 ScrollViewer 冲突</summary>
     private void RulesPanel_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (sender is ScrollViewer sv)
@@ -728,10 +735,10 @@ public partial class SettingsWindow : Window
 
     // ========== 保存设置 ==========
 
-    /// <summary>设置保存后的事件通知（主窗口订阅后重启服务、重载规则等）</summary>
+    /// <summary>设置保存后的事件通知(主窗口订阅后重启服务、重载规则等)</summary>
     public static event Action? SettingsSaved;
 
-    /// <summary>保存按钮：保存设置并关窗</summary>
+    /// <summary>保存按钮:保存设置并关窗</summary>
     private void BtnSave_Click(object sender, RoutedEventArgs e)
     {
         DoSave();
@@ -740,7 +747,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 保存所有分类规则到数据库（用事务批量写入，避免逐条开关连接）
+    /// 保存所有分类规则到数据库(用事务批量写入,避免逐条开关连接)
     /// </summary>
     private void SaveRules()
     {
@@ -754,7 +761,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 保存分类管理数据：更新/新增/删除分类（预置分类 Id 1-13 不可删）
+    /// 保存分类管理数据:更新/新增/删除分类(预置分类 Id 1-13 不可删)
     /// </summary>
     private void SaveCategories()
     {
@@ -768,12 +775,13 @@ public partial class SettingsWindow : Window
                 {
                     if (string.IsNullOrWhiteSpace(c.Name)) continue;
                     currentIds.Add(c.Id);
-                    // Id<=0 表示新分类，插入后获新 Id
+                    // Id<=0 表示新分类,插入后获新 Id 并回写到 UI 对象
                     // Id>0 更新已有分类
-                    CategoryRepository.UpdateOrInsert(c.Id, c.Name, c.Color ?? "#808080", c.SortOrder);
+                    int newId = CategoryRepository.UpdateOrInsert(c.Id, c.Name, c.Color ?? "#808080", c.SortOrder);
+                    if (c.Id <= 0) c.Id = newId;
                 }
 
-                // 删除用户在 UI 中删掉的自定义分类（预置 Id<=13 不可删）
+                // 删除用户在 UI 中删掉的自定义分类(预置 Id<=13 不可删)
                 var dbCats = CategoryRepository.GetAll();
                 foreach (var dbCat in dbCats)
                 {
@@ -789,9 +797,9 @@ public partial class SettingsWindow : Window
 
     // ========== 删行按钮 + 颜色选择器 ==========
 
-    // BtnDeleteRule_Click 已移除（新方案无删除按钮，改分类用拖拽）
+    // BtnDeleteRule_Click 已移除(新方案无删除按钮,改分类用拖拽)
 
-    /// <summary>删除分类按钮：预置分类不可删，只删自定义分类</summary>
+    /// <summary>删除分类按钮:预置分类不可删,只删自定义分类</summary>
     private void BtnDeleteCategory_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.DataContext is CategoryItem cat)
@@ -807,14 +815,14 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 颜色选择器按钮：弹出系统选色对话框，选好后更新分类颜色并刷新 UI
+    /// 颜色选择器按钮:弹出系统选色对话框,选好后更新分类颜色并刷新 UI
     /// </summary>
     private void BtnPickColor_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button btn) return;
         if (btn.DataContext is not CategoryItem item) return;
 
-        // 用 WinForms ColorDialog（系统自带选色器，效果好）
+        // 用 WinForms ColorDialog(系统自带选色器,效果好)
         var dlg = new System.Windows.Forms.ColorDialog();
         dlg.FullOpen = true; // 展开完整选色面板
         try
@@ -851,26 +859,26 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>取消按钮：不保存直接关窗</summary>
+    /// <summary>取消按钮:不保存直接关窗</summary>
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {
         // 不保存直接关窗
         this.Close();
     }
 
-    /// <summary>应用按钮：保存设置但不关窗</summary>
+    /// <summary>应用按钮:保存设置但不关窗</summary>
     private void BtnApply_Click(object sender, RoutedEventArgs e)
     {
-        // 和保存一样逻辑，但不关窗
+        // 和保存一样逻辑,但不关窗
         DoSave();
     }
 
     /// <summary>
-    /// 实际保存逻辑：把 UI 上的值写回设置仓库、保存规则和分类、通知主窗口
+    /// 实际保存逻辑:把 UI 上的值写回设置仓库、保存规则和分类、通知主窗口
     /// </summary>
     private void DoSave()
     {
-        // 追踪设置：采样间隔和空闲阈值
+        // 追踪设置:采样间隔和空闲阈值
         string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
         if (int.TryParse(samplingText, out int sv) && sv > 0)
             SettingsRepository.Set("PollIntervalSeconds", sv.ToString());
@@ -885,7 +893,7 @@ public partial class SettingsWindow : Window
 
         SettingsRepository.Set("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
 
-        // 截图设置：开关、间隔、格式、质量、路径、存储限制
+        // 截图设置:开关、间隔、格式、质量、路径、存储限制
         SettingsRepository.Set("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
         SettingsRepository.Set("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
 
@@ -957,7 +965,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 保存当前设置的快照，用于后续对比是否有变更
+    /// 保存当前设置的快照,用于后续对比是否有变更
     /// </summary>
     private void SaveSnapshot()
     {
@@ -965,7 +973,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 收集当前 UI 上所有设置项的值，用于变更检测
+    /// 收集当前 UI 上所有设置项的值,用于变更检测
     /// </summary>
     private Dictionary<string, string> GetCurrentSettingsSnapshot()
     {
@@ -1004,7 +1012,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 对比当前值和快照，检查是否有变更，更新未保存提示和应用按钮状态
+    /// 对比当前值和快照,检查是否有变更,更新未保存提示和应用按钮状态
     /// </summary>
     private void CheckHasChanges()
     {
@@ -1091,36 +1099,38 @@ public partial class SettingsWindow : Window
 
             if (mode == "lan")
             {
-                // Ollama 模式：GET /api/tags 检测在线
-                var resp = await http.GetAsync($"{apiUrl.TrimEnd('/')}/api/tags");
+                // Ollama 模式:GET /api/tags 检测在线
+                using var resp = await http.GetAsync($"{apiUrl.TrimEnd('/')}/api/tags");
                 if (resp.IsSuccessStatusCode)
-                    MessageBox.Show($"连接成功！Ollama 服务正常运行。\n模型名：{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"连接成功!Ollama 服务正常运行。\n模型名:{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
                 else
-                    MessageBox.Show($"连接失败，HTTP {resp.StatusCode}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show($"连接失败,HTTP {resp.StatusCode}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             else
             {
-                // 自定义模式：POST 一个简单消息测试
+                // 自定义模式:POST 一个简单消息测试
                 if (!string.IsNullOrEmpty(apiKey))
                     http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
 
-                var payload = $"{{\"model\":\"{model}\",\"messages\":[{{\"role\":\"user\",\"content\":\"hi\"}}],\"max_tokens\":10}}";
+                // 用 JsonSerializer 构造请求体，避免模型名含特殊字符破坏 JSON
+                var payloadObj = new { model, messages = new[] { new { role = "user", content = "hi" } }, max_tokens = 10 };
+                var payload = System.Text.Json.JsonSerializer.Serialize(payloadObj);
                 var content = new StringContent(payload, Encoding.UTF8, "application/json");
-                var resp = await http.PostAsync(apiUrl, content);
+                using var resp = await http.PostAsync(apiUrl, content);
 
                 if (resp.IsSuccessStatusCode)
-                    MessageBox.Show($"连接成功！API 可正常调用。\n模型名：{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"连接成功!API 可正常调用。\n模型名:{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
                 else
-                    MessageBox.Show($"连接失败，HTTP {resp.StatusCode}\n{await resp.Content.ReadAsStringAsync()}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show($"连接失败,HTTP {resp.StatusCode}\n{await resp.Content.ReadAsStringAsync()}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
         catch (TaskCanceledException)
         {
-            MessageBox.Show("连接超时，请检查服务是否已启动", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("连接超时,请检查服务是否已启动", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"连接失败：{ex.Message}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show($"连接失败:{ex.Message}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
@@ -1131,13 +1141,13 @@ public partial class SettingsWindow : Window
 
     // ========== 预估占用大小 ==========
 
-    /// <summary>根据截图格式和质量预估单张截图大小（KB）</summary>
+    /// <summary>根据截图格式和质量预估单张截图大小(KB)</summary>
     private int GetEstPerShotKB()
     {
-        // PNG 无损，文件最大
+        // PNG 无损,文件最大
         bool isPng = CbxScreenshotFormat.SelectedItem is ComboBoxItem fi && fi.Tag?.ToString() == "png";
         if (isPng) return 750; // PNG 2560x1440 约 750KB
-        // JPEG 按实际测试数据：high=400KB, medium=275KB, low=180KB
+        // JPEG 按实际测试数据:high=400KB, medium=275KB, low=180KB
         return GetComboTag(CbxScreenshotQuality) switch
         {
             "high" => 400,
@@ -1242,14 +1252,14 @@ public partial class SettingsWindow : Window
 
     // ========== AI 模式切换 ==========
 
-    /// <summary>AI 模式下拉框变化：局域网模式预填 Ollama 地址，自定义模式清空</summary>
+    /// <summary>AI 模式下拉框变化:局域网模式预填 Ollama 地址,自定义模式清空</summary>
     private void AIMode_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_loading) return;
         string mode = CbxAIMode.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() ?? "lan" : "lan";
         if (mode == "lan")
         {
-            // 局域网共享模式：默认 Ollama 地址
+            // 局域网共享模式:默认 Ollama 地址
             if (string.IsNullOrWhiteSpace(TxtApiUrl.Text) || TxtApiUrl.Text.Contains("minimax") || TxtApiUrl.Text.Contains("openai"))
             {
                 TxtApiUrl.Text = "http://localhost:11434";
@@ -1259,7 +1269,7 @@ public partial class SettingsWindow : Window
         }
         else
         {
-            // 自定义模式：如果当前是 Ollama 地址就清空让用户填
+            // 自定义模式:如果当前是 Ollama 地址就清空让用户填
             if (TxtApiUrl.Text.Contains("localhost:11434"))
             {
                 TxtApiUrl.Text = "";
@@ -1271,7 +1281,7 @@ public partial class SettingsWindow : Window
 
     // ========== 事件 ==========
 
-    /// <summary>截图间隔变化：更新预估并标记变更</summary>
+    /// <summary>截图间隔变化:更新预估并标记变更</summary>
     private void CbxScreenshotInterval_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -1282,7 +1292,7 @@ public partial class SettingsWindow : Window
         MarkChanged();
     }
 
-    /// <summary>截图开关变化：启用/禁用下方所有截图选项</summary>
+    /// <summary>截图开关变化:启用/禁用下方所有截图选项</summary>
     private void ChkEnableScreenshot_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -1291,7 +1301,7 @@ public partial class SettingsWindow : Window
         MarkChanged();
     }
 
-    /// <summary>存储限制变化：更新预估并标记变更</summary>
+    /// <summary>存储限制变化:更新预估并标记变更</summary>
     private void StorageLimit_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -1299,7 +1309,7 @@ public partial class SettingsWindow : Window
         MarkChanged();
     }
 
-    /// <summary>数字输入框过滤：只允许输入数字</summary>
+    /// <summary>数字输入框过滤:只允许输入数字</summary>
     private void NumberOnly_Preview(object sender, TextCompositionEventArgs e)
     {
         foreach (char c in e.Text)
@@ -1308,7 +1318,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>分类表格变化事件：标记变更</summary>
+    /// <summary>分类表格变化事件:标记变更</summary>
     private void CategoriesGrid_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
@@ -1317,7 +1327,7 @@ public partial class SettingsWindow : Window
 
     // ========== 未保存提示 ==========
 
-    /// <summary>标记有变更（加载期间除外），触发变更检测</summary>
+    /// <summary>标记有变更(加载期间除外),触发变更检测</summary>
     private void MarkChanged()
     {
         if (_loading) return;
@@ -1326,7 +1336,7 @@ public partial class SettingsWindow : Window
 
     // ========== 备份数据库 ==========
 
-    /// <summary>备份数据库按钮：用 VACUUM INTO 导出副本，不需要停引擎</summary>
+    /// <summary>备份数据库按钮:用 VACUUM INTO 导出副本,不需要停引擎</summary>
     private void BtnBackupDb_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1345,29 +1355,29 @@ public partial class SettingsWindow : Window
                 return;
             }
 
-            // 用 VACUUM INTO 备份，不需要停引擎
+            // 用 VACUUM INTO 备份,不需要停引擎
             DatabaseHelper.BackupTo(dlg.FileName);
-            MessageBox.Show($"备份成功！\n{dlg.FileName}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show($"备份成功!\n{dlg.FileName}", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
             Logger.Error("数据库备份失败", ex);
-            MessageBox.Show($"备份失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"备份失败:{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
     // ========== 清空数据 ==========
 
-    /// <summary>清空所有数据按钮：两次确认后清空活动记录、截图和统计数据</summary>
+    /// <summary>清空所有数据按钮:两次确认后清空活动记录、截图和统计数据</summary>
     private void BtnClearData_Click(object sender, RoutedEventArgs e)
     {
         var result = MessageBox.Show(
-            "确定要清空所有活动记录、截图和统计数据吗？\n此操作不可恢复！",
+            "确定要清空所有活动记录、截图和统计数据吗?\n此操作不可恢复!",
             "警告", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (result != MessageBoxResult.Yes) return;
 
         var result2 = MessageBox.Show(
-            "再次确认：真的要删除所有数据吗？",
+            "再次确认:真的要删除所有数据吗?",
             "再次确认", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (result2 != MessageBoxResult.Yes) return;
 
@@ -1378,7 +1388,7 @@ public partial class SettingsWindow : Window
 
     // ========== 恢复此页默认 ==========
 
-    /// <summary>恢复当前页面默认值按钮：根据选中的面板恢复对应设置</summary>
+    /// <summary>恢复当前页面默认值按钮:根据选中的面板恢复对应设置</summary>
     private void BtnRestoreDefault_Click(object sender, RoutedEventArgs e)
     {
         string pageName = NavList.SelectedIndex switch
@@ -1394,12 +1404,12 @@ public partial class SettingsWindow : Window
             _ => "当前页"
         };
 
-        // 分类规则页恢复默认会清空用户自定义规则，需额外提醒
+        // 分类规则页恢复默认会清空用户自定义规则,需额外提醒
         string hint = NavList.SelectedIndex switch
         {
-            2 => "恢复「分类规则」到默认值将清空所有自定义分类映射，此操作不可撤销。\n\n确定继续？",
-            3 => "恢复「分类管理」将删除所有自定义分类并重置预置分类颜色。\n\n确定继续？",
-            _ => $"恢复「{pageName}」到默认值并保存？"
+            2 => "恢复「分类规则」到默认值将清空所有自定义分类映射,此操作不可撤销。\n\n确定继续?",
+            3 => "恢复「分类管理」将删除所有自定义分类并重置预置分类颜色。\n\n确定继续?",
+            _ => $"恢复「{pageName}」到默认值并保存?"
         };
 
         var result = MessageBox.Show(hint, "确认",
@@ -1446,7 +1456,7 @@ public partial class SettingsWindow : Window
         UpdateDiskUsage();
         _loading = false;
 
-        // 直接保存（不关窗）
+        // 直接保存(不关窗)
         DoSave();
         TxtUnsaved.Text = "✓ 已恢复默认并保存";
     }
@@ -1473,7 +1483,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"导出失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"导出失败:{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1509,7 +1519,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"导入失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"导入失败:{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1530,7 +1540,7 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 用 Tag 或文本匹配 ComboBox 项，匹配不上就把文本写进去（适用于可编辑 ComboBox）
+    /// 用 Tag 或文本匹配 ComboBox 项,匹配不上就把文本写进去(适用于可编辑 ComboBox)
     /// </summary>
     private static void SetComboByTagOrText(ComboBox combo, string value, string suffix = "")
     {
@@ -1550,7 +1560,7 @@ public partial class SettingsWindow : Window
                 return;
             }
         }
-        // 匹配不上：直接写文本（可编辑模式）
+        // 匹配不上:直接写文本(可编辑模式)
         combo.Text = value;
     }
 }

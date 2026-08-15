@@ -125,15 +125,16 @@ public class AISummaryService
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.PostAsync(url, content);
-        if (!response.IsSuccessStatusCode)
+        using var resp = response;
+        if (!resp.IsSuccessStatusCode)
         {
-            var errBody = await response.Content.ReadAsStringAsync();
-            Logger.Error($"Ollama /api/chat 返回 {response.StatusCode}，模型={AiModel}，响应={errBody.Substring(0, Math.Min(500, errBody.Length))}", null);
+            var errBody = await resp.Content.ReadAsStringAsync();
+            Logger.Error($"Ollama /api/chat 返回 {resp.StatusCode}，模型={AiModel}，响应={errBody.Substring(0, Math.Min(500, errBody.Length))}", null);
             return null;
         }
 
         // 解析 Ollama 返回的 JSON：message.content 字段就是回复文本
-        var respJson = await response.Content.ReadAsStringAsync();
+        var respJson = await resp.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(respJson);
 
         if (doc.RootElement.TryGetProperty("message", out var msg) &&
@@ -179,10 +180,11 @@ public class AISummaryService
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         var response = await _httpClient.SendAsync(request);
-        if (!response.IsSuccessStatusCode) return null;
+        using var resp2 = response;
+        if (!resp2.IsSuccessStatusCode) return null;
 
         // 解析返回：choices 数组第一个元素的 message.content 就是回复文本
-        var respJson = await response.Content.ReadAsStringAsync();
+        var respJson = await resp2.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(respJson);
 
         if (doc.RootElement.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)

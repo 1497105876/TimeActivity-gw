@@ -83,6 +83,8 @@ public class TimelineRenderer
             // 把活动时间转成秒数
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double endSec = act.EndTime.TimeOfDay.TotalSeconds;
+            // 跨午夜活动（如 23:50→00:10），endSec 会小于 startSec，加一天秒数
+            if (endSec < startSec) endSec += 86400;
 
             // 不在可见范围内就跳过
             if (endSec <= viewStart || startSec >= viewStart + visibleSeconds)

@@ -19,6 +19,8 @@ public class TrackingEngine
     private CancellationTokenSource? _cts;
     // 当前正在进行的活动记录
     private ActivityRecord? _currentActivity;
+    // 锁，防止 Stop 和 PollLoop 同时操作 _currentActivity
+    private readonly object _lock = new();
 
     // 采样间隔（秒），默认 3 秒轮一次
     public int PollIntervalSeconds { get; set; } = 3;
@@ -66,8 +68,11 @@ public class TrackingEngine
         _cts?.Cancel();
         _cts = null;
 
-        // 把当前活动收尾
-        FinishCurrentActivity();
+        // 加锁防止和 PollLoop 竞态同时操作 _currentActivity
+        lock (_lock)
+        {
+            FinishCurrentActivity();
+        }
     }
 
     /// <summary>
@@ -98,6 +103,23 @@ public class TrackingEngine
     /// </summary>
     private void Poll()
     {
+        // 加锁防止和 Stop 竞态
+        if (!Monitor.TryEnter(_lock)) return;
+        try
+        {
+            PollInternal();
+        }
+        finally
+        {
+            Monitor.Exit(_lock);
+        }
+    }
+
+    /// <summary>
+    /// 单次轮询内部实现。
+    /// </summary>
+    private void PollInternal()
+    {
         // 先检查用户是否空闲（通过 Win32 API 获取最后一次输入的时间）
         int idleSeconds = Win32Api.GetIdleSeconds();
 
@@ -123,6 +145,15 @@ public class TrackingEngine
                 OnStatusChanged?.Invoke("(空闲)", "用户离开", "空闲");
             }
             return;
+        }
+
+        // 用户回来了 — 如果当前是空闲状态，强制结束空闲开始新活动
+        if (_currentActivity != null && _currentActivity.IsIdle)
+        {
+            FinishCurrentActivity();
+            // 清空 last 记录，强制下面的切换逻辑触发开始新活动
+            _lastProcessName = "";
+            _lastWindowTitle = "";
         }
 
         // 获取当前前台窗口的进程名和标题（通过 Win32 API）

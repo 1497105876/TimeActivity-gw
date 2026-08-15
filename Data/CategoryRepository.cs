@@ -51,7 +51,7 @@ public static class CategoryRepository
     /// <param name="name">分类名称</param>
     /// <param name="color">十六进制颜色值</param>
     /// <param name="sortOrder">排序序号</param>
-    public static void UpdateOrInsert(int id, string name, string color, int sortOrder)
+    public static int UpdateOrInsert(int id, string name, string color, int sortOrder)
     {
         EnsureInit();
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
@@ -66,16 +66,17 @@ public static class CategoryRepository
             cmd.Parameters.AddWithValue("@Sort", sortOrder);
             cmd.Parameters.AddWithValue("@Id", id);
             cmd.ExecuteNonQuery();
+            return id;
         }
         else
         {
             // 插入新分类，Icon 默认空字符串
             using var cmd = new SqliteCommand(
-                "INSERT INTO Categories (Name, Color, Icon, SortOrder) VALUES (@Name, @Color, '', @Sort)", conn);
+                "INSERT INTO Categories (Name, Color, Icon, SortOrder) VALUES (@Name, @Color, '', @Sort); SELECT last_insert_rowid();", conn);
             cmd.Parameters.AddWithValue("@Name", name);
             cmd.Parameters.AddWithValue("@Color", color);
             cmd.Parameters.AddWithValue("@Sort", sortOrder);
-            cmd.ExecuteNonQuery();
+            return (int)(long)cmd.ExecuteScalar();
         }
     }
 

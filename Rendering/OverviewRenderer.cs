@@ -70,9 +70,10 @@ public class OverviewRenderer
             if (act.IsIdle) continue;
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double durSec = act.Duration;
-            // 把时间秒数映射到像素坐标
+            // 跨午夜活动：startSec 在 23:00 但持续时间跨到次日，色块会超出画布右边界
+            // 裁剪：色块不超出 width
             double x = (startSec / totalSeconds) * width;
-            double w = Math.Max((durSec / totalSeconds) * width, 1);
+            double w = Math.Max(Math.Min((durSec / totalSeconds) * width, width - x), 1);
 
             var color = GetColorFunc(act.ProcessName, act.Category);
             var block = new Rectangle
@@ -90,6 +91,8 @@ public class OverviewRenderer
         // 画视口指示框（蓝色半透明框，表示当前时间轴看到的是哪一段）
         double viewX = (viewStart / totalSeconds) * width;
         double viewW = (visibleSeconds / totalSeconds) * width;
+        // 防止视口框超出画布右边界
+        if (viewX + viewW > width) viewW = Math.Max(width - viewX, 1);
 
         var viewport = new Border
         {

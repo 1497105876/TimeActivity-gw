@@ -518,14 +518,17 @@ public partial class StatisticsPage : Page
         }
         catch (Exception ex)
         {
-            AISummaryText.Markdown = $"生成失败：{ex.Message}";
             Logger.Error("AI 总结生成异常", ex);
+            try { AISummaryText.Markdown = "生成失败，请查看日志。"; }
+            catch { /* UI 不可用时忽略 */ }
         }
         finally
         {
             _generatingByPeriod[lockPeriod] = false;
             _generatingPeriod = null;
-            BtnGenerateAI.Content = "生成总结";
+            // 只有用户还在当前周期才重置按钮文字
+            if (lockPeriod == _period)
+                BtnGenerateAI.Content = "生成总结";
         }
     }
 }

@@ -63,7 +63,8 @@ public static class Win32Api
         GetWindowThreadProcessId(hWnd, out uint pid);
         try
         {
-            var proc = System.Diagnostics.Process.GetProcessById((int)pid);
+            // Process 对象用完必须释放，否则长时间运行会耗尽 OS 句柄
+            using var proc = System.Diagnostics.Process.GetProcessById((int)pid);
             return proc.ProcessName;
         }
         catch
