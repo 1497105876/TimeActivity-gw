@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Services;
+using TimeActivity.Helpers;
 
 namespace TimeActivity.Data;
 
@@ -29,7 +30,7 @@ public static class AISummaryRepository
         // 先删同类型同日期同来源的旧记录，再插入新的，保证每次只保留最新一条
         using var delCmd = new SqliteCommand(
             "DELETE FROM AISummaries WHERE Date=@Date AND SummaryType=@SummaryType AND AutoType=@AutoType", conn);
-        delCmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        delCmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         delCmd.Parameters.AddWithValue("@SummaryType", summaryType);
         delCmd.Parameters.AddWithValue("@AutoType", autoType);
         delCmd.ExecuteNonQuery();
@@ -39,7 +40,7 @@ public static class AISummaryRepository
 
         using var cmd = new SqliteCommand(sql, conn);
         // 日期统一用 yyyy-MM-dd 格式存储
-        cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@SummaryText", summaryText);
         cmd.Parameters.AddWithValue("@SummaryType", summaryType);
         cmd.Parameters.AddWithValue("@AutoType", autoType);
@@ -62,7 +63,7 @@ public static class AISummaryRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@Type", summaryType);
         long count = (long)cmd.ExecuteScalar()!;
         return count > 0;
@@ -83,7 +84,7 @@ public static class AISummaryRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@Type", summaryType);
 
         var result = cmd.ExecuteScalar();
@@ -101,7 +102,7 @@ public static class AISummaryRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Date", date.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@Type", summaryType);
         cmd.Parameters.AddWithValue("@Auto", autoType);
 

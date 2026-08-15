@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Models;
 using TimeActivity.Services;
+using TimeActivity.Helpers;
 
 namespace TimeActivity.Data;
 
@@ -54,7 +55,7 @@ public static class ActivityRepository
     {
         EnsureInit();
         var result = new List<ActivityRecord>();
-        string dateStr = date.ToString("yyyy-MM-dd");
+        string dateStr = date.ToDateKey();
         // 用 date(StartTime) 提取日期部分做比较，省去时间部分的干扰
         const string sql = @"
             SELECT Id, ProcessName, WindowTitle, Category, StartTime, EndTime, Duration, IsIdle
@@ -137,7 +138,7 @@ public static class ActivityRepository
     {
         EnsureInit();
         var result = new Dictionary<string, int>();
-        string dateStr = date.ToString("yyyy-MM-dd");
+        string dateStr = date.ToDateKey();
         // 按分类汇总时长，排除空闲记录，按总时长降序排
         const string sql = @"
             SELECT Category, SUM(Duration) AS TotalSeconds
@@ -166,7 +167,7 @@ public static class ActivityRepository
     {
         EnsureInit();
         var result = new Dictionary<string, int>();
-        string dateStr = date.ToString("yyyy-MM-dd");
+        string dateStr = date.ToDateKey();
         // 按进程名汇总时长，排除空闲记录，按总时长降序排
         const string sql = @"
             SELECT ProcessName, SUM(Duration) AS TotalSeconds
@@ -219,8 +220,8 @@ public static class ActivityRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
-        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
+        cmd.Parameters.AddWithValue("@End", end.ToDateKey());
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -260,8 +261,8 @@ public static class ActivityRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
-        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
+        cmd.Parameters.AddWithValue("@End", end.ToDateKey());
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -301,8 +302,8 @@ public static class ActivityRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
-        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
+        cmd.Parameters.AddWithValue("@End", end.ToDateKey());
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Services;
+using TimeActivity.Helpers;
 
 namespace TimeActivity.Data;
 
@@ -405,7 +406,7 @@ public class DatabaseHelper
         Initialize();
         // 计算截止时间：超过这个时间的数据将被清理
         string cutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd HH:mm:ss");
-        string dateCutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd");
+        string dateCutoff = DateTime.Now.AddDays(-retentionDays).ToDateKey();
         int totalDeleted = 0;
 
         using var conn = new SqliteConnection(ConnectionString);

@@ -221,7 +221,7 @@ public partial class MainWindow : Window
             _ = CheckAutoSummaryAsync();
 
             // 每次自动刷新都更新当天的汇总（一天的数据量不大，GROUP BY 很快）
-            try { DailySummaryRepository.GenerateForDate(DateTime.Today.ToString("yyyy-MM-dd")); }
+            try { DailySummaryRepository.GenerateForDate(DateTime.Today.ToDateKey()); }
             catch (Exception ex) { Logger.Error("自动刷新生成每日汇总失败", ex); }
         };
         _autoRefreshTimer.Start();
@@ -400,18 +400,10 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    var dlg = new System.Windows.Forms.ColorDialog();
-                    dlg.FullOpen = true;
                     var current = AppColorAllocator.GetOrAssign(processName);
-                    try
+                    var hex = PickColor(current);
+                    if (hex != null)
                     {
-                        var c = CategoryColorHelper.ParseHex(current);
-                        dlg.Color = System.Drawing.Color.FromArgb(c.R, c.G, c.B);
-                    }
-                    catch (Exception ex) { Logger.Error("颜色解析失败", ex); }
-                    if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                    {
-                        var hex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
                         AppColorAllocator.SetCustom(processName, hex);
                         DrawAll();
                         LoadStatsLists();
@@ -504,14 +496,10 @@ public partial class MainWindow : Window
             var miColor = new MenuItem { Header = "颜色" };
             miColor.Click += (s, ev) =>
             {
-                // 直接弹颜色选择器，和应用统计右键保持一致
-                using var dlg = new System.Windows.Forms.ColorDialog();
-                dlg.FullOpen = true;
-                if (_categoryColors.TryGetValue(categoryName, out var hex))
-                    dlg.Color = System.Drawing.ColorTranslator.FromHtml(hex);
-                if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                _categoryColors.TryGetValue(categoryName, out var hex);
+                var newHex = PickColor(hex);
+                if (newHex != null)
                 {
-                    string newHex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
                     CategoryRepository.UpdateColor(categoryName, newHex);
                     LoadCategoryColors();
                     _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
@@ -534,6 +522,23 @@ public partial class MainWindow : Window
     }
 
     // ========== 右键菜单辅助方法 ==========
+
+/// <summary>
+/// 弹出颜色选择对话框，返回选中的 hex 颜色（如 #FF0000），取消返回 null
+/// </summary>
+private static string? PickColor(string? currentHex = null)
+{
+    using var dlg = new System.Windows.Forms.ColorDialog();
+    dlg.FullOpen = true;
+    if (!string.IsNullOrEmpty(currentHex))
+    {
+        try { dlg.Color = System.Drawing.ColorTranslator.FromHtml(currentHex); }
+        catch (Exception ex) { Logger.Error("颜色解析失败", ex); }
+    }
+    if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        return $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
+    return null;
+}
 
     /// <summary>
     /// 根据鼠标点击位置找到对应的 ListViewItem（可视树命中测试）

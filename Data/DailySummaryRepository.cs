@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Services;
+using TimeActivity.Helpers;
 
 namespace TimeActivity.Data;
 
@@ -176,8 +177,8 @@ public static class DailySummaryRepository
         conn.Open();
         using var cmd = new SqliteCommand(
             $"SELECT Date, {col} FROM DailyTotal WHERE Date >= @Start AND Date <= @End ORDER BY Date", conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
-        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
+        cmd.Parameters.AddWithValue("@End", end.ToDateKey());
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
             result[reader.GetString(0)] = reader.GetInt32(1);
@@ -196,8 +197,8 @@ public static class DailySummaryRepository
         using var cmd = new SqliteCommand(
             @"SELECT Category, SUM(Seconds) as Total FROM DailyCategorySummary 
               WHERE Date >= @Start AND Date <= @End GROUP BY Category ORDER BY Total DESC", conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
-        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
+        cmd.Parameters.AddWithValue("@End", end.ToDateKey());
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
             result[reader.GetString(0)] = reader.GetInt32(1);
@@ -217,8 +218,8 @@ public static class DailySummaryRepository
         using var cmd = new SqliteCommand(
             $@"SELECT ProcessName, SUM(Seconds) as Total FROM DailyProcessSummary 
               WHERE Date >= @Start AND Date <= @End{filter} GROUP BY ProcessName ORDER BY Total DESC", conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd"));
-        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd"));
+        cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
+        cmd.Parameters.AddWithValue("@End", end.ToDateKey());
         if (!string.IsNullOrEmpty(categoryFilter))
             cmd.Parameters.AddWithValue("@Cat", categoryFilter);
         using var reader = cmd.ExecuteReader();

@@ -6,6 +6,7 @@ using System.Linq;
 using TimeActivity.Services;
 using System.Runtime.InteropServices;
 using TimeActivity.Data;
+using TimeActivity.Helpers;
 
 namespace TimeActivity.Services;
 
@@ -227,7 +228,7 @@ public class ScreenshotService
             string ext = format == "png" ? "png" : "jpg";
             string fileName = $"screenshot_{DateTime.Now:HH-mm-ss}.{ext}";
             // 按日期分文件夹：screenshots/2026-08-15/screenshot_14-30-00.jpg
-            string dateDir = Path.Combine(_screenshotDir, DateTime.Now.ToString("yyyy-MM-dd"));
+            string dateDir = Path.Combine(_screenshotDir, DateTime.Now.ToDateKey());
             Directory.CreateDirectory(dateDir);
             string filePath = Path.Combine(dateDir, fileName);
 
