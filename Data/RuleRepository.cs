@@ -84,6 +84,49 @@ public static class RuleRepository
     }
 
     /// <summary>
+    /// 批量保存规则（更新已有 + 插入新规则），用事务保证原子性
+    /// </summary>
+    /// <param name="rules">要保存的规则列表，每条含 Id(>0 更新 / <=0 新增)、ProcessName、TitleKeyword、CategoryName、IsCustom</param>
+    /// <param name="categoryNameToId">分类名 → 分类 Id 的映射，用于按名称查 Id</param>
+    public static void SaveAll(List<RuleItem> rules, Dictionary<string, int> categoryNameToId)
+    {
+        EnsureInit();
+        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+        conn.Open();
+        using var transaction = conn.BeginTransaction();
+
+        foreach (var r in rules)
+        {
+            if (string.IsNullOrWhiteSpace(r.ProcessName))
+                continue;
+            if (!categoryNameToId.TryGetValue(r.CategoryName, out int catId))
+                continue;
+
+            if (r.Id > 0)
+            {
+                using var upd = new SqliteCommand(
+                    "UPDATE Rules SET CategoryId=@c, IsCustom=@ic WHERE Id=@id", conn, transaction);
+                upd.Parameters.AddWithValue("@c", catId);
+                upd.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
+                upd.Parameters.AddWithValue("@id", r.Id);
+                upd.ExecuteNonQuery();
+            }
+            else
+            {
+                using var ins = new SqliteCommand(
+                    "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn, transaction);
+                ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
+                ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
+                ins.Parameters.AddWithValue("@c", catId);
+                ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
+                ins.ExecuteNonQuery();
+            }
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>
     /// 清空所有自定义规则（只删 IsCustom=1 的，预置规则保留）
     /// </summary>
     public static void ClearAll()

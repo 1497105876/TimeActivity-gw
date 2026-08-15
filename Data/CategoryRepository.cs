@@ -9,6 +9,11 @@ namespace TimeActivity.Data;
 /// </summary>
 public static class CategoryRepository
 {
+    /// <summary>
+    /// 预置分类的最大 Id，超过此值的都是用户自定义分类
+    /// </summary>
+    public const int MaxPresetCategoryId = 13;
+
     // 确保数据库已初始化
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
@@ -97,7 +102,7 @@ public static class CategoryRepository
     public static bool Delete(int id)
     {
         // 预置分类 Id 1-13 受保护，不允许删除
-        if (id <= 13) return false;
+        if (id <= MaxPresetCategoryId) return false;
         EnsureInit();
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
@@ -116,7 +121,7 @@ public static class CategoryRepository
         conn.Open();
 
         // 删除自定义分类
-        using (var delCmd = new SqliteCommand("DELETE FROM Categories WHERE Id > 13", conn))
+        using (var delCmd = new SqliteCommand("DELETE FROM Categories WHERE Id > " + MaxPresetCategoryId, conn))
             delCmd.ExecuteNonQuery();
 
         // 重置预置分类的颜色和排序

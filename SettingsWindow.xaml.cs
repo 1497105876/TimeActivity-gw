@@ -746,43 +746,9 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            // 只更新/插入用户改过的规则，不删预置规则
-            // 共用一个连接 + 事务，避免逐条开关连接
-            using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-            conn.Open();
-            using var transaction = conn.BeginTransaction();
-
-            foreach (var r in _allRules)
-            {
-                if (string.IsNullOrWhiteSpace(r.ProcessName))
-                    continue;
-                var cat = _categories.FirstOrDefault(c => c.Name == r.CategoryName);
-                if (cat == null) continue;
-
-                if (r.Id > 0)
-                {
-                    // 已有规则，更新分类
-                    using var upd = new SqliteCommand(
-                        "UPDATE Rules SET CategoryId=@c, IsCustom=@ic WHERE Id=@id", conn, transaction);
-                    upd.Parameters.AddWithValue("@c", cat.Id);
-                    upd.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
-                    upd.Parameters.AddWithValue("@id", r.Id);
-                    upd.ExecuteNonQuery();
-                }
-                else
-                {
-                    // 新规则（用户用过但之前没规则匹配的进程）
-                    using var ins = new SqliteCommand(
-                        "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn, transaction);
-                    ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
-                    ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
-                    ins.Parameters.AddWithValue("@c", cat.Id);
-                    ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
-                    ins.ExecuteNonQuery();
-                }
-            }
-
-            transaction.Commit();
+            // 构建分类名→Id 映射
+            var catMap = _categories.ToDictionary(c => c.Name, c => c.Id);
+            RuleRepository.SaveAll(_allRules, catMap);
         }
         catch (Exception ex) { Logger.Error("SaveRules 保存失败", ex); }
     }
@@ -811,7 +777,7 @@ public partial class SettingsWindow : Window
                 var dbCats = CategoryRepository.GetAll();
                 foreach (var dbCat in dbCats)
                 {
-                    if (dbCat.Id > 13 && !currentIds.Contains(dbCat.Id))
+                    if (dbCat.Id > CategoryRepository.MaxPresetCategoryId && !currentIds.Contains(dbCat.Id))
                     {
                         CategoryRepository.Delete(dbCat.Id);
                     }
@@ -830,7 +796,7 @@ public partial class SettingsWindow : Window
     {
         if (sender is Button btn && btn.DataContext is CategoryItem cat)
         {
-            if (cat.Id <= 13) return; // 预置分类不可删
+            if (cat.Id <= CategoryRepository.MaxPresetCategoryId) return; // 预置分类不可删
 
             if (CategoriesGrid.ItemsSource is ObservableCollection<CategoryItem> cats)
             {

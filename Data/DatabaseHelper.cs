@@ -172,7 +172,7 @@ public class DatabaseHelper
             catch (Exception ex) { Logger.Error("AISummaries 唯一索引创建失败", ex); }
             // Categories 表为空时插入预置分类（首次运行）
             var countCmd = new SqliteCommand("SELECT COUNT(*) FROM Categories", conn);
-            if ((long)countCmd.ExecuteScalar()! == 0)
+            if ((long)(countCmd.ExecuteScalar() ?? 0L) == 0)
             {
                 // 预置分类列表：名称、颜色、图标标识、排序序号
                 var cats = new[]
@@ -205,7 +205,7 @@ public class DatabaseHelper
 
             // Settings 表为空时插入预置设置项（首次运行）
             countCmd = new SqliteCommand("SELECT COUNT(*) FROM Settings", conn);
-            if ((long)countCmd.ExecuteScalar()! == 0)
+            if ((long)(countCmd.ExecuteScalar() ?? 0L) == 0)
             {
                 // 从 SettingsRepository.Defaults 读取默认设置写入数据库
                 foreach (var kv in SettingsRepository.Defaults)
@@ -220,7 +220,7 @@ public class DatabaseHelper
 
             // Rules 表为空时插入预置分类规则（首次运行）
             countCmd = new SqliteCommand("SELECT COUNT(*) FROM Rules", conn);
-            if ((long)countCmd.ExecuteScalar()! == 0)
+            if ((long)(countCmd.ExecuteScalar() ?? 0L) == 0)
             {
                 // 先查分类名 → Id 映射，后面插入规则要用
                 var catMap = new Dictionary<string, int>();
