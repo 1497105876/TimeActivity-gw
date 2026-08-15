@@ -16,13 +16,21 @@ namespace TimeActivity.Rendering;
 public class ChartRenderer
 {
     // 分类颜色助手，根据分类名拿到对应颜色
-    private readonly CategoryColorHelper _colorHelper;
+    private CategoryColorHelper _colorHelper;
 
     /// <summary>
     /// 构造函数，传入颜色助手
     /// </summary>
     /// <param name="colorHelper">分类颜色助手</param>
     public ChartRenderer(CategoryColorHelper colorHelper)
+    {
+        _colorHelper = colorHelper;
+    }
+
+    /// <summary>
+    /// 更新颜色助手引用（设置保存后刷新颜色用）
+    /// </summary>
+    public void SetColorHelper(CategoryColorHelper colorHelper)
     {
         _colorHelper = colorHelper;
     }

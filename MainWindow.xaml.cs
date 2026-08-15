@@ -40,7 +40,7 @@ public partial class MainWindow : Window
     private StatisticsPage? _statsPage;
 
     // 分类颜色助手
-    private readonly CategoryColorHelper _colorHelper = new();
+    private CategoryColorHelper _colorHelper = new();
 
     // 时间轴渲染器和概览条渲染器
     private readonly TimelineRenderer _timelineRenderer;
@@ -283,6 +283,8 @@ public partial class MainWindow : Window
         catch (Exception ex) { Logger.Error("OnSettingsSaved 重新分类失败", ex); }
 
         // 重载分类颜色（用户可能改了分类颜色）
+        // 重新创建实例确保不残留旧缓存
+        _colorHelper = new CategoryColorHelper();
         LoadCategoryColors();
         _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
         _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
@@ -1333,9 +1335,8 @@ public partial class MainWindow : Window
             PopupTitle.Text = hit.WindowTitle;
             PopupTitle.Visibility = string.IsNullOrEmpty(hit.WindowTitle) ? Visibility.Collapsed : Visibility.Visible;
 
-            // 用鼠标当前时间点查截图（<= 该时间点最近的一张）
-            DateTime mouseDateTime = _currentDate.Date.AddSeconds(mouseTime);
-            var screenshotPath = ScreenshotService.GetScreenshotForTime(mouseDateTime);
+            // 用活动的开始~结束时间查截图（截图必须在活动期间内拍的）
+            var screenshotPath = ScreenshotService.GetScreenshotForTime(hit.StartTime, hit.EndTime);
             if (screenshotPath != null)
             {
                 if (_lastScreenshotPath != screenshotPath)

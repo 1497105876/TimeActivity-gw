@@ -133,6 +133,7 @@ public partial class SettingsWindow : Window
 
         // 截图设置
         ChkEnableScreenshot.IsChecked = SettingsRepository.Get("EnableScreenshot", "false") == "true";
+        ScreenshotOptionsPanel.IsEnabled = ChkEnableScreenshot.IsChecked == true;
         ChkScreenshotOnSwitch.IsChecked = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true";
 
         string intervalStr = SettingsRepository.Get("ScreenshotIntervalMinutes", "5");
@@ -145,6 +146,9 @@ public partial class SettingsWindow : Window
             if (item.Tag?.ToString() == fmt) { CbxScreenshotFormat.SelectedItem = item; break; }
         }
         CbxScreenshotFormat.SelectedIndex = fmt == "png" ? 1 : 0;
+
+        // PNG 格式时隐藏质量选项（PNG 无损，不涉及压缩质量）
+        QualityRow.Visibility = fmt == "png" ? Visibility.Collapsed : Visibility.Visible;
 
         SelectComboByTag(CbxScreenshotQuality, SettingsRepository.Get("ScreenshotQuality", "medium"));
         TxtScreenshotPath.Text = SettingsRepository.Get("ScreenshotPath",
@@ -1164,14 +1168,15 @@ public partial class SettingsWindow : Window
     /// <summary>根据截图格式和质量预估单张截图大小（KB）</summary>
     private int GetEstPerShotKB()
     {
-        // PNG 比 JPEG 大很多
+        // PNG 无损，文件最大
         bool isPng = CbxScreenshotFormat.SelectedItem is ComboBoxItem fi && fi.Tag?.ToString() == "png";
-        if (isPng) return 500; // PNG 2560x1440 约 500KB
+        if (isPng) return 750; // PNG 2560x1440 约 750KB
+        // JPEG 按实际测试数据：high=400KB, medium=275KB, low=180KB
         return GetComboTag(CbxScreenshotQuality) switch
         {
-            "high" => 150,
-            "low" => 40,
-            _ => 80
+            "high" => 400,
+            "low" => 180,
+            _ => 275
         };
     }
 
@@ -1304,7 +1309,19 @@ public partial class SettingsWindow : Window
     private void CbxScreenshotInterval_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
+        // PNG 格式时隐藏质量选项
+        bool isPng = CbxScreenshotFormat.SelectedItem is ComboBoxItem fi && fi.Tag?.ToString() == "png";
+        QualityRow.Visibility = isPng ? Visibility.Collapsed : Visibility.Visible;
         UpdateEstimates();
+        MarkChanged();
+    }
+
+    /// <summary>截图开关变化：启用/禁用下方所有截图选项</summary>
+    private void ChkEnableScreenshot_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        bool enabled = ChkEnableScreenshot.IsChecked == true;
+        ScreenshotOptionsPanel.IsEnabled = enabled;
         MarkChanged();
     }
 

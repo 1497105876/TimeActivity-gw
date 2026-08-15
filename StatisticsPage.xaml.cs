@@ -24,8 +24,8 @@ public partial class StatisticsPage : Page
     // 当前周期的参考日期（日模式=当天，周模式=该周任意一天，月模式=该月任意一天）
     private DateTime _periodStart = DateTime.Today;
 
-    private readonly CategoryColorHelper _colorHelper = new();
-    private readonly ChartRenderer _chartRenderer;
+    private CategoryColorHelper _colorHelper = new();
+    private ChartRenderer _chartRenderer;
 
     // 分类名 → 颜色十六进制字符串
     private Dictionary<string, string> _categoryColors = new();
@@ -54,7 +54,10 @@ public partial class StatisticsPage : Page
     /// </summary>
     public void RefreshData()
     {
+        // 重建颜色助手确保不残留旧缓存
+        _colorHelper = new CategoryColorHelper();
         _categoryColors = _colorHelper.Load();
+        _chartRenderer.SetColorHelper(_colorHelper);
         LoadCategoryFilter();
         LoadData();
     }

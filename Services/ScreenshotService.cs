@@ -142,7 +142,7 @@ public class ScreenshotService
             bool enableMaxSize = SettingsRepository.Get("EnableMaxSize", "true") == "true";
             bool enableMaxAge = SettingsRepository.Get("EnableMaxAge", "true") == "true";
 
-            var files = Directory.GetFiles(_screenshotDir, "*.*", SearchOption.TopDirectoryOnly)
+            var files = Directory.GetFiles(_screenshotDir, "*.*", SearchOption.AllDirectories)
                 .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
                              f.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
                              f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
@@ -225,8 +225,11 @@ public class ScreenshotService
             // 根据设置选择保存格式
             string format = SettingsRepository.Get("ScreenshotFormat", "jpg") ?? "jpg";
             string ext = format == "png" ? "png" : "jpg";
-            string fileName = $"screenshot_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.{ext}";
-            string filePath = Path.Combine(_screenshotDir, fileName);
+            string fileName = $"screenshot_{DateTime.Now:HH-mm-ss}.{ext}";
+            // 按日期分文件夹：screenshots/2026-08-15/screenshot_14-30-00.jpg
+            string dateDir = Path.Combine(_screenshotDir, DateTime.Now.ToString("yyyy-MM-dd"));
+            Directory.CreateDirectory(dateDir);
+            string filePath = Path.Combine(dateDir, fileName);
 
             if (format == "png")
             {
@@ -290,10 +293,10 @@ public class ScreenshotService
     public static int GetScreenHeight() => GetSystemMetrics(SM_CYSCREEN);
 
     /// <summary>
-    /// 获取某个时间点最近的一张截图（委托 DatabaseHelper 查询）
+    /// 获取某个时间段内的截图（活动开始~结束之间拍的）
     /// </summary>
-    public static string? GetScreenshotForTime(DateTime time)
+    public static string? GetScreenshotForTime(DateTime startTime, DateTime endTime)
     {
-        return ScreenshotRepository.GetForTime(time);
+        return ScreenshotRepository.GetForTimeRange(startTime, endTime);
     }
 }

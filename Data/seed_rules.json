@@ -1506,5 +1506,957 @@
   {
     "process": "perplexity",
     "category": "AI助手"
+  },
+  {
+    "process": "wsl",
+    "category": "开发工具"
+  },
+  {
+    "process": "wslhost",
+    "category": "开发工具"
+  },
+  {
+    "process": "wslg",
+    "category": "开发工具"
+  },
+  {
+    "process": "wezterm",
+    "category": "开发工具"
+  },
+  {
+    "process": "kitty",
+    "category": "开发工具"
+  },
+  {
+    "process": "tabby",
+    "category": "开发工具"
+  },
+  {
+    "process": "conda",
+    "category": "开发工具"
+  },
+  {
+    "process": "pip",
+    "category": "开发工具"
+  },
+  {
+    "process": "uv",
+    "category": "开发工具"
+  },
+  {
+    "process": "rustc",
+    "category": "开发工具"
+  },
+  {
+    "process": "rust-analyzer",
+    "category": "开发工具"
+  },
+  {
+    "process": "swift",
+    "category": "开发工具"
+  },
+  {
+    "process": "dart",
+    "category": "开发工具"
+  },
+  {
+    "process": "flutter",
+    "category": "开发工具"
+  },
+  {
+    "process": "lua",
+    "category": "开发工具"
+  },
+  {
+    "process": "perl",
+    "category": "开发工具"
+  },
+  {
+    "process": "ruby",
+    "category": "开发工具"
+  },
+  {
+    "process": "php",
+    "category": "开发工具"
+  },
+  {
+    "process": "composer",
+    "category": "开发工具"
+  },
+  {
+    "process": "docker-desktop",
+    "category": "开发工具"
+  },
+  {
+    "process": "dockercli",
+    "category": "开发工具"
+  },
+  {
+    "process": "podman",
+    "category": "开发工具"
+  },
+  {
+    "process": "colima",
+    "category": "开发工具"
+  },
+  {
+    "process": "trae",
+    "category": "开发工具"
+  },
+  {
+    "process": "trae-cn",
+    "category": "开发工具"
+  },
+  {
+    "process": "hediet.vscode-drawio",
+    "category": "开发工具"
+  },
+  {
+    "process": "code-dotnet",
+    "category": "开发工具"
+  },
+  {
+    "process": "hierarchy",
+    "category": "开发工具"
+  },
+  {
+    "process": "vercel",
+    "category": "开发工具"
+  },
+  {
+    "process": "netlify",
+    "category": "开发工具"
+  },
+  {
+    "process": "supabase",
+    "category": "开发工具"
+  },
+  {
+    "process": "prisma",
+    "category": "开发工具"
+  },
+  {
+    "process": "nuke",
+    "category": "开发工具"
+  },
+  {
+    "process": "clink",
+    "category": "开发工具"
+  },
+  {
+    "process": "nuget",
+    "category": "开发工具"
+  },
+  {
+    "process": "msbuild",
+    "category": "开发工具"
+  },
+  {
+    "process": "linqpad",
+    "category": "开发工具"
+  },
+  {
+    "process": "dotnet-script",
+    "category": "开发工具"
+  },
+  {
+    "process": "httpx",
+    "category": "开发工具"
+  },
+  {
+    "process": "curl",
+    "category": "开发工具"
+  },
+  {
+    "process": "wget",
+    "category": "开发工具"
+  },
+  {
+    "process": "360browser",
+    "category": "浏览器"
+  },
+  {
+    "process": "360se",
+    "category": "浏览器"
+  },
+  {
+    "process": "sogouexplorer",
+    "category": "浏览器"
+  },
+  {
+    "process": "liebao",
+    "category": "浏览器"
+  },
+  {
+    "process": "centbrowser",
+    "category": "浏览器"
+  },
+  {
+    "process": "waterfox",
+    "category": "浏览器"
+  },
+  {
+    "process": "librewolf",
+    "category": "浏览器"
+  },
+  {
+    "process": "palemoon",
+    "category": "浏览器"
+  },
+  {
+    "process": "Falkon",
+    "category": "浏览器"
+  },
+  {
+    "process": "duckduckgo",
+    "category": "浏览器"
+  },
+  {
+    "process": "microsoftedgewebview2",
+    "category": "浏览器"
+  },
+  {
+    "process": "cefsharp",
+    "category": "浏览器"
+  },
+  {
+    "process": "wxwork",
+    "category": "社交通讯"
+  },
+  {
+    "process": "wecom",
+    "category": "社交通讯"
+  },
+  {
+    "process": "ncmcpa",
+    "category": "社交通讯"
+  },
+  {
+    "process": "qqmusicchromeextension",
+    "category": "社交通讯"
+  },
+  {
+    "process": "signal",
+    "category": "社交通讯"
+  },
+  {
+    "process": "element",
+    "category": "社交通讯"
+  },
+  {
+    "process": "mattermost",
+    "category": "社交通讯"
+  },
+  {
+    "process": "rocketchat",
+    "category": "社交通讯"
+  },
+  {
+    "process": "viber",
+    "category": "社交通讯"
+  },
+  {
+    "process": "imo",
+    "category": "社交通讯"
+  },
+  {
+    "process": "tencentmeeting",
+    "category": "社交通讯"
+  },
+  {
+    "process": "tencenthuiyi",
+    "category": "社交通讯"
+  },
+  {
+    "process": "voovmeeting",
+    "category": "社交通讯"
+  },
+  {
+    "process": "wemeetapp",
+    "category": "社交通讯"
+  },
+  {
+    "process": "gotomeeting",
+    "category": "社交通讯"
+  },
+  {
+    "process": "webex",
+    "category": "社交通讯"
+  },
+  {
+    "process": "ringcentral",
+    "category": "社交通讯"
+  },
+  {
+    "process": "fanxing",
+    "category": "社交通讯"
+  },
+  {
+    "process": "hzpcclient",
+    "category": "社交通讯"
+  },
+  {
+    "process": "ddswitch",
+    "category": "社交通讯"
+  },
+  {
+    "process": "mpc-hc64",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "mxplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "infuse",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "iyong",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "pptv",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "sohutv",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "letv",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "baofeng",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "kankan",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "xunlei",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "nplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "splayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "qqplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "yyyqqplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "ffplayer",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "ffmpeg",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "shanaencoder",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "formatfactory",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "obs32",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "streamlabs",
+    "category": "视频娱乐"
+  },
+  {
+    "process": "qqmusiccore",
+    "category": "音乐"
+  },
+  {
+    "process": "qmewin",
+    "category": "音乐"
+  },
+  {
+    "process": "spotifyexe",
+    "category": "音乐"
+  },
+  {
+    "process": "ytmdesktop-app",
+    "category": "音乐"
+  },
+  {
+    "process": "amarok",
+    "category": "音乐"
+  },
+  {
+    "process": "Clementine",
+    "category": "音乐"
+  },
+  {
+    "process": "strawberry",
+    "category": "音乐"
+  },
+  {
+    "process": "deemix",
+    "category": "音乐"
+  },
+  {
+    "process": "spotifywebhelper",
+    "category": "音乐"
+  },
+  {
+    "process": "qmewin Tray",
+    "category": "音乐"
+  },
+  {
+    "process": "morpMusic",
+    "category": "音乐"
+  },
+  {
+    "process": "HiFiMusic",
+    "category": "音乐"
+  },
+  {
+    "process": "saltmusic",
+    "category": "音乐"
+  },
+  {
+    "process": "miGuMusic",
+    "category": "音乐"
+  },
+  {
+    "process": "qqmusic_upload",
+    "category": "音乐"
+  },
+  {
+    "process": "wps",
+    "category": "办公学习"
+  },
+  {
+    "process": "wpsoffice",
+    "category": "办公学习"
+  },
+  {
+    "process": "et",
+    "category": "办公学习"
+  },
+  {
+    "process": "wpp",
+    "category": "办公学习"
+  },
+  {
+    "process": "office365",
+    "category": "办公学习"
+  },
+  {
+    "process": "officeclicktorun",
+    "category": "办公学习"
+  },
+  {
+    "process": "flpdf",
+    "category": "办公学习"
+  },
+  {
+    "process": "pdfxviewer",
+    "category": "办公学习"
+  },
+  {
+    "process": "foxitphantompdf",
+    "category": "办公学习"
+  },
+  {
+    "process": "nitropdf",
+    "category": "办公学习"
+  },
+  {
+    "process": "joplin",
+    "category": "办公学习"
+  },
+  {
+    "process": "siyuan",
+    "category": "办公学习"
+  },
+  {
+    "process": "affine",
+    "category": "办公学习"
+  },
+  {
+    "process": "anytype",
+    "category": "办公学习"
+  },
+  {
+    "process": "heptabase",
+    "category": "办公学习"
+  },
+  {
+    "process": "craft",
+    "category": "办公学习"
+  },
+  {
+    "process": "mendeley",
+    "category": "办公学习"
+  },
+  {
+    "process": "papers",
+    "category": "办公学习"
+  },
+  {
+    "process": "freemind",
+    "category": "办公学习"
+  },
+  {
+    "process": "xmind-zen",
+    "category": "办公学习"
+  },
+  {
+    "process": "mindnode",
+    "category": "办公学习"
+  },
+  {
+    "process": "simplemind",
+    "category": "办公学习"
+  },
+  {
+    "process": "processon",
+    "category": "办公学习"
+  },
+  {
+    "process": "boardmix",
+    "category": "办公学习"
+  },
+  {
+    "process": "yuque",
+    "category": "办公学习"
+  },
+  {
+    "process": "yuque-desktop",
+    "category": "办公学习"
+  },
+  {
+    "process": "feishu-docs",
+    "category": "办公学习"
+  },
+  {
+    "process": "lingdocs",
+    "category": "办公学习"
+  },
+  {
+    "process": "pinyin",
+    "category": "办公学习"
+  },
+  {
+    "process": "sogoupinyin",
+    "category": "办公学习"
+  },
+  {
+    "process": "msime",
+    "category": "办公学习"
+  },
+  {
+    "process": "googlepinyin",
+    "category": "办公学习"
+  },
+  {
+    "process": "wechatinput",
+    "category": "办公学习"
+  },
+  {
+    "process": "rime",
+    "category": "办公学习"
+  },
+  {
+    "process": "tianruoinput",
+    "category": "办公学习"
+  },
+  {
+    "process": "photoshopexpress",
+    "category": "设计创作"
+  },
+  {
+    "process": "ps",
+    "category": "设计创作"
+  },
+  {
+    "process": "ai",
+    "category": "设计创作"
+  },
+  {
+    "process": "ae",
+    "category": "设计创作"
+  },
+  {
+    "process": "pr",
+    "category": "设计创作"
+  },
+  {
+    "process": "lr",
+    "category": "设计创作"
+  },
+  {
+    "process": "id",
+    "category": "设计创作"
+  },
+  {
+    "process": "octanerender",
+    "category": "设计创作"
+  },
+  {
+    "process": "keyshot",
+    "category": "设计创作"
+  },
+  {
+    "process": "vray",
+    "category": "设计创作"
+  },
+  {
+    "process": "redshift",
+    "category": "设计创作"
+  },
+  {
+    "process": "substancepainter",
+    "category": "设计创作"
+  },
+  {
+    "process": "substancedesigner",
+    "category": "设计创作"
+  },
+  {
+    "process": "zbrush",
+    "category": "设计创作"
+  },
+  {
+    "process": "sculptris",
+    "category": "设计创作"
+  },
+  {
+    "process": "clipstudiopaint",
+    "category": "设计创作"
+  },
+  {
+    "process": "medibangpaint",
+    "category": "设计创作"
+  },
+  {
+    "process": "firealpaca",
+    "category": "设计创作"
+  },
+  {
+    "process": "opencanvas",
+    "category": "设计创作"
+  },
+  {
+    "process": "aseprite",
+    "category": "设计创作"
+  },
+  {
+    "process": "pixaki",
+    "category": "设计创作"
+  },
+  {
+    "process": "affinityphoto",
+    "category": "设计创作"
+  },
+  {
+    "process": "affinitydesigner",
+    "category": "设计创作"
+  },
+  {
+    "process": "affinitypublisher",
+    "category": "设计创作"
+  },
+  {
+    "process": "graffiti",
+    "category": "设计创作"
+  },
+  {
+    "process": "mockup",
+    "category": "设计创作"
+  },
+  {
+    "process": "framer",
+    "category": "设计创作"
+  },
+  {
+    "process": "principle",
+    "category": "设计创作"
+  },
+  {
+    "process": "overflow",
+    "category": "设计创作"
+  },
+  {
+    "process": "figjam",
+    "category": "设计创作"
+  },
+  {
+    "process": "sharex",
+    "category": "实用工具"
+  },
+  {
+    "process": "greenshot",
+    "category": "实用工具"
+  },
+  {
+    "process": "snagit",
+    "category": "实用工具"
+  },
+  {
+    "process": "picpick",
+    "category": "实用工具"
+  },
+  {
+    "process": "lightscreen",
+    "category": "实用工具"
+  },
+  {
+    "process": "faststonecapture",
+    "category": "实用工具"
+  },
+  {
+    "process": "fscapture",
+    "category": "实用工具"
+  },
+  {
+    "process": "rocketdock",
+    "category": "实用工具"
+  },
+  {
+    "process": "rainmeter",
+    "category": "实用工具"
+  },
+  {
+    "process": "desktopgadgets",
+    "category": "实用工具"
+  },
+  {
+    "process": "widget",
+    "category": "实用工具"
+  },
+  {
+    "process": "flux",
+    "category": "实用工具"
+  },
+  {
+    "process": "redshiftg",
+    "category": "实用工具"
+  },
+  {
+    "process": "twinkletray",
+    "category": "实用工具"
+  },
+  {
+    "process": "monitian",
+    "category": "实用工具"
+  },
+  {
+    "process": "trafficmonitor",
+    "category": "实用工具"
+  },
+  {
+    "process": "trafficmonitorplus",
+    "category": "实用工具"
+  },
+  {
+    "process": "desktopinfo",
+    "category": "实用工具"
+  },
+  {
+    "process": "rainlendar",
+    "category": "实用工具"
+  },
+  {
+    "process": "stickynotes",
+    "category": "实用工具"
+  },
+  {
+    "process": "simplenote",
+    "category": "实用工具"
+  },
+  {
+    "process": "tomato",
+    "category": "实用工具"
+  },
+  {
+    "process": "pomotodo",
+    "category": "实用工具"
+  },
+  {
+    "process": "forest",
+    "category": "实用工具"
+  },
+  {
+    "process": "focus",
+    "category": "实用工具"
+  },
+  {
+    "process": "ditto",
+    "category": "实用工具"
+  },
+  {
+    "process": "clipx",
+    "category": "实用工具"
+  },
+  {
+    "process": "copyq",
+    "category": "实用工具"
+  },
+  {
+    "process": "arduinoide",
+    "category": "实用工具"
+  },
+  {
+    "process": "esp32",
+    "category": "实用工具"
+  },
+  {
+    "process": "raspberrypi",
+    "category": "实用工具"
+  },
+  {
+    "process": "balenaetcher",
+    "category": "实用工具"
+  },
+  {
+    "process": "wox",
+    "category": "实用工具"
+  },
+  {
+    "process": "ueli",
+    "category": "实用工具"
+  },
+  {
+    "process": "keypirinha",
+    "category": "实用工具"
+  },
+  {
+    "process": "flowlauncher",
+    "category": "实用工具"
+  },
+  {
+    "process": "alfred",
+    "category": "实用工具"
+  },
+  {
+    "process": "fontview",
+    "category": "系统组件"
+  },
+  {
+    "process": "charmap",
+    "category": "系统组件"
+  },
+  {
+    "process": "sysprep",
+    "category": "系统组件"
+  },
+  {
+    "process": "disksmgmt",
+    "category": "系统组件"
+  },
+  {
+    "process": "cleanmgr",
+    "category": "系统组件"
+  },
+  {
+    "process": "dfrgui",
+    "category": "系统组件"
+  },
+  {
+    "process": "bcdedit",
+    "category": "系统组件"
+  },
+  {
+    "process": "diskpart",
+    "category": "系统组件"
+  },
+  {
+    "process": "sfc",
+    "category": "系统组件"
+  },
+  {
+    "process": "chkdsk",
+    "category": "系统组件"
+  },
+  {
+    "process": "wuauclt",
+    "category": "系统组件"
+  },
+  {
+    "process": "msconfig",
+    "category": "系统组件"
+  },
+  {
+    "process": "eventvwr",
+    "category": "系统组件"
+  },
+  {
+    "process": "secpol",
+    "category": "系统组件"
+  },
+  {
+    "process": "gpedit",
+    "category": "系统组件"
+  },
+  {
+    "process": "lusrmgr",
+    "category": "系统组件"
+  },
+  {
+    "process": "odbcad32",
+    "category": "系统组件"
+  },
+  {
+    "process": "cliconfg",
+    "category": "系统组件"
+  },
+  {
+    "process": "telephon",
+    "category": "系统组件"
+  },
+  {
+    "process": "timedate",
+    "category": "系统组件"
+  },
+  {
+    "process": "wscript",
+    "category": "系统组件"
+  },
+  {
+    "process": "cscript",
+    "category": "系统组件"
+  },
+  {
+    "process": "powershell_ise",
+    "category": "系统组件"
+  },
+  {
+    "process": "fsquirt",
+    "category": "系统组件"
+  },
+  {
+    "process": "mobsync",
+    "category": "系统组件"
+  },
+  {
+    "process": "rdpclip",
+    "category": "系统组件"
+  },
+  {
+    "process": "mstsc",
+    "category": "系统组件"
+  },
+  {
+    "process": "rdpclient",
+    "category": "系统组件"
   }
 ]

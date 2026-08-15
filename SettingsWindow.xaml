@@ -101,8 +101,9 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="启用截图" VerticalAlignment="Center"/>
-                                    <CheckBox x:Name="ChkEnableScreenshot" Grid.Column="1" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="ChkEnableScreenshot" Grid.Column="1" VerticalAlignment="Center" Checked="ChkEnableScreenshot_Changed" Unchecked="ChkEnableScreenshot_Changed"/>
                                 </Grid>
+                                <StackPanel x:Name="ScreenshotOptionsPanel">
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
@@ -139,7 +140,7 @@
                                         <ComboBoxItem Content="PNG" Tag="png"/>
                                     </ComboBox>
                                 </Grid>
-                                <Grid Margin="0,0,0,12">
+                                <Grid x:Name="QualityRow" Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
@@ -199,6 +200,7 @@
                                     <TextBlock Text="当前磁盘占用" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="TxtDiskUsage" Grid.Column="1" Text="-" VerticalAlignment="Center" Foreground="#888"/>
                                 </Grid>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>

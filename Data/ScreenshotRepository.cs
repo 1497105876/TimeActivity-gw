@@ -43,19 +43,23 @@ public static class ScreenshotRepository
     /// </summary>
     /// <param name="time">目标时间点</param>
     /// <returns>截图文件的绝对路径，没有则返回 null</returns>
-    public static string? GetForTime(DateTime time)
+    /// <summary>
+    /// 查找指定时间段内的截图（截图时间必须在活动的开始~结束之间）
+    /// </summary>
+    public static string? GetForTimeRange(DateTime startTime, DateTime endTime)
     {
         EnsureInit();
-        // 查捕获时间 <= 指定时间的最近一张截图
+        // 查捕获时间在活动时间范围内的最近一张截图
         const string sql = @"
             SELECT FilePath FROM Screenshots
-            WHERE CapturedAt <= @Time
+            WHERE CapturedAt >= @Start AND CapturedAt <= @End
             ORDER BY CapturedAt DESC LIMIT 1";
 
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Time", time.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+        cmd.Parameters.AddWithValue("@Start", startTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+        cmd.Parameters.AddWithValue("@End", endTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
 
         var result = cmd.ExecuteScalar();
         if (result != null && result != DBNull.Value)
