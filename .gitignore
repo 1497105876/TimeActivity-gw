@@ -63,3 +63,11 @@ manictime_apps.txt
 classified_procs.json
 temp_*.txt
 temp_*.py
+
+
+
+
+
+
+*.bak
+ai_summaries/
