@@ -95,35 +95,43 @@ public static class RuleRepository
         conn.Open();
         using var transaction = conn.BeginTransaction();
 
-        foreach (var r in rules)
+        try
         {
-            if (string.IsNullOrWhiteSpace(r.ProcessName))
-                continue;
-            if (!categoryNameToId.TryGetValue(r.CategoryName, out int catId))
-                continue;
+            foreach (var r in rules)
+            {
+                if (string.IsNullOrWhiteSpace(r.ProcessName))
+                    continue;
+                if (!categoryNameToId.TryGetValue(r.CategoryName, out int catId))
+                    continue;
 
-            if (r.Id > 0)
-            {
-                using var upd = new SqliteCommand(
-                    "UPDATE Rules SET CategoryId=@c, IsCustom=@ic WHERE Id=@id", conn, transaction);
-                upd.Parameters.AddWithValue("@c", catId);
-                upd.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
-                upd.Parameters.AddWithValue("@id", r.Id);
-                upd.ExecuteNonQuery();
+                if (r.Id > 0)
+                {
+                    using var upd = new SqliteCommand(
+                        "UPDATE Rules SET CategoryId=@c, IsCustom=@ic WHERE Id=@id", conn, transaction);
+                    upd.Parameters.AddWithValue("@c", catId);
+                    upd.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
+                    upd.Parameters.AddWithValue("@id", r.Id);
+                    upd.ExecuteNonQuery();
+                }
+                else
+                {
+                    using var ins = new SqliteCommand(
+                        "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn, transaction);
+                    ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
+                    ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
+                    ins.Parameters.AddWithValue("@c", catId);
+                    ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
+                    ins.ExecuteNonQuery();
+                }
             }
-            else
-            {
-                using var ins = new SqliteCommand(
-                    "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@p, @k, @c, @ic)", conn, transaction);
-                ins.Parameters.AddWithValue("@p", r.ProcessName ?? "");
-                ins.Parameters.AddWithValue("@k", (object?)r.TitleKeyword ?? DBNull.Value);
-                ins.Parameters.AddWithValue("@c", catId);
-                ins.Parameters.AddWithValue("@ic", r.IsCustom ? 1 : 0);
-                ins.ExecuteNonQuery();
-            }
+
+            transaction.Commit();
         }
-
-        transaction.Commit();
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 
     /// <summary>

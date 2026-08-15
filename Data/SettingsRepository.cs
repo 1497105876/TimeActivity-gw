@@ -124,7 +124,8 @@ public static class SettingsRepository
             "ScreenshotFormat", "ScreenshotPath", "ScreenshotQuality",
             "EnableMaxSize", "MaxScreenshotSizeMB", "EnableMaxAge", "MaxScreenshotAgeDays"),
         4 => FilterDefaults("DataRetentionDays"),
-        5 => FilterDefaults("EnableAI", "AIMode", "AIApiUrl", "AIApiKey", "AIModel"),
+        5 => FilterDefaults("EnableAI", "AIMode", "AIApiUrl", "AIApiKey", "AIModel",
+            "AISummaryPath", "AISummaryMaxCount", "AISummaryMaxSizeMB"),
         6 => FilterDefaults("AutoStartWithWindows", "MinimizeToTray"),
         _ => new()
     };

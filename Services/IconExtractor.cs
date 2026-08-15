@@ -86,8 +86,8 @@ public static class IconExtractor
             if (icon == null) return null;
 
             // 把 Icon 转成 BitmapImage（WPF 用的格式），通过 PNG 内存流中转
-            var bitmap = icon.ToBitmap();
-            var memory = new MemoryStream();
+            using var bitmap = icon.ToBitmap();
+            using var memory = new MemoryStream();
             bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Png);
             memory.Position = 0;
 

@@ -316,12 +316,23 @@ public class DatabaseHelper
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
 
-        // 按表逐个清空，不删 Categories/Settings/AppColors/Rules
-        string[] tables = { "Activities", "Screenshots", "DailyTotal", "DailyCategorySummary", "DailyProcessSummary", "AISummaries" };
-        foreach (var table in tables)
+        // 用事务包住所有 DELETE，中途失败不会丢部分数据
+        using var transaction = conn.BeginTransaction();
+        try
         {
-            using var cmd = new SqliteCommand($"DELETE FROM {table}", conn);
-            cmd.ExecuteNonQuery();
+            // 按表逐个清空，不删 Categories/Settings/AppColors/Rules
+            string[] tables = { "Activities", "Screenshots", "DailyTotal", "DailyCategorySummary", "DailyProcessSummary", "AISummaries" };
+            foreach (var table in tables)
+            {
+                using var cmd = new SqliteCommand($"DELETE FROM {table}", conn, transaction);
+                cmd.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
         }
     }
 

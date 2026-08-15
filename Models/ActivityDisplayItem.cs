@@ -7,6 +7,9 @@ namespace TimeActivity.Models;
 /// </summary>
 public class ActivityDisplayItem
 {
+    /// <summary>数据库主键，用于去重</summary>
+    public long Id { get; set; }
+
     /// <summary>应用图标（从进程 exe 提取）</summary>
     public ImageSource? Icon { get; set; }
 

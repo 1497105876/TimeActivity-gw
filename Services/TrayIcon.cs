@@ -96,6 +96,10 @@ public class TrayIcon : IDisposable
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
 
+    // 释放图标句柄，防止 GDI 泄漏
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(IntPtr hIcon);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int X; public int Y; }
 
@@ -239,6 +243,13 @@ public class TrayIcon : IDisposable
             };
             Shell_NotifyIconW(NIM_DELETE, ref data);
             _added = false;
+        }
+
+        // 释放图标句柄
+        if (_hIcon != IntPtr.Zero)
+        {
+            DestroyIcon(_hIcon);
+            _hIcon = IntPtr.Zero;
         }
     }
 }

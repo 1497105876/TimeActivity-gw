@@ -189,14 +189,15 @@ public partial class MainWindow : Window
                 _cachedActivities = activities;
 
                 // _items 是倒序的（最新在顶部），新记录要 Insert(0) 加到顶部
-                // 用数据库数量减去当前列表数量算出新增条数
-                int newCount = activities.Count - _items.Count;
-                if (newCount > 0)
+                // 用 Id 去重，避免 OnActivityRecorded 和自动刷新同时插入同一条记录
+                var existingIds = new HashSet<long>(_items.Select(i => i.Id));
+                var newActivities = activities.Where(a => !existingIds.Contains(a.Id)).ToList();
+                if (newActivities.Count > 0)
                 {
-                    // activities 是正序（旧→新），取最后 newCount 条，倒着 Insert(0)
-                    for (int i = activities.Count - newCount; i < activities.Count; i++)
+                    // activities 是正序（旧→新），倒着 Insert(0) 保持倒序
+                    for (int i = newActivities.Count - 1; i >= 0; i--)
                     {
-                        _items.Insert(0, CreateDisplayItem(activities[i]));
+                        _items.Insert(0, CreateDisplayItem(newActivities[i]));
                     }
                     while (_items.Count > 500)
                         _items.RemoveAt(_items.Count - 1);
@@ -558,6 +559,7 @@ private static string? PickColor(string? currentHex = null)
     {
         return new ActivityDisplayItem
         {
+            Id = a.Id,
             Icon = IconExtractor.GetIcon(a.ProcessName),
             ProcessName = a.ProcessName,
             DisplayName = Services.AppDisplayName.Get(a.ProcessName),
@@ -1307,9 +1309,16 @@ private static string? PickColor(string? currentHex = null)
         foreach (var act in _cachedActivities)
         {
             if (act.IsIdle) continue;
+            // 用绝对时间比较，不用 TimeOfDay（跨午夜活动EndTime.TimeOfDay会归零）
+            // 将活动起止转为当天秒数，跨午夜活动endSec会小于startSec，需特殊处理
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double endSec = act.EndTime.TimeOfDay.TotalSeconds;
-            if (mouseTime >= startSec && mouseTime < endSec)
+            // 跨午夜活动（endSec < startSec），endSec 加一天秒数
+            if (endSec < startSec) endSec += 86400;
+            // mouseTime 也可能小于 startSec（如凌晨0点后看前一天23点开始的活踯）
+            double mt = mouseTime;
+            if (mt < startSec) mt += 86400;
+            if (mt >= startSec && mt < endSec)
             {
                 hit = act;
                 break;

@@ -27,9 +27,12 @@ public static class AISummaryRepository
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
 
+        // 用事务包住 DELETE+INSERT，中途失败不会丢数据
+        using var transaction = conn.BeginTransaction();
+
         // 先删同类型同日期同来源的旧记录，再插入新的，保证每次只保留最新一条
         using var delCmd = new SqliteCommand(
-            "DELETE FROM AISummaries WHERE Date=@Date AND SummaryType=@SummaryType AND AutoType=@AutoType", conn);
+            "DELETE FROM AISummaries WHERE Date=@Date AND SummaryType=@SummaryType AND AutoType=@AutoType", conn, transaction);
         delCmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         delCmd.Parameters.AddWithValue("@SummaryType", summaryType);
         delCmd.Parameters.AddWithValue("@AutoType", autoType);
@@ -38,7 +41,7 @@ public static class AISummaryRepository
         const string sql = @"INSERT INTO AISummaries (Date, SummaryText, SummaryType, AutoType, CreatedAt)
             VALUES (@Date, @SummaryText, @SummaryType, @AutoType, @CreatedAt)";
 
-        using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn, transaction);
         // 日期统一用 yyyy-MM-dd 格式存储
         cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@SummaryText", summaryText);
@@ -47,6 +50,7 @@ public static class AISummaryRepository
         cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
 
         cmd.ExecuteNonQuery();
+        transaction.Commit();
     }
 
     /// <summary>

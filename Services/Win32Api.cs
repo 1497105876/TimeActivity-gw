@@ -36,6 +36,10 @@ public static class Win32Api
     [DllImport("kernel32.dll")]
     public static extern ulong GetTickCount64();
 
+    // 获取系统启动以来的毫秒数（32 位，约49.7天回绕，但 uint 减法自动处理回绕）
+    [DllImport("kernel32.dll")]
+    public static extern uint GetTickCount();
+
     /// <summary>
     /// 获取当前前台窗口的标题文字。
     /// </summary>
@@ -69,8 +73,8 @@ public static class Win32Api
     }
 
     /// <summary>
-    /// 获取用户空闲了多久（秒）。原理：GetTickCount64 - 最后一次输入时间。
-    /// 处理了 uint 回绕问题（48 天后会回绕但零扩展保证差值正确）。
+    /// 获取用户空闲了多久（秒）。原理：GetTickCount - 最后一次输入时间。
+    /// uint 减法自动处理 49.7 天回绕（uint 溢出后减法结果仍然正确）。
     /// </summary>
     /// <returns>空闲秒数</returns>
     public static int GetIdleSeconds()
@@ -78,13 +82,11 @@ public static class Win32Api
         var info = new LASTINPUTINFO();
         info.cbSize = (uint)Marshal.SizeOf(info);
         GetLastInputInfo(ref info);
-        // GetTickCount64 返回 ulong 不会溢出
-        // LASTINPUTINFO.dwTime 是 uint（GetTickCount 的值），48天后会回绕
-        // 但 GetTickCount64 内部和 dwTime 的基准一致，做减法时 uint 会隐式转 ulong
-        // 回绕后 dwTime 变小，now 变大，差值会很大但正确——因为 uint 到 ulong 是零扩展
-        ulong now = GetTickCount64();
-        ulong lastInput = info.dwTime; // uint → ulong 零扩展，和 GetTickCount64 同基准
-        ulong elapsed = now - lastInput;
+        // 用 GetTickCount（uint）与 dwTime（uint）做差，uint 减法自动处理回绕
+        // 例：dwTime=0xFFFFFFFF（回绕前最后一刻），now=0x00000001（回绕后）
+        // uint 减法：0x00000001 - 0xFFFFFFFF = 0x00000002（即 2ms，正确）
+        uint now = GetTickCount();
+        uint elapsed = now - info.dwTime;
         return (int)(elapsed / 1000);
     }
 }
