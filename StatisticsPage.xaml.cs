@@ -49,6 +49,16 @@ public partial class StatisticsPage : Page
         LoadData();
     }
 
+    /// <summary>
+    /// 外部调用的刷新方法：重新加载颜色和当前周期数据（设置保存后用）
+    /// </summary>
+    public void RefreshData()
+    {
+        _categoryColors = _colorHelper.Load();
+        LoadCategoryFilter();
+        LoadData();
+    }
+
     // ========== 周期切换 ==========
 
     /// <summary>
@@ -148,10 +158,14 @@ public partial class StatisticsPage : Page
 
         string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
 
+        // 用 GetRange 算出来的起始日期查 AI 总结，而不是直接用 _periodStart
+        // 因为 _periodStart 在周模式下可能是周中某天，但 AI 总结是按周一（周起始日）存的
+        var (rangeStart, _) = GetRange();
+
         if (_period == "day")
         {
             // 日总结：查 manual
-            var (text, createdAt) = AISummaryRepository.GetWithMeta(_periodStart, summaryType, "manual");
+            var (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "manual");
             if (text != null)
             {
                 AISummaryText.Markdown = text;
@@ -172,7 +186,7 @@ public partial class StatisticsPage : Page
             if (IsCurrentPeriod())
             {
                 // 本周/月：查 manual，显示生成按钮
-                var (text, createdAt) = AISummaryRepository.GetWithMeta(_periodStart, summaryType, "manual");
+                var (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "manual");
                 if (text != null)
                 {
                     AISummaryText.Markdown = text;
@@ -190,7 +204,7 @@ public partial class StatisticsPage : Page
             else
             {
                 // 非本周/月：查 auto，隐藏生成按钮
-                var (text, createdAt) = AISummaryRepository.GetWithMeta(_periodStart, summaryType, "auto");
+                var (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "auto");
                 if (text != null)
                 {
                     AISummaryText.Markdown = text;
@@ -457,7 +471,8 @@ public partial class StatisticsPage : Page
 
         // 锁定当前周期，防止 await 期间用户切换页面导致结果串台
         string lockPeriod = _period;
-        DateTime lockPeriodStart = _periodStart;
+        var (lockRangeStart, _) = GetRange();
+        DateTime lockPeriodStart = lockRangeStart;
         _generatingPeriod = lockPeriod;
 
         try
@@ -492,8 +507,9 @@ public partial class StatisticsPage : Page
                     Logger.Error("AI 总结自动保存失败", ex);
                 }
 
-                // 只有用户没切换走才刷新显示
-                if (lockPeriod == _period && lockPeriodStart == _periodStart)
+                // 只有用户没切换走才刷新显示（用 GetRange 比较确保一致性）
+                var (currentStart, _) = GetRange();
+                if (lockPeriod == _period && lockPeriodStart == currentStart)
                 {
                     LoadAISummary();
                 }

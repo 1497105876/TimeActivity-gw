@@ -188,24 +188,34 @@ public partial class MainWindow : Window
                 var activities = ActivityRepository.GetByDate(_currentDate);
                 _cachedActivities = activities;
 
-                // 追加新记录到列表（只加末尾新增的）
-                int existingCount = _items.Count;
-                for (int i = existingCount; i < activities.Count; i++)
+                // _items 是倒序的（最新在顶部），新记录要 Insert(0) 加到顶部
+                // 用数据库数量减去当前列表数量算出新增条数
+                int newCount = activities.Count - _items.Count;
+                if (newCount > 0)
                 {
-                    var a = activities[i];
-                    _items.Add(CreateDisplayItem(a));
+                    // activities 是正序（旧→新），取最后 newCount 条，倒着 Insert(0)
+                    for (int i = activities.Count - newCount; i < activities.Count; i++)
+                    {
+                        _items.Insert(0, CreateDisplayItem(activities[i]));
+                    }
+                    while (_items.Count > 500)
+                        _items.RemoveAt(_items.Count - 1);
                 }
-                // 更新已有记录的结束时间和时长（最后一条可能还在进行中）
+                // 更新最新一条记录的结束时间和时长（倒序第一个=最新的，可能还在进行中）
                 if (_items.Count > 0 && activities.Count > 0)
                 {
                     var last = activities[activities.Count - 1];
-                    var item = _items[_items.Count - 1];
+                    var item = _items[0];
                     item.EndTime = last.EndTime;
                     item.DurationText = TimeFormatHelper.Format(last.Duration);
                 }
 
                 DrawAll();
                 UpdateTodayTotal();
+
+                // 如果停在"使用占比"模式，也刷新统计列表
+                if (StatsListPanel?.Visibility == Visibility.Visible)
+                    LoadStatsLists();
             }
             // 检查是否需要自动生成周/月总结
             _ = CheckAutoSummaryAsync();
@@ -255,18 +265,11 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnSettingsSaved()
     {
-        // 截图服务：如果在跑就重启（重新读设置）
+        // 截图服务：如果在跑就先停，然后按新设置决定是否启动
         if (_screenshotService.IsRunning)
-        {
             _screenshotService.Stop();
-            if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
-                _screenshotService.Start();
-        }
-        else
-        {
-            if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
-                _screenshotService.Start();
-        }
+        if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
+            _screenshotService.Start();
 
         // 追踪引擎重读采样间隔和空闲阈值
         if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
@@ -285,6 +288,9 @@ public partial class MainWindow : Window
         _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
         DrawLegend();
         DrawAll();
+
+        // 刷新统计报表页（用户可能改了分类规则/颜色）
+        _statsPage?.RefreshData();
 
         // 执行数据保留清理
         PerformDataRetention();
@@ -448,6 +454,14 @@ public partial class MainWindow : Window
                             _classifier.ReloadRules();
                             try { DatabaseHelper.ReclassifyAll(_classifier.Classify); }
                             catch (Exception ex) { Logger.Error("ReclassifyAll 失败", ex); }
+                            // 重新从数据库加载缓存，否则 LoadStatsLists 读到的还是旧分类
+                            _cachedActivities = ActivityRepository.GetByDate(_currentDate);
+                            // 同步更新 _items 里的分类
+                            foreach (var item in _items)
+                            {
+                                var match = _cachedActivities.FirstOrDefault(a => a.ProcessName == item.ProcessName);
+                                if (match != null) item.Category = match.Category;
+                            }
                             DrawAll();
                             LoadStatsLists();
                             UpdateTodayTotal();
@@ -486,7 +500,26 @@ public partial class MainWindow : Window
             var menu = new ContextMenu();
 
             var miColor = new MenuItem { Header = "颜色" };
-            miColor.Click += (s, ev) => OpenSettings("categories");
+            miColor.Click += (s, ev) =>
+            {
+                // 直接弹颜色选择器，和应用统计右键保持一致
+                using var dlg = new System.Windows.Forms.ColorDialog();
+                dlg.FullOpen = true;
+                if (_categoryColors.TryGetValue(categoryName, out var hex))
+                    dlg.Color = System.Drawing.ColorTranslator.FromHtml(hex);
+                if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    string newHex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
+                    CategoryRepository.UpdateColor(categoryName, newHex);
+                    LoadCategoryColors();
+                    _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
+                    _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
+                    DrawLegend();
+                    DrawAll();
+                    LoadStatsLists();
+                    _statsPage?.RefreshData();
+                }
+            };
             menu.Items.Add(miColor);
 
             var miView = new MenuItem { Header = "查看类别" };
@@ -600,16 +633,22 @@ public partial class MainWindow : Window
         // 同一天只执行一次，避免 30 秒刷新重复查库
         if (_lastAutoSummaryCheckDate == DateTime.Today) return;
         _lastAutoSummaryCheckDate = DateTime.Today;
+        Logger.Info("开始检查自动周/月总结...");
 
         try
         {
-            if (SettingsRepository.Get("EnableAI", "true") != "true") return;
+            if (SettingsRepository.Get("EnableAI", "true") != "true")
+            {
+                Logger.Info("AI 未启用，跳过自动总结");
+                return;
+            }
 
             var aiService = new AISummaryService();
             DateTime today = DateTime.Today;
 
             // 检查上周总结
             DateTime lastWeekStart = DateHelper.GetWeekStart(today.AddDays(-7));
+            Logger.Info($"检查上周总结：lastWeekStart={lastWeekStart:yyyy-MM-dd}, HasAuto={AISummaryRepository.HasAuto(lastWeekStart, "weekly")}");
             if (!AISummaryRepository.HasAuto(lastWeekStart, "weekly"))
             {
                 int weekSeconds = ActivityRepository.GetCategorySummaryByRange(lastWeekStart, lastWeekStart.AddDays(6), false).Values.Sum();
@@ -617,6 +656,7 @@ public partial class MainWindow : Window
                 {
                     Logger.Info($"补生成上周总结：{lastWeekStart:yyyy-MM-dd}");
                     string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
+                    Logger.Info($"上周总结生成结果：{(result != null ? "成功" : "null")}");
                     if (result != null)
                         AISummaryRepository.Insert(lastWeekStart, result, "weekly", "auto");
                 }
@@ -629,6 +669,7 @@ public partial class MainWindow : Window
 
             // 检查上月总结
             DateTime lastMonthStart = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+            Logger.Info($"检查上月总结：lastMonthStart={lastMonthStart:yyyy-MM-dd}, HasAuto={AISummaryRepository.HasAuto(lastMonthStart, "monthly")}");
             if (!AISummaryRepository.HasAuto(lastMonthStart, "monthly"))
             {
                 int monthSeconds = ActivityRepository.GetCategorySummaryByRange(lastMonthStart, lastMonthStart.AddMonths(1).AddDays(-1), false).Values.Sum();
@@ -636,6 +677,7 @@ public partial class MainWindow : Window
                 {
                     Logger.Info($"补生成上月总结：{lastMonthStart:yyyy-MM-dd}");
                     string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
+                    Logger.Info($"上月总结生成结果：{(result != null ? "成功" : "null")}");
                     if (result != null)
                         AISummaryRepository.Insert(lastMonthStart, result, "monthly", "auto");
                 }

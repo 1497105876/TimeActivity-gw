@@ -26,6 +26,9 @@ public class ScreenshotService
     // 是否在切换应用时截屏（仿 ManicTime）
     private bool _captureOnSwitch;
 
+    // 记录上次清理日期，同一天只清理一次
+    private DateTime _lastCleanDate = DateTime.MinValue;
+
     // Win32 API：获取屏幕尺寸（传 nIndex 参数指定要获取宽还是高）
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
@@ -89,13 +92,16 @@ public class ScreenshotService
         ReloadSettings();
         _running = true;
 
-        // 立即截一张并清理旧截图
-        CaptureAndSave();
+        // 启动时清理一次旧截图
         CleanOldScreenshots();
+        _lastCleanDate = DateTime.Today;
 
-        // 启动定时器，每隔 N 分钟截一张
+        // 立即截一张
+        CaptureAndSave();
+
+        // 启动定时器，每隔 N 分钟截一张（清理单独走天级检查）
         _timer = new System.Threading.Timer(
-            _ => { CaptureAndSave(); CleanOldScreenshots(); },
+            _ => { CaptureAndSave(); MaybeCleanOldScreenshots(); },
             null,
             TimeSpan.FromMinutes(_intervalMinutes),
             TimeSpan.FromMinutes(_intervalMinutes));
@@ -109,6 +115,18 @@ public class ScreenshotService
         _running = false;
         _timer?.Dispose();
         _timer = null;
+    }
+
+    /// <summary>
+    /// 每天只清理一次旧截图（跨天时触发），避免每次截屏都扫目录
+    /// </summary>
+    private void MaybeCleanOldScreenshots()
+    {
+        if (_lastCleanDate != DateTime.Today)
+        {
+            CleanOldScreenshots();
+            _lastCleanDate = DateTime.Today;
+        }
     }
 
     /// <summary>
@@ -180,7 +198,7 @@ public class ScreenshotService
     {
         if (!_running || !_captureOnSwitch) return;
         CaptureAndSave();
-        CleanOldScreenshots();
+        MaybeCleanOldScreenshots();
         // 重置定时器倒计时：从此刻起重新计时
         _timer?.Change(TimeSpan.FromMinutes(_intervalMinutes), TimeSpan.FromMinutes(_intervalMinutes));
     }

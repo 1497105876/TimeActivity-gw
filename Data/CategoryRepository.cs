@@ -75,6 +75,21 @@ public static class CategoryRepository
     }
 
     /// <summary>
+    /// 只更新分类颜色（右键快捷改色用）
+    /// </summary>
+    public static void UpdateColor(string name, string color)
+    {
+        EnsureInit();
+        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+        conn.Open();
+        using var cmd = new SqliteCommand(
+            "UPDATE Categories SET Color=@Color WHERE Name=@Name", conn);
+        cmd.Parameters.AddWithValue("@Color", color);
+        cmd.Parameters.AddWithValue("@Name", name);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
     /// 删除自定义分类。预置分类（Id 1-13）不可删除
     /// </summary>
     /// <param name="id">要删除的分类 Id</param>
