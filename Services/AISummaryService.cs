@@ -258,13 +258,18 @@ public class AISummaryService
             ? System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai_summaries")
             : configuredPath;
 
-        // 按日期分子文件夹
-        string dir = System.IO.Path.Combine(baseDir, date.ToString("yyyy-MM-dd"));
-        Directory.CreateDirectory(dir);
+        // 直接存到根目录，不再按日期建子文件夹
+        Directory.CreateDirectory(baseDir);
 
-        // 文件名带类型+时分秒，每次保留不覆盖
-        string filename = $"summary_{summaryType}_{DateTime.Now:HHmmss}.md";
-        string filepath = System.IO.Path.Combine(dir, filename);
+        // 文件名带日期范围+时分秒
+        string datePart = summaryType switch
+        {
+            "weekly" => $"{date:MM-dd}_to_{date.AddDays(6):MM-dd}",
+            "monthly" => $"{date:MM}",
+            _ => $"{date:yyyy-MM-dd}"
+        };
+        string filename = $"summary_{summaryType}_{datePart}_{DateTime.Now:HHmmss}.md";
+        string filepath = System.IO.Path.Combine(baseDir, filename);
 
         string typeLabel = summaryType switch
         {

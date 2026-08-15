@@ -151,10 +151,11 @@ public partial class StatisticsPage : Page
     private void LoadAISummary()
     {
         // 切换周期时重置按钮文字（避免"正在生成..."串到其他周期）
-        if (_isGenerating && _generatingPeriod != _period)
-            BtnGenerateAI.Content = "生成总结";
-        else if (_isGenerating && _generatingPeriod == _period)
+        bool currentGen = _generatingByPeriod.TryGetValue(_period, out bool g) && g;
+        if (currentGen && _generatingPeriod == _period)
             BtnGenerateAI.Content = "正在生成...";
+        else
+            BtnGenerateAI.Content = "生成总结";
 
         string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
 
@@ -438,14 +439,10 @@ public partial class StatisticsPage : Page
 
     // ========== AI 总结 ==========
 
-    // 防重复点击：上次调用时间
-    private DateTime _lastAICallTime = DateTime.MinValue;
-    // Cooldown 秒数（后续可从设置读）
-    private const int AICooldownSeconds = 30;
     // 当前显示的 AI 总结内容
     private string? _currentAISummary = null;
-    // 是否正在生成中
-    private bool _isGenerating = false;
+    // 按总结类型独立的生成状态：day/week/month → 是否正在生成
+    private readonly Dictionary<string, bool> _generatingByPeriod = new() { ["day"] = false, ["week"] = false, ["month"] = false };
     // 记录正在生成的是哪个周期，防止 await 期间用户切换导致串台
     private string? _generatingPeriod = null;
 
@@ -454,23 +451,19 @@ public partial class StatisticsPage : Page
     /// </summary>
     private async void BtnGenerateAI_Click(object sender, RoutedEventArgs e)
     {
-        // Cooldown 机制防止频繁调用
-        var elapsed = (DateTime.Now - _lastAICallTime).TotalSeconds;
-        if (elapsed < AICooldownSeconds)
+        string lockPeriod = _period;
+
+        // 按总结类型独立防重复：日/周/月各自可并行，但单个类型正在生成时不能重复点
+        if (_generatingByPeriod.TryGetValue(lockPeriod, out bool isGen) && isGen)
         {
-            AISummaryText.Markdown = $"请稍候，距离上次生成不足 {AICooldownSeconds} 秒（还剩 {(int)(AICooldownSeconds - elapsed)} 秒）";
+            AISummaryText.Markdown = $"当前{(lockPeriod == "day" ? "日" : lockPeriod == "week" ? "周" : "月")}总结正在生成中，请等待完成。";
             return;
         }
-        _lastAICallTime = DateTime.Now;
-
-        // 生成中不改 IsEnabled（会变白），用 flag + 文字提示
-        if (_isGenerating) return;
-        _isGenerating = true;
+        _generatingByPeriod[lockPeriod] = true;
         BtnGenerateAI.Content = "正在生成...";
         AISummaryText.Markdown = "正在生成...";
 
         // 锁定当前周期，防止 await 期间用户切换页面导致结果串台
-        string lockPeriod = _period;
         var (lockRangeStart, _) = GetRange();
         DateTime lockPeriodStart = lockRangeStart;
         _generatingPeriod = lockPeriod;
@@ -527,7 +520,7 @@ public partial class StatisticsPage : Page
         }
         finally
         {
-            _isGenerating = false;
+            _generatingByPeriod[lockPeriod] = false;
             _generatingPeriod = null;
             BtnGenerateAI.Content = "生成总结";
         }

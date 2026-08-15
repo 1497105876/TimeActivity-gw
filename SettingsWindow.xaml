@@ -391,9 +391,11 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="模型名称" VerticalAlignment="Center"/>
                                     <TextBox x:Name="TxtAIModel" Grid.Column="1" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnTestAI" Grid.Column="2" Content="测试连接" Width="75" Height="26" FontSize="11" Click="BtnTestAI_Click"/>
                                 </Grid>
                                 <Border Background="#F8F8F8" CornerRadius="4" Padding="8,6" Margin="0,8,0,8">
                                     <StackPanel>

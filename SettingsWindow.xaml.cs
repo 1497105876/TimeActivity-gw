@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -1092,6 +1093,69 @@ public partial class SettingsWindow : Window
         {
             TxtAISummaryPath.Text = dialog.FolderName;
             MarkChanged();
+        }
+    }
+
+    // ========== AI 测试连接 ==========
+
+    /// <summary>测试 AI API 连接是否可用</summary>
+    private async void BtnTestAI_Click(object sender, RoutedEventArgs e)
+    {
+        string apiUrl = TxtApiUrl.Text.Trim();
+        string apiKey = TxtApiKey.Password;
+        string model = TxtAIModel.Text.Trim();
+        string mode = (CbxAIMode.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "lan";
+
+        if (string.IsNullOrEmpty(apiUrl))
+        {
+            MessageBox.Show("请先填写服务地址", "提示");
+            return;
+        }
+
+        BtnTestAI.Content = "测试中...";
+        BtnTestAI.IsEnabled = false;
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+
+            if (mode == "lan")
+            {
+                // Ollama 模式：GET /api/tags 检测在线
+                var resp = await http.GetAsync($"{apiUrl.TrimEnd('/')}/api/tags");
+                if (resp.IsSuccessStatusCode)
+                    MessageBox.Show($"连接成功！Ollama 服务正常运行。\n模型名：{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
+                else
+                    MessageBox.Show($"连接失败，HTTP {resp.StatusCode}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            else
+            {
+                // 自定义模式：POST 一个简单消息测试
+                if (!string.IsNullOrEmpty(apiKey))
+                    http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                var payload = $"{{\"model\":\"{model}\",\"messages\":[{{\"role\":\"user\",\"content\":\"hi\"}}],\"max_tokens\":10}}";
+                var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                var resp = await http.PostAsync(apiUrl, content);
+
+                if (resp.IsSuccessStatusCode)
+                    MessageBox.Show($"连接成功！API 可正常调用。\n模型名：{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
+                else
+                    MessageBox.Show($"连接失败，HTTP {resp.StatusCode}\n{await resp.Content.ReadAsStringAsync()}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            MessageBox.Show("连接超时，请检查服务是否已启动", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"连接失败：{ex.Message}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            BtnTestAI.Content = "测试连接";
+            BtnTestAI.IsEnabled = true;
         }
     }
 
