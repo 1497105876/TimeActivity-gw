@@ -47,9 +47,7 @@ public static class RuleRepository
     /// <param name="categoryId">分类 Id</param>
     public static void Insert(string processName, string titleKeyword, int categoryId)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         // IsCustom=1 标记为用户自定义规则，可在设置中删除
         using var cmd = new SqliteCommand(
             "INSERT INTO Rules (ProcessName, TitleKeyword, CategoryId, IsCustom) VALUES (@P, @T, @C, 1)", conn);
@@ -67,9 +65,7 @@ public static class RuleRepository
     /// <param name="categoryId">新的分类 Id</param>
     public static void UpdateCategory(string processName, int categoryId)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         // 更新分类并标记为自定义规则（预置规则改后也变成自定义）
         using var cmd = new SqliteCommand(
             "UPDATE Rules SET CategoryId=@C, IsCustom=1 WHERE ProcessName=@P", conn);
@@ -90,9 +86,7 @@ public static class RuleRepository
     /// <param name="categoryNameToId">分类名 → 分类 Id 的映射，用于按名称查 Id</param>
     public static void SaveAll(List<RuleItem> rules, Dictionary<string, int> categoryNameToId)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var transaction = conn.BeginTransaction();
 
         try
@@ -139,9 +133,7 @@ public static class RuleRepository
     /// </summary>
     public static void ClearAll()
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         // 只删自定义规则，IsCustom=0 的预置规则不动
         using var cmd = new SqliteCommand("DELETE FROM Rules WHERE IsCustom=1", conn);
         cmd.ExecuteNonQuery();

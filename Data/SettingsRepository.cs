@@ -23,8 +23,7 @@ public static class SettingsRepository
         EnsureInit();
         const string sql = "SELECT Value FROM Settings WHERE Key = @Key";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Key", key);
 
@@ -45,8 +44,7 @@ public static class SettingsRepository
             INSERT INTO Settings (Key, Value) VALUES (@Key, @Value)
             ON CONFLICT(Key) DO UPDATE SET Value = @Value";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Key", key);
         cmd.Parameters.AddWithValue("@Value", value);
@@ -61,8 +59,7 @@ public static class SettingsRepository
     {
         EnsureInit();
         var dict = new Dictionary<string, string>();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         // 查全部设置项，不做过滤
         using var cmd = new SqliteCommand("SELECT Key, Value FROM Settings", conn);
         using var reader = cmd.ExecuteReader();

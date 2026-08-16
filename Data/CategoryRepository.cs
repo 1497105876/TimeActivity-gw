@@ -53,9 +53,7 @@ public static class CategoryRepository
     /// <param name="sortOrder">排序序号</param>
     public static int UpdateOrInsert(int id, string name, string color, int sortOrder)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         if (id > 0)
         {
             // 更新已有分类
@@ -85,9 +83,7 @@ public static class CategoryRepository
     /// </summary>
     public static void UpdateColor(string name, string color)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(
             "UPDATE Categories SET Color=@Color WHERE Name=@Name", conn);
         cmd.Parameters.AddWithValue("@Color", color);
@@ -104,9 +100,7 @@ public static class CategoryRepository
     {
         // 预置分类 Id 1-13 受保护，不允许删除
         if (id <= MaxPresetCategoryId) return false;
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand("DELETE FROM Categories WHERE Id=@Id", conn);
         cmd.Parameters.AddWithValue("@Id", id);
         return cmd.ExecuteNonQuery() > 0;
@@ -117,9 +111,7 @@ public static class CategoryRepository
     /// </summary>
     public static void ResetToDefault()
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
 
         // 删除自定义分类
         using (var delCmd = new SqliteCommand("DELETE FROM Categories WHERE Id > " + MaxPresetCategoryId, conn))

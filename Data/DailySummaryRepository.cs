@@ -21,9 +21,7 @@ public static class DailySummaryRepository
     /// </summary>
     public static void GenerateAllMissing()
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
 
         // 找出 Activities 里有但 DailyTotal 里没有的日期——即缺失汇总的日期
         using var cmd = conn.CreateCommand();
@@ -55,9 +53,7 @@ public static class DailySummaryRepository
     /// <param name="date">日期字符串，格式 yyyy-MM-dd</param>
     public static void GenerateForDate(string date)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         GenerateForDate(date, conn, null);
     }
 

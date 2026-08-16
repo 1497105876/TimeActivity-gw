@@ -36,9 +36,7 @@ public static class AppColorRepository
     /// <param name="color">十六进制颜色值，如 #FF6B6B</param>
     public static void Set(string processName, string color)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         // ON CONFLICT 主键冲突时更新颜色，实现 UPSERT
         using var cmd = new SqliteCommand(@"
             INSERT INTO AppColors (ProcessName, Color) VALUES (@p, @c)
@@ -55,9 +53,7 @@ public static class AppColorRepository
     /// <returns>颜色字符串，不存在则返回 null</returns>
     public static string? Get(string processName)
     {
-        EnsureInit();
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand("SELECT Color FROM AppColors WHERE ProcessName=@p", conn);
         cmd.Parameters.AddWithValue("@p", processName);
         using var reader = cmd.ExecuteReader();

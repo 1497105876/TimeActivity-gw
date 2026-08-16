@@ -26,8 +26,7 @@ public static class ScreenshotRepository
             VALUES (@FilePath, @CapturedAt, @FileSize, @CreatedAt);
             SELECT last_insert_rowid();";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         // CapturedAt 和 CreatedAt 都用当前时间，精确到毫秒
         cmd.Parameters.AddWithValue("@FilePath", filePath);
@@ -55,8 +54,7 @@ public static class ScreenshotRepository
             WHERE CapturedAt >= @Start AND CapturedAt <= @End
             ORDER BY CapturedAt DESC LIMIT 1";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Start", startTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
         cmd.Parameters.AddWithValue("@End", endTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));

@@ -29,8 +29,7 @@ public static class ActivityRepository
             VALUES (@ProcessName, @WindowTitle, @Category, @StartTime, @EndTime, @Duration, @IsIdle, @CreatedAt);
             SELECT last_insert_rowid();";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@ProcessName", activity.ProcessName);
         cmd.Parameters.AddWithValue("@WindowTitle", activity.WindowTitle ?? "");
@@ -63,8 +62,7 @@ public static class ActivityRepository
             WHERE date(StartTime) = @DateStr
             ORDER BY StartTime";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@DateStr", dateStr);
 
@@ -104,8 +102,7 @@ public static class ActivityRepository
             WHERE StartTime >= @Start AND StartTime < @End
             ORDER BY StartTime";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd HH:mm:ss.fff"));
         cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd HH:mm:ss.fff"));
@@ -147,8 +144,7 @@ public static class ActivityRepository
             GROUP BY Category
             ORDER BY TotalSeconds DESC";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@DateStr", dateStr);
 
@@ -176,8 +172,7 @@ public static class ActivityRepository
             GROUP BY ProcessName
             ORDER BY TotalSeconds DESC";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@DateStr", dateStr);
 
@@ -217,8 +212,7 @@ public static class ActivityRepository
             GROUP BY Category
             ORDER BY TotalSeconds DESC";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
         cmd.Parameters.AddWithValue("@End", end.ToDateKey());
@@ -258,8 +252,7 @@ public static class ActivityRepository
             GROUP BY ProcessName
             ORDER BY TotalSeconds DESC";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
         cmd.Parameters.AddWithValue("@End", end.ToDateKey());
@@ -299,8 +292,7 @@ public static class ActivityRepository
             GROUP BY Date
             ORDER BY Date";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
         cmd.Parameters.AddWithValue("@End", end.ToDateKey());

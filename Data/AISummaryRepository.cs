@@ -24,8 +24,7 @@ public static class AISummaryRepository
     {
         EnsureInit();
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
 
         // 用事务包住 DELETE+INSERT，中途失败不会丢数据
         using var transaction = conn.BeginTransaction();
@@ -64,8 +63,7 @@ public static class AISummaryRepository
         EnsureInit();
         // 查 AutoType='auto' 的记录数量，大于 0 说明已有自动总结
         const string sql = "SELECT COUNT(*) FROM AISummaries WHERE Date=@Date AND SummaryType=@Type AND AutoType='auto'";
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@Type", summaryType);
@@ -85,8 +83,7 @@ public static class AISummaryRepository
         // 按创建时间降序取第一条，即最新的一条
         const string sql = "SELECT SummaryText FROM AISummaries WHERE Date = @Date AND SummaryType = @Type ORDER BY CreatedAt DESC LIMIT 1";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@Type", summaryType);
@@ -103,8 +100,7 @@ public static class AISummaryRepository
         EnsureInit();
         const string sql = "SELECT SummaryText, CreatedAt FROM AISummaries WHERE Date = @Date AND SummaryType = @Type AND AutoType = @Auto ORDER BY CreatedAt DESC LIMIT 1";
 
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.AddWithValue("@Date", date.ToDateKey());
         cmd.Parameters.AddWithValue("@Type", summaryType);
