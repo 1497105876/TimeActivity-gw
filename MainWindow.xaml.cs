@@ -1371,7 +1371,7 @@ private static string? PickColor(string? currentHex = null)
         }
         else
         {
-            // 没命中活动时只显示时间
+            // 没命中活动时只显示时间1
             TimeSpan ts = TimeSpan.FromSeconds(mouseTime);
             PopupColor.Visibility = Visibility.Collapsed;
             PopupCategory.Visibility = Visibility.Collapsed;
