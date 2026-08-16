@@ -283,6 +283,15 @@ public partial class MainWindow : Window
         try { DatabaseHelper.ReclassifyAll(_classifier.Classify); }
         catch (Exception ex) { Logger.Error("OnSettingsSaved 重新分类失败", ex); }
 
+        // 重新从数据库加载缓存，否则时间轴和统计列表读到的还是旧分类
+        _cachedActivities = ActivityRepository.GetByDate(_currentDate);
+        // 同步更新 _items 里的分类
+        foreach (var item in _items)
+        {
+            var match = _cachedActivities.FirstOrDefault(a => a.ProcessName == item.ProcessName);
+            if (match != null) item.Category = match.Category;
+        }
+
         // 重载分类颜色（用户可能改了分类颜色）
         // 重新创建实例确保不残留旧缓存
         _colorHelper = new CategoryColorHelper();
