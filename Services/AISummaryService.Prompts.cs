@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using TimeActivity.Data;
@@ -138,7 +139,7 @@ public partial class AISummaryService
         // 按周分组对比（每月按 7 天分 4~5 周）
         sb.AppendLine("\n### 每周对比");
         var weeklyGroups = dailyTotals
-            .Select(d => { var dt = DateTime.Parse(d.Key); var weekNum = (dt.Day - 1) / 7 + 1; return (Week: weekNum, Seconds: d.Value); })
+            .Select(d => { var dt = DateTime.Parse(d.Key, CultureInfo.InvariantCulture); var weekNum = (dt.Day - 1) / 7 + 1; return (Week: weekNum, Seconds: d.Value); })
             .GroupBy(x => x.Week)
             .OrderBy(g => g.Key);
         foreach (var g in weeklyGroups)

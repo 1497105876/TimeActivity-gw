@@ -27,6 +27,10 @@ public class ScreenshotService
     // 是否在切换应用时截屏（仿 ManicTime）
     private bool _captureOnSwitch;
 
+    // 串行化锁：定时器回调与 OnAppSwitched 后台线程可能并发进入截图/清理，
+    // 加锁避免同秒截图互相覆盖、清理与写入交错导致刚写的就被删或库里留重复记录。
+    private readonly object _capLock = new();
+
     // 记录上次清理日期，同一天只清理一次
     private DateTime _lastCleanDate = DateTime.MinValue;
 
@@ -136,6 +140,8 @@ public class ScreenshotService
     /// </summary>
     private void CleanOldScreenshots()
     {
+        lock (_capLock)
+        {
         try
         {
             if (!Directory.Exists(_screenshotDir)) return;
@@ -189,6 +195,7 @@ public class ScreenshotService
         {
             Logger.Error("截图清理失败", ex);
         }
+        }
     }
 
     /// <summary>
@@ -210,6 +217,8 @@ public class ScreenshotService
     /// </summary>
     private void CaptureAndSave()
     {
+        lock (_capLock)
+        {
         try
         {
             // 用 Win32 API 获取屏幕分辨率
@@ -264,6 +273,7 @@ public class ScreenshotService
         catch (Exception ex)
         {
             Logger.Error("截图保存失败", ex);
+        }
         }
     }
 

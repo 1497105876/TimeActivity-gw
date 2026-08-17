@@ -36,10 +36,10 @@ public static class DailySummaryRepository
             missingDates.Add(reader.GetString(0));
         reader.Close();
 
-        // 逐天补生成汇总，失败只记日志不中断
+        // 逐天补生成汇总，复用同一连接避免每天重开，失败只记日志不中断
         foreach (var d in missingDates)
         {
-            try { GenerateForDate(d); }
+            try { GenerateForDate(d, conn, null); }
             catch (Exception ex) { Logger.Error($"补生成汇总失败: {d}", ex); }
         }
 

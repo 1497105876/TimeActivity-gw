@@ -83,7 +83,16 @@ public class TrackingEngine
     {
         while (!token.IsCancellationRequested)
         {
-            Poll();
+            try
+            {
+                Poll();
+            }
+            catch (Exception ex)
+            {
+                // 单次采样异常（如 Win32 P/Invoke 偶发失败）不应让整个轮询循环停摆，
+                // 记日志后跳过本次，继续下一轮采样，保证追踪引擎持续运行。
+                Logger.Error("轮询采样异常，已跳过本次采样", ex);
+            }
             try
             {
                 // 限制间隔在 1~3600 秒之间

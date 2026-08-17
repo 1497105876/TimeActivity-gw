@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Models;
 using TimeActivity.Services;
@@ -75,8 +76,8 @@ public static class ActivityRepository
                 ProcessName = reader.GetString(1),
                 WindowTitle = reader.GetString(2),
                 Category = reader.GetString(3),
-                StartTime = DateTime.Parse(reader.GetString(4)),
-                EndTime = DateTime.Parse(reader.GetString(5)),
+                StartTime = DateTime.Parse(reader.GetString(4), CultureInfo.InvariantCulture),
+                EndTime = DateTime.Parse(reader.GetString(5), CultureInfo.InvariantCulture),
                 Duration = reader.GetInt32(6),
                 IsIdle = reader.GetInt32(7) == 1
             });
@@ -116,8 +117,8 @@ public static class ActivityRepository
                 ProcessName = reader.GetString(1),
                 WindowTitle = reader.GetString(2),
                 Category = reader.GetString(3),
-                StartTime = DateTime.Parse(reader.GetString(4)),
-                EndTime = DateTime.Parse(reader.GetString(5)),
+                StartTime = DateTime.Parse(reader.GetString(4), CultureInfo.InvariantCulture),
+                EndTime = DateTime.Parse(reader.GetString(5), CultureInfo.InvariantCulture),
                 Duration = reader.GetInt32(6),
                 IsIdle = reader.GetInt32(7) == 1
             });

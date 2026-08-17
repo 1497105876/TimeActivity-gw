@@ -56,9 +56,9 @@ public partial class AISummaryService
         if (activities.Count == 0)
             return "当天没有活动记录。";
 
-        // 类别时长统计 + 进程时长统计
-        var catSummary = ActivityRepository.GetCategorySummaryByRange(date, date.AddDays(1));
-        var procSummary = ActivityRepository.GetProcessSummaryByRange(date, date.AddDays(1));
+        // 类别时长统计 + 进程时长统计（用单日方法，避免 Range 含右边界把次日数据算进当天）
+        var catSummary = ActivityRepository.GetCategorySummaryByDate(date);
+        var procSummary = ActivityRepository.GetProcessSummaryByDate(date);
 
         // 拼接发给 AI 的 prompt
         string prompt = BuildPrompt(date, catSummary, procSummary, activities.Count);
@@ -186,7 +186,14 @@ public partial class AISummaryService
 
         var response = await _httpClient.SendAsync(request);
         using var resp2 = response;
-        if (!resp2.IsSuccessStatusCode) return null;
+        if (!resp2.IsSuccessStatusCode)
+        {
+            // 4xx/5xx 时记录状态码与响应体，方便排查 AI 配置/鉴权问题，而非静默返回 null
+            var errBody = await resp2.Content.ReadAsStringAsync();
+            if (errBody.Length > 500) errBody = errBody.Substring(0, 500);
+            Logger.Error($"自定义 AI API 返回错误：{(int)resp2.StatusCode} {resp2.ReasonPhrase}，响应体={errBody}", null);
+            return null;
+        }
 
         // 解析返回：choices 数组第一个元素的 message.content 就是回复文本
         var respJson = await resp2.Content.ReadAsStringAsync();

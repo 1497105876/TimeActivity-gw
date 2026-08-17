@@ -20,18 +20,22 @@ public static partial class DatabaseHelper
     // SQLite 连接字符串，直接指向数据库文件
     public static string ConnectionString => $"Data Source={DbPath}";
 
-    // 防止重复初始化的标记
+    // 防止重复初始化的标记（配合 _initLock 保证并发首调安全）
     private static bool _initialized = false;
+    private static readonly object _initLock = new();
 
     /// <summary>
     /// 初始化数据库 — 首次运行时自动建表 + 插初始数据
     /// </summary>
     public static void Initialize()
     {
+        // 双重检查锁：避免并发首调时重复建表 / 重复插入预置数据
         if (_initialized) return;
-
-        try
+        lock (_initLock)
         {
+            if (_initialized) return;
+            try
+            {
             using var conn = new SqliteConnection(ConnectionString);
             conn.Open();
 
@@ -163,7 +167,13 @@ public static partial class DatabaseHelper
                     Logger.Info("数据库迁移：AISummaries 表已加 AutoType 字段");
                 }
             }
-            catch (Exception ex) { Logger.Error("AISummaries AutoType 列迁移失败", ex); }
+            catch (Exception ex)
+            {
+                // 列迁移是 AI 总结写入的前提，失败不应静默吞掉，
+                // 抛出让外层 Initialize 统一记日志并报错，避免后续 Insert 因缺列而隐蔽失败。
+                Logger.Error("AISummaries AutoType 列迁移失败", ex);
+                throw;
+            }
             // 创建唯一索引：同一天同一类型同一来源只能有一条总结
             try
             {
@@ -273,6 +283,7 @@ public static partial class DatabaseHelper
         {
             Logger.Error("数据库初始化失败", ex);
             throw;
+        }
         }
     }
 

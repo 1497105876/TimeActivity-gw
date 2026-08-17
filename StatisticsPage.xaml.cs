@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -237,7 +238,7 @@ public partial class StatisticsPage : Page
         try
         {
             // CreatedAt 格式：yyyy-MM-dd HH:mm:ss.fff
-            var dt = DateTime.Parse(createdAt);
+            var dt = DateTime.Parse(createdAt, CultureInfo.InvariantCulture);
             return $"{dt:M/d} {dt:HH:mm} 总结";
         }
         catch (Exception ex) { Logger.Error("格式化总结时间失败", ex); return ""; }
