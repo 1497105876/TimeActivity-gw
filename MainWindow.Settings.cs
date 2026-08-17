@@ -141,7 +141,13 @@ public partial class MainWindow
                             var selected = (Category)((Button)s2).Tag;
                             RuleRepository.UpdateCategory(processName, selected.Id);
                             _classifier.ReloadRules();
-                            try { DatabaseHelper.ReclassifyAll(_classifier.Classify); }
+                            try
+                            {
+                                DatabaseHelper.ReclassifyAll(_classifier.Classify);
+                                // 底层数据已变，使近期自动总结失效并立即补算刷新
+                                AISummaryRepository.InvalidateRecent();
+                                _summaryScheduler.RegenerateNow();
+                            }
                             catch (Exception ex) { Logger.Error("ReclassifyAll 失败", ex); }
                             // 重新从数据库加载缓存，否则 LoadStatsLists 读到的还是旧分类
                             _cachedActivities = ActivityRepository.GetByDate(_currentDate);

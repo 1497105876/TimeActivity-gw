@@ -72,6 +72,41 @@ public static class AISummaryRepository
     }
 
     /// <summary>
+    /// 使"近期"的自动总结失效（删除 auto 来源记录），下一次 GenerateMissingAsync 会重新生成。
+    /// 用于底层活动数据被修改（如重新分类）后让已有总结刷新。仅删 auto，保留用户手动总结。
+    /// 覆盖范围：最近 7 天日报 + 最近一个完整周 + 最近一个完整月（与 SummaryScheduler 的补算窗口一致）。
+    /// </summary>
+    public static void InvalidateRecent()
+    {
+        EnsureInit();
+        var today = DateTime.Today;
+        using var conn = DbAccess.Open();
+
+        // 删最近 7 天日报（auto）
+        using (var cmd = new SqliteCommand(
+            "DELETE FROM AISummaries WHERE AutoType='auto' AND SummaryType='daily' AND Date >= @From", conn))
+        {
+            cmd.Parameters.AddWithValue("@From", today.AddDays(-7).ToDateKey());
+            cmd.ExecuteNonQuery();
+        }
+        // 删最近一个完整周（auto）
+        using (var cmd = new SqliteCommand(
+            "DELETE FROM AISummaries WHERE AutoType='auto' AND SummaryType='weekly' AND Date=@Ws", conn))
+        {
+            cmd.Parameters.AddWithValue("@Ws", DateHelper.GetLatestClosedWeekStart().ToDateKey());
+            cmd.ExecuteNonQuery();
+        }
+        // 删最近一个完整月（auto）
+        using (var cmd = new SqliteCommand(
+            "DELETE FROM AISummaries WHERE AutoType='auto' AND SummaryType='monthly' AND Date=@Ms", conn))
+        {
+            cmd.Parameters.AddWithValue("@Ms", DateHelper.GetLatestClosedMonthStart().ToDateKey());
+            cmd.ExecuteNonQuery();
+        }
+        Logger.Info("已使近期 AI 自动总结失效，将在下次检查时重新生成");
+    }
+
+    /// <summary>
     /// 获取某天最新一条 AI 总结文本（不限来源类型）
     /// </summary>
     /// <param name="date">要查询的日期</param>

@@ -75,6 +75,7 @@ public partial class MainWindow
         // 真正退出
         _engine.Stop();
         _screenshotService.Stop();
+        _summaryScheduler.Stop();
         _trayIcon?.Dispose();
         base.OnClosing(e);
     }

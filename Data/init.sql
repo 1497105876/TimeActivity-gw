@@ -109,6 +109,8 @@ INSERT INTO Settings ([Key], [Value]) VALUES
 ('AIApiUrl', 'https://api.minimax.chat/v1/text/chatcompletion_v2'),
 ('AIApiKey', ''),
 ('AutoDailySummary', 'true'),
+('AutoWeeklySummary', 'true'),
+('AutoMonthlySummary', 'true'),
 ('AutoStartWithWindows', 'true'),
 ('MinimizeToTray', 'true'),
 ('HotkeyToggleTracking', 'Ctrl+Shift+T');

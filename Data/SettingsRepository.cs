@@ -104,6 +104,9 @@ public static class SettingsRepository
         ["AISummaryPath"] = "",                    // AI 总结保存路径
         ["AISummaryMaxCount"] = "30",              // AI 总结最大保留条数
         ["AISummaryMaxSizeMB"] = "50",             // AI 总结最大占用空间（MB）
+        ["AutoDailySummary"] = "true",             // 每日 0:00 自动生成每日总结
+        ["AutoWeeklySummary"] = "true",            // 每周一 0:00 自动生成每周总结
+        ["AutoMonthlySummary"] = "true",          // 每月 1 号 0:00 自动生成每月总结
         // 系统相关
         ["AutoStartWithWindows"] = "false",        // 开机自启
         ["MinimizeToTray"] = "true",               // 关闭时最小化到托盘
@@ -122,7 +125,8 @@ public static class SettingsRepository
             "EnableMaxSize", "MaxScreenshotSizeMB", "EnableMaxAge", "MaxScreenshotAgeDays"),
         4 => FilterDefaults("DataRetentionDays"),
         5 => FilterDefaults("EnableAI", "AIMode", "AIApiUrl", "AIApiKey", "AIModel",
-            "AISummaryPath", "AISummaryMaxCount", "AISummaryMaxSizeMB"),
+            "AISummaryPath", "AISummaryMaxCount", "AISummaryMaxSizeMB",
+            "AutoDailySummary", "AutoWeeklySummary", "AutoMonthlySummary"),
         6 => FilterDefaults("AutoStartWithWindows", "MinimizeToTray"),
         _ => new()
     };

@@ -33,6 +33,9 @@ public partial class MainWindow : Window
     // 截图服务：定时或切换应用时截屏
     private readonly ScreenshotService _screenshotService;
 
+    // AI 总结定时调度：每天 0:00 自动生成 日/周/月 总结，启动也会补算错过的（后台线程，不阻塞 UI）
+    private readonly SummaryScheduler _summaryScheduler = new();
+
     // 活动列表的数据源（ObservableCollection 支持双向绑定自动刷新）
     private readonly ObservableCollection<ActivityDisplayItem> _items = new();
 
@@ -129,6 +132,8 @@ public partial class MainWindow : Window
         try
         {
             DatabaseHelper.ReclassifyAll(_classifier.Classify);
+            // 底层数据已变，使近期自动总结失效，待下方 _summaryScheduler.Start() 补算时刷新
+            AISummaryRepository.InvalidateRecent();
         }
         catch (Exception ex)
         {
@@ -227,6 +232,9 @@ public partial class MainWindow : Window
         };
         _autoRefreshTimer.Start();
 
+        // 启动 AI 总结定时调度（每天 0:00 自动生成 日/周/月 总结；启动时也会补算错过的任务）
+        _summaryScheduler.Start();
+
         // 启动时执行数据保留清理（按设置的天数删旧数据）
         PerformDataRetention();
 
@@ -280,7 +288,13 @@ public partial class MainWindow : Window
 
         // 分类器重载规则 + 重新分类历史数据
         _classifier.ReloadRules();
-        try { DatabaseHelper.ReclassifyAll(_classifier.Classify); }
+        try
+        {
+            DatabaseHelper.ReclassifyAll(_classifier.Classify);
+            // 底层数据已变，使近期自动总结失效并立即补算刷新
+            AISummaryRepository.InvalidateRecent();
+            _summaryScheduler.RegenerateNow();
+        }
         catch (Exception ex) { Logger.Error("OnSettingsSaved 重新分类失败", ex); }
 
         // 重新从数据库加载缓存，否则时间轴和统计列表读到的还是旧分类
