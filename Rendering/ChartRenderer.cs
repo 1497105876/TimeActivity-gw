@@ -91,11 +91,13 @@ public class ChartRenderer
             var barFill = new Border
             {
                 Height = 18,
-                Width = Math.Max(pct * 100, 2),
                 Background = new SolidColorBrush(color),
                 CornerRadius = new CornerRadius(3),
                 HorizontalAlignment = HorizontalAlignment.Left
             };
+            // 按占比填充：star 列实际宽度确定后才准确，用 SizeChanged 随布局更新，
+            // 避免原先"pct*100 当像素"在列宽≠100px 时条形失真
+            barBg.SizeChanged += (_, _) => barFill.Width = Math.Max(barBg.ActualWidth * pct, 2);
             barBg.Child = barFill;
             row.Children.Add(barBg);
 
@@ -134,6 +136,7 @@ public class ChartRenderer
         double w = canvas.ActualWidth;
         if (w <= 0) w = 800;
         double h = canvas.Height;
+        if (double.IsNaN(h) || h <= 0) h = 400;
 
         int days = (end - start).Days + 1;
         if (days <= 1) days = 1;
@@ -171,7 +174,7 @@ public class ChartRenderer
         for (int i = 0; i < days; i++)
         {
             DateTime day = start.AddDays(i);
-            string key = day.ToString("yyyy-MM-dd");
+            string key = day.ToDateKey();
             int sec = dailyData.ContainsKey(key) ? dailyData[key] : 0;
 
             // 计算这天数据点的坐标
@@ -248,7 +251,7 @@ public class ChartRenderer
 
         // 第一个就是最大值，用于算相对占比
         int top = Math.Min(data.Count, topN);
-        int maxSec = data.Values.First();
+        int maxSec = data.Values.Max();
 
         int i = 0;
         foreach (var kvp in data.Take(top))
@@ -291,11 +294,12 @@ public class ChartRenderer
             var barFill = new Border
             {
                 Height = 14,
-                Width = Math.Max(pct * 100, 2),
                 Background = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9)),
                 CornerRadius = new CornerRadius(3),
                 HorizontalAlignment = HorizontalAlignment.Left
             };
+            // 按占比填充：star 列实际宽度确定后才准确，用 SizeChanged 随布局更新
+            barBg.SizeChanged += (_, _) => barFill.Width = Math.Max(barBg.ActualWidth * pct, 2);
             barBg.Child = barFill;
             row.Children.Add(barBg);
 

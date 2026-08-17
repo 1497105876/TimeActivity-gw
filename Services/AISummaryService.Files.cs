@@ -13,8 +13,7 @@ public partial class AISummaryService
 {
     /// <summary>
     /// 保存 AI 总结到文件
-    /// 按日期文件夹分：如 2026-08-02/summary_daily_143025.md
-    /// 每次保存都保留新文件不覆盖，受设置最大数量/大小控制
+    /// 直接存到 ai_summaries 根目录（不按日期建子文件夹），文件名带类型+日期范围+时分秒，每次保存都保留新文件不覆盖，受设置最大数量/大小控制
     /// </summary>
     public static string? SaveSummaryToFile(string summary, DateTime date, string summaryType = "daily")
     {
@@ -54,7 +53,7 @@ public partial class AISummaryService
     }
 
     /// <summary>
-    /// 按设置清理旧的 AI 总结文件（递归扫描含子文件夹）
+    /// 按设置清理旧的 AI 总结文件（扫描 ai_summaries 目录，兼容旧版本可能残留的子文件夹）
     /// </summary>
     private static void CleanOldSummaries(string baseDir)
     {

@@ -63,24 +63,8 @@ public partial class AISummaryService
         // 拼接发给 AI 的 prompt
         string prompt = BuildPrompt(date, catSummary, procSummary, activities.Count);
 
-        try
-        {
-            if (AiMode == "lan")
-            {
-                // Ollama 模式：POST http://localhost:11434/api/chat
-                return await CallOllama(prompt);
-            }
-            else
-            {
-                // 自定义模式：OpenAI 兼容格式
-                return await CallCustomAPI(prompt);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Error("AI 总结生成失败", ex);
-            return null;
-        }
+        // 日报与周/月报统一走同一分发入口，避免两份同构逻辑（改分发时漏改一处）
+        return await CallAIInternal(prompt);
     }
 
     /// <summary>

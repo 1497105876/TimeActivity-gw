@@ -6,20 +6,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>false</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="MdXaml" Version="1.27.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.2" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    <!-- 手动引用 WinForms 仅为了用 NotifyIcon（不开启 UseWindowsForms，避免引入整套 WinForms SDK） -->
     <Reference Include="System.Windows.Forms" />
-  </ItemGroup>
-
-  <!-- 排除已废弃的旧设置页（模型类已移至 Models/） -->
-  <ItemGroup>
-    <Compile Remove="SettingsPage.xaml.cs" />
-    <Page Remove="SettingsPage.xaml" />
   </ItemGroup>
 
   <!-- 预置规则数据文件复制到输出目录 -->

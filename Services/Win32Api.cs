@@ -82,7 +82,14 @@ public static class Win32Api
     {
         var info = new LASTINPUTINFO();
         info.cbSize = (uint)Marshal.SizeOf(info);
-        GetLastInputInfo(ref info);
+        // 调用失败（如会话锁定/权限异常）时 info.dwTime 不会被填充，dwTime 保持 0，
+        // 会让 elapsed 变成"开机以来的全部时间"，误判为永久空闲、追踪静默失效。
+        // 失败按空闲 0 秒处理并记录一条 WARN，便于排查。
+        if (!GetLastInputInfo(ref info))
+        {
+            Logger.Warning("获取最后输入信息失败（GetLastInputInfo 返回 false），按空闲 0 秒处理");
+            return 0;
+        }
         // 用 GetTickCount（uint）与 dwTime（uint）做差，uint 减法自动处理回绕
         // 例：dwTime=0xFFFFFFFF（回绕前最后一刻），now=0x00000001（回绕后）
         // uint 减法：0x00000001 - 0xFFFFFFFF = 0x00000002（即 2ms，正确）

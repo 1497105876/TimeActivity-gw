@@ -185,24 +185,8 @@ public static partial class DatabaseHelper
             var countCmd = new SqliteCommand("SELECT COUNT(*) FROM Categories", conn);
             if ((long)(countCmd.ExecuteScalar() ?? 0L) == 0)
             {
-                // 预置分类列表：名称、颜色、图标标识、排序序号
-                var cats = new[]
-                {
-                    ("开发工具", "#4A90D9", "code", 1),
-                    ("社交通讯", "#E67E22", "chat", 2),
-                    ("游戏", "#E74C3C", "gamepad", 3),
-                    ("办公学习", "#2ECC71", "book", 4),
-                    ("浏览器", "#9B59B6", "globe", 5),
-                    ("视频娱乐", "#FF6B6B", "video", 6),
-                    ("音乐", "#AB47BC", "music", 7),
-                    ("设计创作", "#FFA726", "palette", 8),
-                    ("实用工具", "#26C6DA", "wrench", 9),
-                    ("AI助手", "#EC407A", "robot", 10),
-                    ("系统组件", "#7CB9E8", "desktop", 11),
-                    ("空闲", "#CFD8DC", "coffee", 12),
-                    ("未分类", "#90A4AE", "question", 13),
-                };
-                foreach (var (name, color, icon, order) in cats)
+                // 预置分类直接复用 CategoryRepository 的权威定义，避免重复硬编码导致不同步
+                foreach (var (name, color, icon, order) in CategoryRepository.PresetCategories)
                 {
                     var insertCat = new SqliteCommand(
                         "INSERT INTO Categories (Name, Color, Icon, SortOrder) VALUES (@Name, @Color, @Icon, @SortOrder)", conn);

@@ -11,14 +11,14 @@ namespace TimeActivity.Services;
 /// </summary>
 public class ActivityClassifier
 {
-    // 内存缓存：进程名 → 类别名（忽略大小写）
-    private Dictionary<string, string> _processRules = new(StringComparer.OrdinalIgnoreCase);
+    // 内存缓存：进程名 → 类别名（忽略大小写）。用 volatile 保证后台分类线程能看到最新替换
+    private volatile Dictionary<string, string> _processRules = new(StringComparer.OrdinalIgnoreCase);
 
     // 内存缓存：标题关键词 → 类别名（列表，按顺序匹配）
-    private List<(string keyword, string category)> _titleKeywordRules = new();
+    private volatile List<(string keyword, string category)> _titleKeywordRules = new();
 
     // 浏览器进程名集合（这些进程按标题关键词分类，而不是直接归为某个固定类别）
-    private HashSet<string> _browsers = new(StringComparer.OrdinalIgnoreCase)
+    private volatile HashSet<string> _browsers = new(StringComparer.OrdinalIgnoreCase)
     {
         "chrome", "msedge", "firefox", "brave", "opera"
     };
@@ -34,18 +34,20 @@ public class ActivityClassifier
     /// </summary>
     public void ReloadRules()
     {
-        _processRules.Clear();
-        _titleKeywordRules.Clear();
+        // 先在本地构建完整集合，最后一次性换出字段引用（volatile 赋值原子可见），
+        // 后台分类线程读到的永远是完整快照，不会命中"清空后、填充前"的半加载状态
+        var processRules = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var titleKeywordRules = new List<(string keyword, string category)>();
+        var browsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "chrome", "msedge", "firefox", "brave", "opera"
+        };
 
         try
         {
             var dbRules = RuleRepository.GetAll();
             var categories = CategoryRepository.GetAll();
             var catById = categories.ToDictionary(c => c.Id, c => c.Name);
-
-            // 重置浏览器集合为默认，再从规则补充
-            _browsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            { "chrome", "msedge", "firefox", "brave", "opera" };
 
             // 找到"浏览器"分类的 ID
             var webCatId = catById.FirstOrDefault(c => c.Value == "浏览器").Key;
@@ -57,16 +59,16 @@ public class ActivityClassifier
 
                 if (!string.IsNullOrWhiteSpace(rule.ProcessName))
                 {
-                    _processRules[rule.ProcessName] = catName;
+                    processRules[rule.ProcessName] = catName;
 
                     // 如果规则分类是"浏览器"，把进程加入浏览器集合
                     if (rule.CategoryId == webCatId)
-                        _browsers.Add(rule.ProcessName);
+                        browsers.Add(rule.ProcessName);
                 }
 
                 if (!string.IsNullOrWhiteSpace(rule.TitleKeyword))
                 {
-                    _titleKeywordRules.Add((rule.TitleKeyword, catName));
+                    titleKeywordRules.Add((rule.TitleKeyword, catName));
                 }
             }
         }
@@ -74,10 +76,15 @@ public class ActivityClassifier
         {
             // 数据库出错时用最小兜底
             Logger.Error("分类器加载规则失败，用最小兜底", ex);
-            _processRules["explorer"] = "系统组件";
-            _processRules["chrome"] = "浏览器";
-            _processRules["msedge"] = "浏览器";
+            processRules["explorer"] = "系统组件";
+            processRules["chrome"] = "浏览器";
+            processRules["msedge"] = "浏览器";
         }
+
+        // 原子替换缓存
+        _processRules = processRules;
+        _titleKeywordRules = titleKeywordRules;
+        _browsers = browsers;
     }
 
     /// <summary>
@@ -91,14 +98,19 @@ public class ActivityClassifier
         if (string.IsNullOrEmpty(processName))
             return "未分类";
 
+        // 先抓一份字段快照，避免读取过程中字段被 ReloadRules 原子替换导致的不一致
+        var processRules = _processRules;
+        var titleKeywordRules = _titleKeywordRules;
+        var browsers = _browsers;
+
         // 1. 先按进程名精确匹配（最快）
-        if (_processRules.TryGetValue(processName, out var category))
+        if (processRules.TryGetValue(processName, out var category))
             return category;
 
         // 2. 浏览器特殊处理 — 按标题关键词分类（因为同一个浏览器可能在做不同的事）
-        if (_browsers.Contains(processName))
+        if (browsers.Contains(processName))
         {
-            foreach (var (keyword, cat) in _titleKeywordRules)
+            foreach (var (keyword, cat) in titleKeywordRules)
             {
                 if (windowTitle.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                     return cat;
@@ -107,7 +119,7 @@ public class ActivityClassifier
         }
 
         // 3. 非浏览器按标题关键词兜底
-        foreach (var (keyword, cat) in _titleKeywordRules)
+        foreach (var (keyword, cat) in titleKeywordRules)
         {
             if (windowTitle.Contains(keyword, StringComparison.OrdinalIgnoreCase))
                 return cat;

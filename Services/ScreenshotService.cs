@@ -27,6 +27,12 @@ public class ScreenshotService
     // 是否在切换应用时截屏（仿 ManicTime）
     private bool _captureOnSwitch;
 
+    // 切换应用截屏的冷却时间：避免极短时间内反复切换（如连续 Alt-Tab）造成截图风暴
+    private static readonly TimeSpan SwitchCaptureCooldown = TimeSpan.FromSeconds(3);
+
+    // 上次切换截屏的时间（UTC），用于冷却判断
+    private DateTime _lastSwitchCaptureUtc = DateTime.MinValue;
+
     // 串行化锁：定时器回调与 OnAppSwitched 后台线程可能并发进入截图/清理，
     // 加锁避免同秒截图互相覆盖、清理与写入交错导致刚写的就被删或库里留重复记录。
     private readonly object _capLock = new();
@@ -200,15 +206,22 @@ public class ScreenshotService
 
     /// <summary>
     /// 切换应用时调用 — 仿 ManicTime "在每次应用程序切换时截屏"。
-    /// 截完图后重置定时器倒计时，从此刻起重新计时。
+    /// 受冷却时间限制，避免快速连续切换时疯狂截屏。
+    /// 注意：不再重置周期定时器，否则每次切换都会把"每 N 分钟定时截屏"的计时归零，
+    /// 导致定时截屏长期不触发（与设置里的截图间隔互相矛盾）。
     /// </summary>
     public void OnAppSwitched()
     {
         if (!_running || !_captureOnSwitch) return;
+
+        // 冷却：距上次切换截屏不足冷却时间就跳过，挡住截图风暴
+        var now = DateTime.UtcNow;
+        if (now - _lastSwitchCaptureUtc < SwitchCaptureCooldown)
+            return;
+        _lastSwitchCaptureUtc = now;
+
         CaptureAndSave();
         MaybeCleanOldScreenshots();
-        // 重置定时器倒计时：从此刻起重新计时
-        _timer?.Change(TimeSpan.FromMinutes(_intervalMinutes), TimeSpan.FromMinutes(_intervalMinutes));
     }
 
     /// <summary>

@@ -33,16 +33,11 @@ public class CategoryColorHelper
         }
         catch (Exception ex)
         {
-            // 数据库读取失败时用硬编码预置颜色兜底，保证 UI 不崩
+            // 数据库读取失败时用预置分类颜色兜底（复用权威定义），保证 UI 不崩且颜色不再重复维护
             Logger.Error("加载分类颜色失败，使用默认值", ex);
-            _colors = new Dictionary<string, string>
-            {
-                { "开发工具", "#4A90D9" }, { "社交通讯", "#E67E22" }, { "游戏", "#E74C3C" },
-                { "办公学习", "#2ECC71" }, { "浏览器", "#9B59B6" }, { "视频娱乐", "#FF6B6B" },
-                { "音乐", "#AB47BC" }, { "设计创作", "#FFA726" }, { "实用工具", "#26C6DA" },
-                { "AI助手", "#EC407A" }, { "系统组件", "#7CB9E8" },
-                { "空闲", "#CFD8DC" }, { "未分类", "#90A4AE" },
-            };
+            _colors = new Dictionary<string, string>();
+            foreach (var (name, color, _, _) in CategoryRepository.PresetCategories)
+                _colors[name] = color;
         }
         return _colors;
     }
@@ -75,9 +70,4 @@ public class CategoryColorHelper
         return ParseHex("#90A4AE");
     }
 
-    /// <summary>
-    /// 获取当前加载的颜色字典（分类名 → 颜色字符串）
-    /// </summary>
-    /// <returns>颜色字典的引用</returns>
-    public Dictionary<string, string> GetColors() => _colors;
 }

@@ -310,8 +310,9 @@ public static class ActivityRepository
     public static HashSet<string> GetUsedProcessNames()
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
-        conn.Open();
+        // 统一走 DbAccess.Open()，它会先确保数据库已初始化（建表），
+        // 避免本方法作为首个查询时 Activities 表尚不存在而抛 no such table
+        using var conn = DbAccess.Open();
         // 排除空闲记录和占位符 "(空闲)"
         using var cmd = new SqliteCommand(
             "SELECT DISTINCT ProcessName FROM Activities WHERE IsIdle = 0", conn);

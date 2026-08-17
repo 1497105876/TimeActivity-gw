@@ -20,6 +20,9 @@ public static class AppColorAllocator
     // 是否已从数据库加载过
     private static bool _loaded = false;
 
+    // 缓存读写锁，避免多线程（UI 线程与后台分配）并发改 _cache 造成数据竞争
+    private static readonly object _lock = new();
+
     /// <summary>
     /// 生成 24 色调色板：色相每 15° 取一个，饱和度 0.75，亮度 0.65。
     /// </summary>
@@ -41,13 +44,16 @@ public static class AppColorAllocator
     /// </summary>
     public static void LoadFromDb()
     {
-        if (_loaded) return;
-        _cache.Clear();
-        foreach (var (name, color) in Data.AppColorRepository.GetAll())
+        lock (_lock)
         {
-            _cache[name] = color;
+            if (_loaded) return;
+            _cache.Clear();
+            foreach (var (name, color) in Data.AppColorRepository.GetAll())
+            {
+                _cache[name] = color;
+            }
+            _loaded = true;
         }
-        _loaded = true;
     }
 
     /// <summary>
@@ -55,17 +61,20 @@ public static class AppColorAllocator
     /// </summary>
     public static string GetOrAssign(string processName)
     {
-        LoadFromDb();
+        lock (_lock)
+        {
+            LoadFromDb();
 
-        // 已有自定义颜色
-        if (_cache.TryGetValue(processName, out var existing))
-            return existing;
+            // 已有自定义颜色
+            if (_cache.TryGetValue(processName, out var existing))
+                return existing;
 
-        // 自动分配
-        var color = PickAvailableColor();
-        _cache[processName] = color;
-        Data.AppColorRepository.Set(processName, color);
-        return color;
+            // 自动分配
+            var color = PickAvailableColor();
+            _cache[processName] = color;
+            Data.AppColorRepository.Set(processName, color);
+            return color;
+        }
     }
 
     /// <summary>
@@ -73,9 +82,12 @@ public static class AppColorAllocator
     /// </summary>
     public static void SetCustom(string processName, string color)
     {
-        LoadFromDb();
-        _cache[processName] = color;
-        Data.AppColorRepository.Set(processName, color);
+        lock (_lock)
+        {
+            LoadFromDb();
+            _cache[processName] = color;
+            Data.AppColorRepository.Set(processName, color);
+        }
     }
 
     /// <summary>
@@ -83,8 +95,11 @@ public static class AppColorAllocator
     /// </summary>
     public static HashSet<string> GetUsedColors()
     {
-        LoadFromDb();
-        return new HashSet<string>(_cache.Values);
+        lock (_lock)
+        {
+            LoadFromDb();
+            return new HashSet<string>(_cache.Values);
+        }
     }
 
     /// <summary>
@@ -93,7 +108,8 @@ public static class AppColorAllocator
     /// <returns>可用的颜色十六进制字符串</returns>
     private static string PickAvailableColor()
     {
-        var used = GetUsedColors();
+        // 已在 GetOrAssign 的 lock 内，直接读 _cache 避免重复加锁
+        var used = new HashSet<string>(_cache.Values);
 
         // 先从调色板里找一个没被占用的
         foreach (var c in Palette)
@@ -174,11 +190,21 @@ public static class AppColorAllocator
     /// <returns>RGB 颜色</returns>
     private static Color HexToColor(string hex)
     {
+        // 容错：空串或长度不对（如 #AARRGGBB 8 位）直接回退灰色，避免 FormatException 崩溃
+        if (string.IsNullOrWhiteSpace(hex)) return Color.FromRgb(0x90, 0xA4, 0xAE);
         hex = hex.TrimStart('#');
-        return Color.FromRgb(
-            Convert.ToByte(hex.Substring(0, 2), 16),
-            Convert.ToByte(hex.Substring(2, 2), 16),
-            Convert.ToByte(hex.Substring(4, 2), 16));
+        if (hex.Length != 6) return Color.FromRgb(0x90, 0xA4, 0xAE);
+        try
+        {
+            return Color.FromRgb(
+                Convert.ToByte(hex.Substring(0, 2), 16),
+                Convert.ToByte(hex.Substring(2, 2), 16),
+                Convert.ToByte(hex.Substring(4, 2), 16));
+        }
+        catch
+        {
+            return Color.FromRgb(0x90, 0xA4, 0xAE);
+        }
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using TimeActivity.Models;
@@ -69,10 +70,14 @@ public class TrackingEngine
         _cts = null;
 
         // 加锁防止和 PollLoop 竞态同时操作 _currentActivity
+        List<Action> callbacks;
         lock (_lock)
         {
-            FinishCurrentActivity();
+            callbacks = new List<Action>();
+            FinishCurrentActivity(callbacks);
         }
+        // 锁外触发事件，避免回调（UI/截图）在 Stop 持有的锁内执行
+        foreach (var cb in callbacks) cb();
     }
 
     /// <summary>
@@ -109,6 +114,8 @@ public class TrackingEngine
 
     /// <summary>
     /// 单次轮询：检查空闲 → 获取前台窗口 → 判断是否切换了软件 → 结束旧活动/开始新活动。
+    /// 锁内只做状态变更与落库；需要通知外部的事件先收集起来，释放锁之后再触发，
+    /// 避免同步回调（尤其是截图这种耗时操作）长时间占用锁，导致轮询循环与 Stop 被拖住。
     /// </summary>
     private void Poll()
     {
@@ -116,7 +123,10 @@ public class TrackingEngine
         if (!Monitor.TryEnter(_lock)) return;
         try
         {
-            PollInternal();
+            var postLockCallbacks = new List<Action>();
+            PollInternal(postLockCallbacks);
+            // 锁外触发事件：截图/UI 更新不再占用 _lock
+            foreach (var cb in postLockCallbacks) cb();
         }
         finally
         {
@@ -125,9 +135,10 @@ public class TrackingEngine
     }
 
     /// <summary>
-    /// 单次轮询内部实现。
+    /// 单次轮询内部实现。需要通知外部的事件收集到 callbacks，由调用方在释放锁之后触发。
     /// </summary>
-    private void PollInternal()
+    /// <param name="callbacks">收集锁外要触发的事件回调</param>
+    private void PollInternal(List<Action> callbacks)
     {
         // 先检查用户是否空闲（通过 Win32 API 获取最后一次输入的时间）
         int idleSeconds = Win32Api.GetIdleSeconds();
@@ -137,7 +148,7 @@ public class TrackingEngine
             // 用户离开了 — 结束当前活动
             if (_currentActivity != null && !_currentActivity.IsIdle)
             {
-                FinishCurrentActivity();
+                FinishCurrentActivity(callbacks);
             }
 
             // 开始记录空闲时间
@@ -151,7 +162,7 @@ public class TrackingEngine
                     StartTime = DateTime.Now,
                     IsIdle = true
                 };
-                OnStatusChanged?.Invoke("(空闲)", "用户离开", "空闲");
+                callbacks.Add(() => OnStatusChanged?.Invoke("(空闲)", "用户离开", "空闲"));
             }
             return;
         }
@@ -159,7 +170,7 @@ public class TrackingEngine
         // 用户回来了 — 如果当前是空闲状态，强制结束空闲开始新活动
         if (_currentActivity != null && _currentActivity.IsIdle)
         {
-            FinishCurrentActivity();
+            FinishCurrentActivity(callbacks);
             // 清空 last 记录，强制下面的切换逻辑触发开始新活动
             _lastProcessName = "";
             _lastWindowTitle = "";
@@ -179,14 +190,14 @@ public class TrackingEngine
         // 用分类器给当前活动归类
         string category = _classifier.Classify(processName, windowTitle);
 
-        // 通知 UI 更新实时状态
-        OnStatusChanged?.Invoke(processName, windowTitle, category);
+        // 通知 UI 更新实时状态（延后到锁外触发）
+        callbacks.Add(() => OnStatusChanged?.Invoke(processName, windowTitle, category));
 
         // 进程名或标题变了 = 切换了软件 — 结束旧活动，开始新活动
         if (processName != _lastProcessName || windowTitle != _lastWindowTitle)
         {
-            OnAppSwitched?.Invoke();  // 通知截图服务
-            FinishCurrentActivity();
+            callbacks.Add(() => OnAppSwitched?.Invoke());  // 通知截图服务（锁外触发，避免截图阻塞轮询）
+            FinishCurrentActivity(callbacks);
 
             _currentActivity = new ActivityRecord
             {
@@ -204,9 +215,10 @@ public class TrackingEngine
     }
 
     /// <summary>
-    /// 结束当前活动：计算时长，存入数据库，触发回调。只记录超过 1 秒的活动。
+    /// 结束当前活动：计算时长，存入数据库，收集回调。只记录超过 1 秒的活动。
     /// </summary>
-    private void FinishCurrentActivity()
+    /// <param name="callbacks">收集锁外要触发的事件回调</param>
+    private void FinishCurrentActivity(List<Action> callbacks)
     {
         if (_currentActivity == null) return;
 
@@ -225,8 +237,9 @@ public class TrackingEngine
                 Logger.Error("活动写入数据库失败", ex);
             }
 
-            // 通知外部（UI 更新）
-            OnActivityRecorded?.Invoke(_currentActivity);
+            // 收集回调：延后到锁外触发，避免 DB/UI/截图回调长时间占用 _lock
+            var recorded = _currentActivity;
+            callbacks.Add(() => OnActivityRecorded?.Invoke(recorded));
         }
 
         _currentActivity = null;

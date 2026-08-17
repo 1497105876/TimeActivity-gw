@@ -38,13 +38,11 @@ public static class ScreenshotRepository
     }
 
     /// <summary>
-    /// 获取某个时间点之前最近的一张截图路径（用于活动回溯）
+    /// 查找指定时间段内的截图（截图时间必须在活动的开始~结束之间），返回最近一张的路径
     /// </summary>
-    /// <param name="time">目标时间点</param>
+    /// <param name="startTime">活动开始时间（包含）</param>
+    /// <param name="endTime">活动结束时间（包含）</param>
     /// <returns>截图文件的绝对路径，没有则返回 null</returns>
-    /// <summary>
-    /// 查找指定时间段内的截图（截图时间必须在活动的开始~结束之间）
-    /// </summary>
     public static string? GetForTimeRange(DateTime startTime, DateTime endTime)
     {
         EnsureInit();

@@ -14,6 +14,28 @@ public static class CategoryRepository
     /// </summary>
     public const int MaxPresetCategoryId = 13;
 
+    /// <summary>
+    /// 预置分类的权威定义（名称、颜色、图标、排序序号）。
+    /// 全程序只此一处维护，所有预置分类的来源都引用这里，
+    /// 避免分类颜色/图标在多处硬编码导致不同步。
+    /// </summary>
+    public static readonly IReadOnlyList<(string Name, string Color, string Icon, int SortOrder)> PresetCategories = new[]
+    {
+        ("开发工具", "#4A90D9", "code", 1),
+        ("社交通讯", "#E67E22", "chat", 2),
+        ("游戏", "#E74C3C", "gamepad", 3),
+        ("办公学习", "#2ECC71", "book", 4),
+        ("浏览器", "#9B59B6", "globe", 5),
+        ("视频娱乐", "#FF6B6B", "video", 6),
+        ("音乐", "#AB47BC", "music", 7),
+        ("设计创作", "#FFA726", "palette", 8),
+        ("实用工具", "#26C6DA", "wrench", 9),
+        ("AI助手", "#EC407A", "robot", 10),
+        ("系统组件", "#7CB9E8", "desktop", 11),
+        ("空闲", "#CFD8DC", "coffee", 12),
+        ("未分类", "#90A4AE", "question", 13),
+    };
+
     // 确保数据库已初始化
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
@@ -117,30 +139,14 @@ public static class CategoryRepository
         using (var delCmd = new SqliteCommand("DELETE FROM Categories WHERE Id > " + MaxPresetCategoryId, conn))
             delCmd.ExecuteNonQuery();
 
-        // 重置预置分类的颜色和排序
-        // 预置分类的名称、颜色、排序——用于重置时恢复默认值
-        var defaults = new[]
-        {
-            ("开发工具", "#4A90D9", 1),
-            ("社交通讯", "#E67E22", 2),
-            ("游戏", "#E74C3C", 3),
-            ("办公学习", "#2ECC71", 4),
-            ("浏览器", "#9B59B6", 5),
-            ("视频娱乐", "#FF6B6B", 6),
-            ("音乐", "#AB47BC", 7),
-            ("设计创作", "#FFA726", 8),
-            ("实用工具", "#26C6DA", 9),
-            ("AI助手", "#EC407A", 10),
-            ("系统组件", "#7CB9E8", 11),
-            ("空闲", "#CFD8DC", 12),
-            ("未分类", "#90A4AE", 13),
-        };
-
-        foreach (var (name, color, order) in defaults)
+        // 重置预置分类的颜色、图标和排序——直接复用权威定义 PresetCategories，
+        // 既避免重复硬编码，也把图标一并还原（旧实现只还原颜色与排序，会丢掉图标）。
+        foreach (var (name, color, icon, order) in PresetCategories)
         {
             using var updCmd = new SqliteCommand(
-                "UPDATE Categories SET Color=@Color, SortOrder=@SortOrder WHERE Name=@Name", conn);
+                "UPDATE Categories SET Color=@Color, Icon=@Icon, SortOrder=@SortOrder WHERE Name=@Name", conn);
             updCmd.Parameters.AddWithValue("@Color", color);
+            updCmd.Parameters.AddWithValue("@Icon", icon);
             updCmd.Parameters.AddWithValue("@SortOrder", order);
             updCmd.Parameters.AddWithValue("@Name", name);
             updCmd.ExecuteNonQuery();
