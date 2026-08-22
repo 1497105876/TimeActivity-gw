@@ -58,96 +58,106 @@ public partial class AISummaryService
 
     /// <summary>
     /// 拼接周总结 prompt：包含分类时长、Top 10 应用、活跃天数、每日明细。
+    /// 采用带标签的结构化写法（参考 xiaohei-daily-backend），意图明确、便于模型遵循。
     /// </summary>
     private string BuildWeeklyPrompt(DateTime weekStart, DateTime weekEnd,
         Dictionary<string, int> catSummary, Dictionary<string, int> procSummary,
         Dictionary<string, int> dailyTotals)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine($"# 本周时间使用总结（{weekStart:MM-dd} ~ {weekEnd:MM-dd}）\n");
-        sb.AppendLine("请用 Markdown 格式输出本周时间使用总结，包含以下几个部分：");
-        sb.AppendLine("## 概览");
-        sb.AppendLine("## 分类时长分析");
-        sb.AppendLine("## Top 10 应用");
-        sb.AppendLine("## 日均时长与活跃天数");
-        sb.AppendLine("## 建议与改进\n");
-        sb.AppendLine("以下是本周的数据：\n");
-
-        sb.AppendLine("### 分类时长");
-        foreach (var c in catSummary)
-            sb.AppendLine($"- {c.Key}: {TimeFormatHelper.Format(c.Value)}");
-
-        sb.AppendLine("\n### Top 10 应用");
-        sb.AppendLine("请务必列出以下全部 10 个应用，不要省略：");
-        int i = 1;
-        foreach (var p in procSummary.Take(10))
-            sb.AppendLine($"{i++}. {p.Key}: {TimeFormatHelper.Format(p.Value)}");
-
-        // 计算活跃天数和日均时长
         int activeDays = dailyTotals.Count(d => d.Value > 0);
         long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
-        sb.AppendLine($"\n### 活跃情况");
-        sb.AppendLine($"- 活跃天数: {activeDays}/7");
-        sb.AppendLine($"- 总活跃时长: {TimeFormatHelper.Format(totalSeconds)}");
-        sb.AppendLine($"- 日均活跃: {TimeFormatHelper.Format(activeDays > 0 ? totalSeconds / activeDays : 0)}");
+        long avg = activeDays > 0 ? totalSeconds / activeDays : 0;
 
-        // 每日明细
-        sb.AppendLine("\n### 每日明细");
-        foreach (var d in dailyTotals)
-            sb.AppendLine($"- {d.Key}: {TimeFormatHelper.Format(d.Value)}");
+        var catLines = string.Join("\n", catSummary.Select(c => $"- {c.Key}: {TimeFormatHelper.Format(c.Value)}"));
+        var topLines = string.Join("\n", procSummary.Take(10)
+            .Select((p, idx) => $"{idx + 1}. {p.Key}: {TimeFormatHelper.Format(p.Value)}"));
+        var dailyLines = string.Join("\n", dailyTotals.Select(d => $"- {d.Key}: {TimeFormatHelper.Format(d.Value)}"));
 
+        var sb = new StringBuilder();
+        sb.AppendLine("请基于以下统计数据，生成【本周】时间使用总结。\n");
+        sb.AppendLine($"【日期范围】{weekStart:MM-dd} ~ {weekEnd:MM-dd}（周一至周日）");
+        sb.AppendLine($"【活跃天数】{activeDays}/7");
+        sb.AppendLine($"【总活跃时长】{TimeFormatHelper.Format(totalSeconds)}");
+        sb.AppendLine($"【日均活跃时长】{TimeFormatHelper.Format(avg)}\n");
+
+        sb.AppendLine("【分类时长】");
+        sb.AppendLine(catLines);
+        sb.AppendLine("\n【Top 10 应用】（务必完整列出全部 10 个，按时长降序；不足则列实际数量）");
+        sb.AppendLine(topLines);
+        sb.AppendLine("\n【每日明细】");
+        sb.AppendLine(dailyLines);
+
+        sb.AppendLine("\n输出要求（使用 Markdown，结构完整，整体约 400~700 字）：");
+        sb.AppendLine("## 概览\n2~3 句话概括本周时间使用全貌。");
+        sb.AppendLine("## 分类时长分析\n对各分类占比做解读，点明主要投入方向与可能的失衡。");
+        sb.AppendLine("## Top 10 应用亮点\n挑 2~3 个最具代表性的应用，说明其反映的工作/娱乐重心。");
+        sb.AppendLine("## 日均时长与活跃天数\n结合上述数据评价节奏是否健康、是否有明显空缺或过载。");
+        sb.AppendLine("## 建议与改进\n给出 2~3 条具体、可执行的改进建议。");
+
+        sb.AppendLine("\n注意：仅依据上述数据，不要虚构；数据有限处明确说明。");
         return sb.ToString();
     }
 
     /// <summary>
-    /// 拼接月总结 prompt：包含分类时长、Top 15 应用、活跃天数、每周对比。
+    /// 拼接月总结 prompt：包含分类时长、Top 15 应用、活跃天数、每周对比（按周一为起点）。
+    /// 采用带标签的结构化写法（参考 xiaohei-daily-backend），意图明确、便于模型遵循。
     /// </summary>
     private string BuildMonthlyPrompt(DateTime monthStart, DateTime monthEnd,
         Dictionary<string, int> catSummary, Dictionary<string, int> procSummary,
         Dictionary<string, int> dailyTotals)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine($"# 本月时间使用总结（{monthStart:yyyy-MM}）\n");
-        sb.AppendLine("请用 Markdown 格式输出本月时间使用总结，包含以下几个部分：");
-        sb.AppendLine("## 概览");
-        sb.AppendLine("## 分类时长分析");
-        sb.AppendLine("## Top 15 应用");
-        sb.AppendLine("## 日均时长与活跃天数");
-        sb.AppendLine("## 周对比");
-        sb.AppendLine("## 建议与改进\n");
-        sb.AppendLine("以下是本月的数据：\n");
-
-        sb.AppendLine("### 分类时长");
-        foreach (var c in catSummary)
-            sb.AppendLine($"- {c.Key}: {TimeFormatHelper.Format(c.Value)}");
-
-        sb.AppendLine("\n### Top 15 应用");
-        sb.AppendLine("请务必列出以下全部 15 个应用，不要省略：");
-        int i = 1;
-        foreach (var p in procSummary.Take(15))
-            sb.AppendLine($"{i++}. {p.Key}: {TimeFormatHelper.Format(p.Value)}");
-
-        // 计算月内活跃天数和日均
         int activeDays = dailyTotals.Count(d => d.Value > 0);
         long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
         int daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
-        sb.AppendLine($"\n### 活跃情况");
-        sb.AppendLine($"- 活跃天数: {activeDays}/{daysInMonth}");
-        sb.AppendLine($"- 总活跃时长: {TimeFormatHelper.Format(totalSeconds)}");
-        sb.AppendLine($"- 日均活跃: {TimeFormatHelper.Format(activeDays > 0 ? totalSeconds / activeDays : 0)}");
+        long avg = activeDays > 0 ? totalSeconds / activeDays : 0;
 
-        // 按周分组对比（每月按 7 天分 4~5 周）
-        sb.AppendLine("\n### 每周对比");
-        var weeklyGroups = dailyTotals
-            .Select(d => { var dt = DateTime.Parse(d.Key, CultureInfo.InvariantCulture); var weekNum = (dt.Day - 1) / 7 + 1; return (Week: weekNum, Seconds: d.Value); })
+        var catLines = string.Join("\n", catSummary.Select(c => $"- {c.Key}: {TimeFormatHelper.Format(c.Value)}"));
+        var topLines = string.Join("\n", procSummary.Take(15)
+            .Select((p, idx) => $"{idx + 1}. {p.Key}: {TimeFormatHelper.Format(p.Value)}"));
+
+        // 每周对比：按自然周、周一为起点分组，与全局"周以周一为起点"口径一致
+        DateTime MondayOf(DateTime d)
+        {
+            int dow = (int)d.DayOfWeek;
+            if (dow == 0) dow = 7;
+            return d.AddDays(-(dow - 1));
+        }
+        var monthMonday = MondayOf(monthStart);
+        var weekGroups = dailyTotals
+            .Select(d =>
+            {
+                var dt = DateTime.Parse(d.Key, CultureInfo.InvariantCulture);
+                int weekIdx = (MondayOf(dt) - monthMonday).Days / 7 + 1;
+                return (Week: weekIdx, Seconds: (long)d.Value);
+            })
             .GroupBy(x => x.Week)
             .OrderBy(g => g.Key);
-        foreach (var g in weeklyGroups)
-        {
-            long weekTotal = g.Sum(x => (long)x.Seconds);
-            sb.AppendLine($"- 第{g.Key}周: {TimeFormatHelper.Format(weekTotal)}");
-        }
+        var weekLines = string.Join("\n", weekGroups
+            .Select(g => $"- 第{g.Key}周: {TimeFormatHelper.Format(g.Sum(x => x.Seconds))}"));
 
+        var sb = new StringBuilder();
+        sb.AppendLine("请基于以下统计数据，生成【本月】时间使用总结。\n");
+        sb.AppendLine($"【月份】{monthStart:yyyy年MM月}");
+        sb.AppendLine($"【活跃天数】{activeDays}/{daysInMonth}");
+        sb.AppendLine($"【总活跃时长】{TimeFormatHelper.Format(totalSeconds)}");
+        sb.AppendLine($"【日均活跃时长】{TimeFormatHelper.Format(avg)}\n");
+
+        sb.AppendLine("【分类时长】");
+        sb.AppendLine(catLines);
+        sb.AppendLine("\n【Top 15 应用】（务必完整列出全部 15 个，按时长降序；不足则列实际数量）");
+        sb.AppendLine(topLines);
+        sb.AppendLine("\n【每周对比】（按自然周，周一为起点）");
+        sb.AppendLine(weekLines);
+
+        sb.AppendLine("\n输出要求（使用 Markdown，结构完整，整体约 600~1000 字）：");
+        sb.AppendLine("## 概览\n2~3 句话概括本月时间使用全貌与整体趋势。");
+        sb.AppendLine("## 分类时长分析\n对各分类占比做月度解读，点明主要投入方向与长期失衡。");
+        sb.AppendLine("## Top 15 应用亮点\n挑 3~5 个最具代表性的应用，说明其反映的工作/娱乐重心与变化。");
+        sb.AppendLine("## 日均时长与活跃天数\n结合当月天数评价节奏是否健康、是否存在明显空缺或过载。");
+        sb.AppendLine("## 周对比趋势\n基于每周对比，指出本月内使用强度的起伏与拐点。");
+        sb.AppendLine("## 建议与改进\n给出 3 条左右具体、可执行的改进建议。");
+
+        sb.AppendLine("\n注意：仅依据上述数据，不要虚构；数据有限处明确说明。");
         return sb.ToString();
     }
 }

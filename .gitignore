@@ -65,8 +65,8 @@ temp_*.txt
 temp_*.py
 
 
-
-
+_shots/
+publish/
 
 
 *.bak
