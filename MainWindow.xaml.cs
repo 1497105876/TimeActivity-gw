@@ -111,56 +111,56 @@ public partial class MainWindow : Window
     /// </summary>
     public MainWindow()
     {
-        InitializeComponent();
+        InitializeComponent(); // 加载 XAML，创建全部控件
 
         // 初始化数据库
-        DatabaseHelper.Initialize();
-        LoadCategoryColors();
+        DatabaseHelper.Initialize(); // 建库/迁移/种子数据（幂等）
+        LoadCategoryColors();        // 预载分类颜色缓存供图例与渲染使用
 
         // 初始化渲染器，设置颜色查找回调
         _timelineRenderer = new TimelineRenderer(_colorHelper);
-        _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
+        _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat); // 注入统一取色逻辑
         _overviewRenderer = new OverviewRenderer(_colorHelper);
-        _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
+        _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat); // 概览条同款取色
 
         // 初始化分类器和追踪引擎
-        _classifier = new ActivityClassifier();
-        _engine = new TrackingEngine(_classifier);
-        _screenshotService = new ScreenshotService();
+        _classifier = new ActivityClassifier();      // 从库中加载分类规则
+        _engine = new TrackingEngine(_classifier);   // 轮询采样引擎
+        _screenshotService = new ScreenshotService();// 截图服务（默认不启动）
 
         // 启动时重新分类历史数据（规则可能已更新）
         try
         {
-            DatabaseHelper.ReclassifyAll(_classifier.Classify);
+            DatabaseHelper.ReclassifyAll(_classifier.Classify); // 全量按最新规则重算
             // 底层数据已变，使近期自动总结失效，待下方 _summaryScheduler.Start() 补算时刷新
             AISummaryRepository.InvalidateRecent();
         }
         catch (Exception ex)
         {
-            Logger.Error("启动重新分类失败", ex);
+            Logger.Error("启动重新分类失败", ex); // 失败不阻断启动
         }
 
         // 从设置读取采样间隔和空闲阈值
         if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
-            _engine.PollIntervalSeconds = Math.Clamp(poll, 1, 3600);
+            _engine.PollIntervalSeconds = Math.Clamp(poll, 1, 3600);   // 限制在 1秒~1小时
         if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
-            _engine.IdleThresholdSeconds = Math.Clamp(idle, 10, 86400);
+            _engine.IdleThresholdSeconds = Math.Clamp(idle, 10, 86400); // 限制在 10秒~1天
 
         // 订阅追踪引擎的事件
-        _engine.OnActivityRecorded += OnActivityRecorded;
-        _engine.OnStatusChanged += OnStatusChanged;
+        _engine.OnActivityRecorded += OnActivityRecorded; // 每条活动完成 → 更新列表
+        _engine.OnStatusChanged += OnStatusChanged;       // 状态变化 → 更新底部文字
 
         // 绑定活动列表数据源
         ActivityList.ItemsSource = _items;
 
         // 加载颜色模式设置（按分类着色 or 按应用着色）
         _colorMode = SettingsRepository.Get("ColorMode", "category");
-        if (_colorMode == "app")
+        if (_colorMode == "app") // 应用着色模式则选中对应单选按钮
         {
             RbColorCategory.IsChecked = false;
             RbColorApp.IsChecked = true;
         }
-        AppColorAllocator.LoadFromDb();
+        AppColorAllocator.LoadFromDb(); // 预载应用颜色表
 
         // 画图例并加载当天数据
         DrawLegend();
@@ -175,7 +175,7 @@ public partial class MainWindow : Window
         // 窗口大小变化时重绘时间轴 — 整体等比缩放
         TimelineContainer.SizeChanged += (s, e) =>
         {
-            if (e.WidthChanged)
+            if (e.WidthChanged) // 只关心宽度变化（高度固定）
                 DrawAll();
         };
 
@@ -230,7 +230,7 @@ public partial class MainWindow : Window
             try { DailySummaryRepository.GenerateForDate(DateTime.Today.ToDateKey()); }
             catch (Exception ex) { Logger.Error("自动刷新生成每日汇总失败", ex); }
         };
-        _autoRefreshTimer.Start();
+        _autoRefreshTimer.Start(); // 启动 30 秒周期自动刷新
 
         // 启动 AI 总结定时调度（每天 0:00 自动生成 日/周/月 总结；启动时也会补算错过的任务）
         _summaryScheduler.Start();
@@ -244,10 +244,10 @@ public partial class MainWindow : Window
         // 如果设置了自动开始追踪，则启动引擎和截图服务
         if (SettingsRepository.Get("AutoStartTracking", "true") == "true")
         {
-            _engine.Start();
+            _engine.Start(); // 自动开始采样
             if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
-                _screenshotService.Start();
-            BtnStart.IsEnabled = false;
+                _screenshotService.Start(); // 截图开关打开才启动
+            BtnStart.IsEnabled = false;     // 按钮状态与运行中保持一致
             BtnStop.IsEnabled = true;
             StatusText.Text = "追踪中...";
         }
@@ -263,9 +263,9 @@ public partial class MainWindow : Window
 
         // --minimized 启动时直接隐藏到托盘
         var args = Environment.GetCommandLineArgs();
-        if (args.Contains("--minimized", StringComparer.OrdinalIgnoreCase))
+        if (args.Contains("--minimized", StringComparer.OrdinalIgnoreCase)) // 命令行带 --minimized 参数
         {
-            this.SourceInitialized += (s, e) => Hide();
+            this.SourceInitialized += (s, e) => Hide(); // 句柄就绪后立即隐藏窗口
         }
     }
 
@@ -346,18 +346,21 @@ public partial class MainWindow : Window
     /// <summary>
     /// 递归查找指定类型的子元素（可视树遍历）
     /// </summary>
+    /// <typeparam name="T">目标元素类型</typeparam>
+    /// <param name="parent">起始父节点</param>
+    /// <returns>第一个命中的子元素；不存在返回 null</returns>
     private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
     {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++) // 遍历所有直接子级
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T found)
+            if (child is T found) // 命中直接返回
                 return found;
-            var result = FindChild<T>(child);
+            var result = FindChild<T>(child); // 否则递归向下找
             if (result != null)
                 return result;
         }
-        return null;
+        return null; // 整棵子树都没有
     }
 }
 

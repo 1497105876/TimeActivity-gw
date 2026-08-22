@@ -19,22 +19,38 @@ using TimeActivity.Services;
 
 namespace TimeActivity;
 
+// ============================================================================
+// SettingsWindow.Categories.cs — 设置窗口的"分类管理与规则面板构建"部分类
+// 职责：
+//   1) LoadCategories/LoadCategorySidebar：加载分类到网格与侧边栏(带规则计数)；
+//   2) 构建规则折叠面板：分类 Expander、分组头、应用行(复选框+图标+友好名)；
+//   3) 应用行多选与拖拽：勾选集合维护、拖拽到侧边栏改分类；
+//   4) 搜索防抖、侧边栏联动展开分组；
+//   5) 分类删除(预置不可删)、脏标记(MarkChanged)。
+// 协作对象：CategoryRepository/RuleRepository、AppDisplayName/IconExtractor、
+//           BuildRulesPanel(Rules 部分类)、CheckHasChanges(Save 部分类)。
+// ============================================================================
 public partial class SettingsWindow
 {
+    /// <summary>
+    /// 从数据库加载全部分类，填充编辑网格与内存缓存，
+    /// 并刷新分类名列表（供规则下拉等使用）和侧边栏。
+    /// </summary>
     private void LoadCategories()
     {
-        _categories = new List<CategoryItem>();
+        _categories = new List<CategoryItem>(); // 重置内存缓存
         try
         {
-            var cats = CategoryRepository.GetAll();
+            var cats = CategoryRepository.GetAll(); // 读库
             foreach (var cat in cats)
             {
+                // 数据模型 → 显示模型 一一转换
                 _categories.Add(new CategoryItem { Id = cat.Id, Name = cat.Name, Color = cat.Color, SortOrder = cat.SortOrder });
             }
         }
-        catch (Exception ex) { Logger.Error("LoadCategories 失败", ex); }
+        catch (Exception ex) { Logger.Error("LoadCategories 失败", ex); } // 失败时保持空列表
 
-        CategoriesGrid.ItemsSource = new ObservableCollection<CategoryItem>(_categories);
+        CategoriesGrid.ItemsSource = new ObservableCollection<CategoryItem>(_categories); // 绑定可编辑网格
 
         // 更新分类名列表供规则下拉用
         _categoryNames = _categories.Select(c => c.Name).ToList();
@@ -44,22 +60,26 @@ public partial class SettingsWindow
         LoadCategorySidebar();
     }
 
+    /// <summary>
+    /// 刷新左侧分类侧边栏：每项带"该分类下规则数"。
+    /// 规则已加载时直接从内存统计；否则回退查一次数据库。
+    /// </summary>
     private void LoadCategorySidebar()
     {
-        if (CategorySidebar == null) return;
+        if (CategorySidebar == null) return; // 控件未就绪
         var sidebarItems = new ObservableCollection<CategoryItem>();
         // 从内存 _allRules 算 Count(如果已加载),否则查一次数据库
         if (_allRules.Count > 0)
         {
             foreach (var c in _categories)
             {
-                int count = _allRules.Count(r => r.CategoryName == c.Name);
+                int count = _allRules.Count(r => r.CategoryName == c.Name); // 内存统计规则数
                 sidebarItems.Add(new CategoryItem { Id = c.Id, Name = c.Name, Color = c.Color, SortOrder = c.SortOrder, Count = count });
             }
         }
         else
         {
-            var dbRules = RuleRepository.GetAll();
+            var dbRules = RuleRepository.GetAll(); // 兜底：查库统计
             foreach (var c in _categories)
             {
                 int count = dbRules.Count(r => r.CategoryId == c.Id);
@@ -69,6 +89,13 @@ public partial class SettingsWindow
         CategorySidebar.ItemsSource = sidebarItems;
     }
 
+    /// <summary>
+    /// 创建一个分类折叠组（Expander）：头为"色块+分类名+数量"，
+    /// 内容为该分类下的应用行列表；非搜索模式下展开一个自动收起其他（手风琴）。
+    /// </summary>
+    /// <param name="cat">分类数据</param>
+    /// <param name="rules">该分类下的规则行</param>
+    /// <param name="forceExpand">搜索模式强制展开</param>
     private Expander CreateCategoryExpander(CategoryItem cat, List<RuleItem> rules, bool forceExpand)
     {
         var expander = new Expander
