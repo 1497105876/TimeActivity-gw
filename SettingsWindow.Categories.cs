@@ -132,21 +132,24 @@ public partial class SettingsWindow
         return expander;
     }
 
+    /// <summary>
+    /// 构建分组头：横向排列 色块(14px) + 加粗分类名 + 灰色数量文字。
+    /// </summary>
     private StackPanel CreateCategoryHeader(CategoryItem cat, int count)
     {
         var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
 
-        var colorBox = new Border
+        var colorBox = new Border // 分类颜色小方块
         {
             Width = 14,
             Height = 14,
             CornerRadius = new CornerRadius(3),
             Margin = new Thickness(0, 0, 6, 0),
-            Background = new SolidColorBrush(cat.ColorValue)
+            Background = new SolidColorBrush(cat.ColorValue) // 解析分类色
         };
         header.Children.Add(colorBox);
 
-        var name = new TextBlock
+        var name = new TextBlock // 分类名（加粗，供侧边栏联动时按字体识别）
         {
             Text = cat.Name,
             FontSize = 13,
@@ -168,10 +171,14 @@ public partial class SettingsWindow
         return header;
     }
 
+    /// <summary>
+    /// 构建单条应用行：复选框 + 图标(无图标用灰块占位) + 友好名，
+    /// Tag 存进程名，挂接多选与拖拽事件。
+    /// </summary>
     private Border CreateAppRow(RuleItem rule)
     {
-        var displayName = AppDisplayName.Get(rule.ProcessName);
-        var icon = IconExtractor.GetIcon(rule.ProcessName);
+        var displayName = AppDisplayName.Get(rule.ProcessName); // 进程名 → 友好名
+        var icon = IconExtractor.GetIcon(rule.ProcessName);     // 取进程图标（带缓存）
 
         var row = new Border
         {
@@ -235,25 +242,27 @@ public partial class SettingsWindow
         row.Child = panel;
 
         // 拖拽支持
-        row.MouseMove += AppRow_MouseMove;
-        row.MouseLeftButtonDown += AppRow_MouseLeftButtonDown;
+        row.MouseMove += AppRow_MouseMove;             // 按住左键移动 → 发起拖拽
+        row.MouseLeftButtonDown += AppRow_MouseLeftButtonDown; // 记录最近点击项（为 Shift 范围选择预留）
 
         return row;
     }
 
+    /// <summary>应用行复选框勾选变化：维护多选集合并刷新"退出选择"按钮可见性。</summary>
     private void AppCheckbox_Changed(object sender, RoutedEventArgs e)
     {
-        if (sender is CheckBox cb && cb.Tag is string procName)
+        if (sender is CheckBox cb && cb.Tag is string procName) // Tag 即进程名
         {
-            if (cb.IsChecked == true)
+            if (cb.IsChecked == true) // 勾选 → 加入选择集合
                 _selectedProcessNames.Add(procName);
-            else
+            else // 取消 → 移出集合
                 _selectedProcessNames.Remove(procName);
-            UpdateSelectionMode();
-            MarkChanged();
+            UpdateSelectionMode(); // 更新按钮显隐
+            MarkChanged();         // 勾选本身也视为更改（会随保存写库）
         }
     }
 
+    /// <summary>应用行左键按下：仅记录最近点击的进程名（Shift 范围选择的预留钩子）。</summary>
     private void AppRow_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is Border border && border.Tag is string procName)
@@ -263,6 +272,10 @@ public partial class SettingsWindow
         }
     }
 
+    /// <summary>
+    /// 应用行按住左键移动：发起拖拽。
+    /// 若有多选则拖拽整个选中集合，否则只拖当前行。
+    /// </summary>
     private void AppRow_MouseMove(object sender, MouseEventArgs e)
     {
         if (e.LeftButton == MouseButtonState.Pressed && sender is Border border && border.Tag is string procName)
@@ -270,45 +283,55 @@ public partial class SettingsWindow
             // 如果有选中项,拖拽选中的;否则拖拽当前项
             var toDrag = _selectedProcessNames.Count > 0 ? _selectedProcessNames.ToList() : new List<string> { procName };
             var data = new DataObject();
-            data.SetData("ProcessNames", toDrag);
-            DragDrop.DoDragDrop(border, data, DragDropEffects.Move);
+            data.SetData("ProcessNames", toDrag);            // 打包进程名列表
+            DragDrop.DoDragDrop(border, data, DragDropEffects.Move); // 开始拖放循环（阻塞至松开）
         }
     }
 
+    /// <summary>根据是否有选中项显示/隐藏"退出选择"按钮。</summary>
     private void UpdateSelectionMode()
     {
         bool hasSelection = _selectedProcessNames.Count > 0;
         BtnExitSelect.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    /// <summary>"退出选择"按钮：清空多选状态并重建面板复位复选框。</summary>
     private void BtnExitSelect_Click(object sender, RoutedEventArgs e)
     {
-        _selectedProcessNames.Clear();
-        _lastClickedProcess = null;
+        _selectedProcessNames.Clear();   // 清空选中集合
+        _lastClickedProcess = null;      // 清空最近点击记录
         // 重建面板清除勾选状态
         BuildRulesPanel();
         UpdateSelectionMode();
     }
 
+    /// <summary>
+    /// 搜索框文本变化：300ms 防抖后重建规则面板（避免每敲一键都全量重排）。
+    /// </summary>
     private void TxtRuleSearch_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (_loading) return;
-        _searchDebounceTimer?.Stop();
-        _searchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+        if (_loading) return;          // 装载阶段不触发
+        _searchDebounceTimer?.Stop();  // 重置防抖计时
+        _searchDebounceTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) }; // 懒创建
         _searchDebounceTimer.Tick -= SearchDebounce_Tick;
-        _searchDebounceTimer.Tick += SearchDebounce_Tick;
+        _searchDebounceTimer.Tick += SearchDebounce_Tick; // 先减后加，保证只挂一个处理器
         _searchDebounceTimer.Start();
     }
 
+    /// <summary>防抖到期：停止计时器并按当前关键词重建面板。</summary>
     private void SearchDebounce_Tick(object? sender, EventArgs e)
     {
         _searchDebounceTimer!.Stop();
         BuildRulesPanel();
     }
 
+    /// <summary>
+    /// 侧边栏选中项变化：在右侧面板中找到同名分类分组并展开、滚动到可见。
+    /// 通过头部中"加粗 TextBlock"的文本来识别分组（构建时的约定）。
+    /// </summary>
     private void CategorySidebar_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_loading || CategorySidebar == null) return;
+        if (_loading || CategorySidebar == null) return; // 装载期/未就绪忽略
         if (CategorySidebar.SelectedItem is CategoryItem cat)
         {
             // 点击左侧分类 → 展开右侧对应分组
@@ -318,10 +341,10 @@ public partial class SettingsWindow
                 {
                     // 找到分类名匹配的 Expander
                     var nameBlock = header.Children.OfType<TextBlock>().FirstOrDefault(t => t.FontWeight == FontWeights.Bold);
-                    if (nameBlock?.Text == cat.Name)
+                    if (nameBlock?.Text == cat.Name) // 名字匹配即为目标分组
                     {
-                        exp.IsExpanded = true;
-                        exp.BringIntoView();
+                        exp.IsExpanded = true;   // 展开
+                        exp.BringIntoView();     // 滚动到可视区域
                         break;
                     }
                 }
@@ -329,19 +352,22 @@ public partial class SettingsWindow
         }
     }
 
+    /// <summary>
+    /// 侧边栏 DragOver：校验拖拽数据格式，并高亮鼠标悬停的分类项（浅蓝背景）。
+    /// </summary>
     private void CategorySidebar_DragOver(object sender, DragEventArgs e)
     {
-        if (!e.Data.GetDataPresent("ProcessNames"))
+        if (!e.Data.GetDataPresent("ProcessNames")) // 不是应用拖拽则拒绝
         {
             e.Effects = DragDropEffects.None;
             return;
         }
-        e.Effects = DragDropEffects.Move;
+        e.Effects = DragDropEffects.Move; // 允许移动效果
 
         // 高亮当前悬停的 ListBoxItem
         var dep = e.OriginalSource as DependencyObject;
         ListBoxItem? hoveredItem = null;
-        while (dep != null && dep is not ListBoxItem)
+        while (dep != null && dep is not ListBoxItem) // 沿可视树向上找行容器
             dep = VisualTreeHelper.GetParent(dep);
         hoveredItem = dep as ListBoxItem;
 
@@ -349,15 +375,16 @@ public partial class SettingsWindow
         {
             if (CategorySidebar.ItemContainerGenerator.ContainerFromItem(item) is ListBoxItem lbi)
             {
-                if (lbi == hoveredItem && lbi.DataContext is CategoryItem)
-                    lbi.Background = new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD));
+                if (lbi == hoveredItem && lbi.DataContext is CategoryItem) // 悬停行高亮
+                    lbi.Background = new SolidColorBrush(Color.FromRgb(0xE3, 0xF2, 0xFD)); // 浅蓝
                 else
-                    lbi.Background = Brushes.Transparent;
+                    lbi.Background = Brushes.Transparent; // 其余恢复透明
             }
         }
         e.Handled = true;
     }
 
+    /// <summary>侧边栏 DragEnter：仅当携带 ProcessNames 数据时允许移动效果。</summary>
     private void CategorySidebar_DragEnter(object sender, DragEventArgs e)
     {
         if (e.Data.GetDataPresent("ProcessNames"))
@@ -371,6 +398,7 @@ public partial class SettingsWindow
         e.Handled = true;
     }
 
+    /// <summary>侧边栏 DragLeave：拖出时清除所有行高亮。</summary>
     private void CategorySidebar_DragLeave(object sender, DragEventArgs e)
     {
         // 清除所有项的高亮
@@ -383,6 +411,10 @@ public partial class SettingsWindow
         }
     }
 
+    /// <summary>
+    /// 侧边栏 Drop：把拖入的进程（可多个）改到目标分类（仅改内存，保存时落库）。
+    /// 目标分类取自 Drop 命中的行，未命中则退回当前选中行。
+    /// </summary>
     private void CategorySidebar_Drop(object sender, DragEventArgs e)
     {
         // 清除高亮
@@ -394,31 +426,31 @@ public partial class SettingsWindow
             }
         }
 
-        if (!e.Data.GetDataPresent("ProcessNames")) return;
+        if (!e.Data.GetDataPresent("ProcessNames")) return; // 格式不符直接返回
         var procNames = e.Data.GetData("ProcessNames") as List<string>;
         if (procNames == null || procNames.Count == 0) return;
 
         // 找到目标分类:从 Drop 位置取 ListBoxItem
         CategoryItem? targetCat = null;
         var dep = e.OriginalSource as DependencyObject;
-        while (dep != null && dep is not ListBoxItem)
+        while (dep != null && dep is not ListBoxItem) // 向上找命中行
             dep = VisualTreeHelper.GetParent(dep);
         if (dep is ListBoxItem lbiItem && lbiItem.DataContext is CategoryItem cat)
-            targetCat = cat;
+            targetCat = cat;                            // 命中行即目标
         else if (CategorySidebar.SelectedItem is CategoryItem selectedCat)
-            targetCat = selectedCat;
+            targetCat = selectedCat;                    // 兜底用当前选中项
 
-        if (targetCat == null) return;
+        if (targetCat == null) return; // 无法确定目标分类
 
         // 改分类
         int changed = 0;
         foreach (var procName in procNames)
         {
-            var rule = _allRules.FirstOrDefault(r => r.ProcessName.Equals(procName, StringComparison.OrdinalIgnoreCase));
-            if (rule != null && rule.CategoryName != targetCat.Name)
+            var rule = _allRules.FirstOrDefault(r => r.ProcessName.Equals(procName, StringComparison.OrdinalIgnoreCase)); // 找对应规则
+            if (rule != null && rule.CategoryName != targetCat.Name) // 已是目标分类则跳过
             {
                 rule.CategoryName = targetCat.Name;
-                rule.IsCustom = true;
+                rule.IsCustom = true;  // 手动改动后升级为自定义规则
                 changed++;
             }
         }
@@ -432,6 +464,10 @@ public partial class SettingsWindow
         }
     }
 
+    /// <summary>
+    /// 删除分类按钮：预置分类(Id ≤ MaxPresetCategoryId)禁止删除；
+    /// 自定义分类只从网格集合移除，点"保存"才真正写库。
+    /// </summary>
     private void BtnDeleteCategory_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.DataContext is CategoryItem cat)
@@ -446,15 +482,17 @@ public partial class SettingsWindow
         }
     }
 
+    /// <summary>分类网格内容变化（编辑/增删行）：装载期忽略，否则标记未保存更改。</summary>
     private void CategoriesGrid_Changed(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
         MarkChanged();
     }
 
+    /// <summary>统一脏标记入口：交由 CheckHasChanges 汇总判定并更新界面提示。</summary>
     private void MarkChanged()
     {
-        if (_loading) return;
+        if (_loading) return; // 装载阶段不算更改
         CheckHasChanges();
     }
 

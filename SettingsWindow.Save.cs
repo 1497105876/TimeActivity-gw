@@ -19,15 +19,30 @@ using TimeActivity.Services;
 
 namespace TimeActivity;
 
+// ============================================================================
+// SettingsWindow.Save.cs — 设置窗口的"保存/恢复默认/更改检测"部分类
+// 职责：
+//   1) DoSave：把全部界面控件值写回设置表，并保存分类规则与分类管理；
+//   2) SaveCategories：UI 分类集合与数据库对齐（新增/更新/删除自定义分类）；
+//   3) 快照机制：保存时记录当前值快照，任何控件变化后与快照比对显示"未保存"提示；
+//   4) BtnRestoreDefault：按页恢复默认值（分类规则/分类管理有额外危险确认）。
+// 协作对象：SettingsRepository、CategoryRepository/RuleRepository、
+//           AutoStartHelper(开机自启)、SettingsSaved 事件(通知主窗口)。
+// ============================================================================
 public partial class SettingsWindow
 {
+    /// <summary>保存按钮：执行保存 → 提示 → 关闭窗口。</summary>
     private void BtnSave_Click(object sender, RoutedEventArgs e)
     {
-        DoSave();
+        DoSave(); // 写库
         MessageBox.Show("设置已保存", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-        this.Close();
+        this.Close(); // 保存后关闭窗口
     }
 
+    /// <summary>
+    /// 把分类网格中的数据与数据库对齐：
+    /// 网格中存在的 → 新增(Id≤0)或更新；数据库有而网格没有的自定义分类 → 删除。
+    /// </summary>
     private void SaveCategories()
     {
         try
@@ -60,18 +75,24 @@ public partial class SettingsWindow
         catch (Exception ex) { Logger.Error("SaveCategories 失败", ex); }
     }
 
+    /// <summary>取消按钮：不做任何保存直接关闭窗口。</summary>
     private void BtnCancel_Click(object sender, RoutedEventArgs e)
     {
         // 不保存直接关窗
         this.Close();
     }
 
+    /// <summary>应用按钮：与保存相同逻辑，但不关闭窗口（方便继续调整）。</summary>
     private void BtnApply_Click(object sender, RoutedEventArgs e)
     {
         // 和保存一样逻辑,但不关窗
         DoSave();
     }
 
+    /// <summary>
+    /// 核心保存流程：读取每个控件 → 解析/校验 → 写入设置表；
+    /// 随后保存规则与分类、通知主窗口应用新配置、刷新估算并更新快照。
+    /// </summary>
     private void DoSave()
     {
         // 追踪设置:采样间隔和空闲阈值
@@ -154,17 +175,22 @@ public partial class SettingsWindow
         UpdateEstimates();
         UpdateDiskUsage();
 
-        _hasChanges = false;
-        TxtUnsaved.Text = "";
-        BtnApply.IsEnabled = false;
-        SaveSnapshot();
+        _hasChanges = false;   // 保存后清除脏标记
+        TxtUnsaved.Text = "";  // 清空提示
+        BtnApply.IsEnabled = false; // 无更改时"应用"置灰
+        SaveSnapshot();        // 以当前值作为新的对比基准
     }
 
+    /// <summary>保存当前界面值为快照，供后续变更检测比对。</summary>
     private void SaveSnapshot()
     {
         _originalSettings = GetCurrentSettingsSnapshot();
     }
 
+    /// <summary>
+    /// 从界面控件收集全部设置项的当前值（含规则/分类的 JSON 序列化），
+    /// 作为变更检测的快照数据。
+    /// </summary>
     private Dictionary<string, string> GetCurrentSettingsSnapshot()
     {
         var snap = new Dictionary<string, string>();
@@ -194,33 +220,42 @@ public partial class SettingsWindow
         snap["MinimizeToTray"] = (ChkMinimizeToTray.IsChecked == true).ToString().ToLower();
 
         // 规则和分类数据
-        snap["__rules"] = JsonSerializer.Serialize(_allRules.Select(r => new { r.ProcessName, r.TitleKeyword, r.CategoryName }).ToList());
+        snap["__rules"] = JsonSerializer.Serialize(_allRules.Select(r => new { r.ProcessName, r.TitleKeyword, r.CategoryName }).ToList()); // 规则集合序列化
         if (CategoriesGrid.ItemsSource is ObservableCollection<CategoryItem> cats)
-            snap["__categories"] = JsonSerializer.Serialize(cats.Select(c => new { c.Name, c.Color, c.SortOrder }).ToList());
+            snap["__categories"] = JsonSerializer.Serialize(cats.Select(c => new { c.Name, c.Color, c.SortOrder }).ToList()); // 分类集合序列化
 
         return snap;
     }
 
+    /// <summary>
+    /// 变更检测：当前快照与保存时快照逐键比对，
+    /// 有差异则显示"有未保存的更改"并启用"应用"按钮。
+    /// </summary>
     private void CheckHasChanges()
     {
-        if (_loading || _originalSettings.Count == 0) return;
+        if (_loading || _originalSettings.Count == 0) return; // 装载期/无基准快照时不判定
         var current = GetCurrentSettingsSnapshot();
         bool changed = false;
         foreach (var kvp in _originalSettings)
         {
-            if (!current.TryGetValue(kvp.Key, out var val) || val != kvp.Value)
+            if (!current.TryGetValue(kvp.Key, out var val) || val != kvp.Value) // 任一键不同即为有更改
             {
                 changed = true;
                 break;
             }
         }
-        _hasChanges = changed;
-        TxtUnsaved.Text = changed ? "有未保存的更改" : "";
-        BtnApply.IsEnabled = changed;
+        _hasChanges = changed;                          // 记录脏状态
+        TxtUnsaved.Text = changed ? "有未保存的更改" : ""; // 界面提示
+        BtnApply.IsEnabled = changed;                   // 应用按钮随状态启停
     }
 
+    /// <summary>
+    /// "恢复默认"按钮：按当前所在页恢复默认值并立即保存。
+    /// 分类规则页会清空全部规则映射、分类管理页会删除自定义分类，均需强提醒。
+    /// </summary>
     private void BtnRestoreDefault_Click(object sender, RoutedEventArgs e)
     {
+        // 根据导航索引得到页面名（用于确认文案）
         string pageName = NavList.SelectedIndex switch
         {
             0 => "追踪设置",
@@ -253,15 +288,15 @@ public partial class SettingsWindow
             case 4: // 数据设置
             case 5: // AI 设置
             case 6: // 系统设置
-                foreach (var kv in SettingsRepository.GetDefaultsByPage(NavList.SelectedIndex))
+                foreach (var kv in SettingsRepository.GetDefaultsByPage(NavList.SelectedIndex)) // 按页取默认键值对逐项写回
                     SettingsRepository.Set(kv.Key, kv.Value);
                 break;
 
             case 2: // 分类规则
-                RuleRepository.ClearAll();
-                _rulesLoaded = false;
-                _allRules.Clear();
-                if (PanelRules.Visibility == Visibility.Visible)
+                RuleRepository.ClearAll();   // 清空全部规则
+                _rulesLoaded = false;        // 复位加载标志
+                _allRules.Clear();           // 清空内存规则
+                if (PanelRules.Visibility == Visibility.Visible) // 面板可见则立即重载展示"未分类"占位
                 {
                     _rulesLoaded = true;
                     LoadRules();
@@ -269,19 +304,19 @@ public partial class SettingsWindow
                 break;
 
             case 3: // 分类管理
-                CategoryRepository.ResetToDefault();
+                CategoryRepository.ResetToDefault(); // 删除自定义分类并重置预置色
                 LoadCategories();
                 break;
 
             case 7: // 导入/导出
                 MessageBox.Show("导入/导出页无需恢复默认", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
+                return; // 该页无默认值，直接返回不执行后续保存
         }
 
-        _loading = true;
-        LoadSettings();
-        if (_rulesLoaded && NavList.SelectedIndex == 2) LoadRules();
-        if (NavList.SelectedIndex == 3) LoadCategories();
+        _loading = true;          // 装载期抑制联动事件
+        LoadSettings();           // 重载设置到控件
+        if (_rulesLoaded && NavList.SelectedIndex == 2) LoadRules();   // 规则页同步重载
+        if (NavList.SelectedIndex == 3) LoadCategories();              // 分类页同步重载
         UpdateEstimates();
         UpdateDiskUsage();
         _loading = false;

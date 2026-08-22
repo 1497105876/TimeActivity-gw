@@ -1,4 +1,11 @@
-﻿<Application x:Class="TimeActivity.App"
+﻿<!-- ============================================================================
+App.xaml — WPF 应用入口声明
+- x:Class 指向 App 类（代码位于 App.xaml.cs，负责全局异常处理）；
+- StartupUri 指定启动时加载的主窗口 MainWindow.xaml；
+- Resources 中定义全局隐式样式：统一去掉 Button/CheckBox/RadioButton/
+  ComboBox/TextBox 获得键盘焦点时显示的虚线框，使界面观感更现代。
+============================================================================ -->
+<Application x:Class="TimeActivity.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:TimeActivity"

@@ -21,14 +21,14 @@ public partial class AISummaryService
     /// <returns>AI 生成的 Markdown 周总结，未启用或无数据返回 null</returns>
     public async Task<string?> GenerateWeeklySummary(DateTime weekStart)
     {
-        if (!Enabled) return null;
-        DateTime weekEnd = weekStart.AddDays(6);
-        var catSummary = ActivityRepository.GetCategorySummaryByRange(weekStart, weekEnd, false);
-        var procSummary = ActivityRepository.GetProcessSummaryByRange(weekStart, weekEnd, false);
-        var dailyTotals = ActivityRepository.GetDailyTotalsByRange(weekStart, weekEnd, false);
+        if (!Enabled) return null; // AI 未启用直接返回 null
+        DateTime weekEnd = weekStart.AddDays(6); // 周一 +6 天 = 周日
+        var catSummary = ActivityRepository.GetCategorySummaryByRange(weekStart, weekEnd, false);  // 分类时长（排除空闲）
+        var procSummary = ActivityRepository.GetProcessSummaryByRange(weekStart, weekEnd, false);  // 应用时长
+        var dailyTotals = ActivityRepository.GetDailyTotalsByRange(weekStart, weekEnd, false);     // 每日总量
 
         int totalSeconds = catSummary.Values.Sum();
-        if (totalSeconds == 0)
+        if (totalSeconds == 0) // 整周无数据：返回固定文案
             return "本周没有活动记录。";
 
         string prompt = BuildWeeklyPrompt(weekStart, weekEnd, catSummary, procSummary, dailyTotals);
@@ -42,14 +42,14 @@ public partial class AISummaryService
     /// <returns>AI 生成的 Markdown 月总结，未启用或无数据返回 null</returns>
     public async Task<string?> GenerateMonthlySummary(DateTime monthStart)
     {
-        if (!Enabled) return null;
-        DateTime monthEnd = monthStart.AddMonths(1).AddDays(-1);
-        var catSummary = ActivityRepository.GetCategorySummaryByRange(monthStart, monthEnd, false);
-        var procSummary = ActivityRepository.GetProcessSummaryByRange(monthStart, monthEnd, false);
-        var dailyTotals = ActivityRepository.GetDailyTotalsByRange(monthStart, monthEnd, false);
+        if (!Enabled) return null; // AI 未启用直接返回 null
+        DateTime monthEnd = monthStart.AddMonths(1).AddDays(-1); // 下月 1 号 -1 天 = 本月末
+        var catSummary = ActivityRepository.GetCategorySummaryByRange(monthStart, monthEnd, false);  // 分类时长
+        var procSummary = ActivityRepository.GetProcessSummaryByRange(monthStart, monthEnd, false);  // 应用时长
+        var dailyTotals = ActivityRepository.GetDailyTotalsByRange(monthStart, monthEnd, false);     // 每日总量
 
         int totalSeconds = catSummary.Values.Sum();
-        if (totalSeconds == 0)
+        if (totalSeconds == 0) // 整月无数据：返回固定文案
             return "本月没有活动记录。";
 
         string prompt = BuildMonthlyPrompt(monthStart, monthEnd, catSummary, procSummary, dailyTotals);
@@ -64,14 +64,14 @@ public partial class AISummaryService
         Dictionary<string, int> catSummary, Dictionary<string, int> procSummary,
         Dictionary<string, int> dailyTotals)
     {
-        int activeDays = dailyTotals.Count(d => d.Value > 0);
-        long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
-        long avg = activeDays > 0 ? totalSeconds / activeDays : 0;
+        int activeDays = dailyTotals.Count(d => d.Value > 0);            // 有活跃的日期数
+        long totalSeconds = dailyTotals.Sum(d => (long)d.Value);         // 周总活跃秒数
+        long avg = activeDays > 0 ? totalSeconds / activeDays : 0;       // 活跃日均值
 
-        var catLines = string.Join("\n", catSummary.Select(c => $"- {c.Key}: {TimeFormatHelper.Format(c.Value)}"));
-        var topLines = string.Join("\n", procSummary.Take(10)
+        var catLines = string.Join("\n", catSummary.Select(c => $"- {c.Key}: {TimeFormatHelper.Format(c.Value)}")); // 分类行
+        var topLines = string.Join("\n", procSummary.Take(10)      // 只取前 10 名应用
             .Select((p, idx) => $"{idx + 1}. {p.Key}: {TimeFormatHelper.Format(p.Value)}"));
-        var dailyLines = string.Join("\n", dailyTotals.Select(d => $"- {d.Key}: {TimeFormatHelper.Format(d.Value)}"));
+        var dailyLines = string.Join("\n", dailyTotals.Select(d => $"- {d.Key}: {TimeFormatHelper.Format(d.Value)}")); // 逐日行
 
         var sb = new StringBuilder();
         sb.AppendLine("请基于以下统计数据，生成【本周】时间使用总结。\n");
@@ -106,34 +106,34 @@ public partial class AISummaryService
         Dictionary<string, int> catSummary, Dictionary<string, int> procSummary,
         Dictionary<string, int> dailyTotals)
     {
-        int activeDays = dailyTotals.Count(d => d.Value > 0);
-        long totalSeconds = dailyTotals.Sum(d => (long)d.Value);
-        int daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
-        long avg = activeDays > 0 ? totalSeconds / activeDays : 0;
+        int activeDays = dailyTotals.Count(d => d.Value > 0);           // 活跃天数
+        long totalSeconds = dailyTotals.Sum(d => (long)d.Value);        // 月总活跃秒数
+        int daysInMonth = DateTime.DaysInMonth(monthStart.Year, monthStart.Month); // 当月总天数
+        long avg = activeDays > 0 ? totalSeconds / activeDays : 0;      // 活跃日均值
 
         var catLines = string.Join("\n", catSummary.Select(c => $"- {c.Key}: {TimeFormatHelper.Format(c.Value)}"));
-        var topLines = string.Join("\n", procSummary.Take(15)
+        var topLines = string.Join("\n", procSummary.Take(15)       // 月报取前 15 名应用
             .Select((p, idx) => $"{idx + 1}. {p.Key}: {TimeFormatHelper.Format(p.Value)}"));
 
         // 每周对比：按自然周、周一为起点分组，与全局"周以周一为起点"口径一致
-        DateTime MondayOf(DateTime d)
+        DateTime MondayOf(DateTime d) // 局部函数：求某日所在周的周一
         {
             int dow = (int)d.DayOfWeek;
-            if (dow == 0) dow = 7;
+            if (dow == 0) dow = 7;   // 周日按 7 处理
             return d.AddDays(-(dow - 1));
         }
-        var monthMonday = MondayOf(monthStart);
+        var monthMonday = MondayOf(monthStart); // 本月第一个周一（可能在上月）
         var weekGroups = dailyTotals
             .Select(d =>
             {
-                var dt = DateTime.Parse(d.Key, CultureInfo.InvariantCulture);
-                int weekIdx = (MondayOf(dt) - monthMonday).Days / 7 + 1;
+                var dt = DateTime.Parse(d.Key, CultureInfo.InvariantCulture);         // "yyyy-MM-dd" → 日期
+                int weekIdx = (MondayOf(dt) - monthMonday).Days / 7 + 1;              // 第几个自然周
                 return (Week: weekIdx, Seconds: (long)d.Value);
             })
             .GroupBy(x => x.Week)
             .OrderBy(g => g.Key);
         var weekLines = string.Join("\n", weekGroups
-            .Select(g => $"- 第{g.Key}周: {TimeFormatHelper.Format(g.Sum(x => x.Seconds))}"));
+            .Select(g => $"- 第{g.Key}周: {TimeFormatHelper.Format(g.Sum(x => x.Seconds))}")); // 每周合计行
 
         var sb = new StringBuilder();
         sb.AppendLine("请基于以下统计数据，生成【本月】时间使用总结。\n");

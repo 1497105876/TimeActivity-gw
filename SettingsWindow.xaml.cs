@@ -20,10 +20,23 @@ using TimeActivity.Services;
 
 namespace TimeActivity;
 
+// ============================================================================
+// SettingsWindow.xaml.cs — 设置窗口主文件（partial 类的核心）
+// 职责：
+//   1) 持有窗口级共享状态：装载标志、脏标记、原始快照、分类缓存、规则缓存等；
+//   2) 构造流程：装载设置与分类 → 记录快照 → 后台刷新估算 → 定位初始导航页；
+//   3) 声明 SettingsSaved 静态事件，供主窗口订阅以应用新配置。
+// 其余逻辑分布在各部分类：
+//   Navigation(导航/装载/备份/导入导出)、Appearance(AI/截图/颜色)、
+//   Categories(分类管理/规则面板)、Rules(规则加载保存)、Save(保存/恢复默认)。
+// ============================================================================
 public partial class SettingsWindow : Window
 {
+    // 装载标志：true 表示正在程序化回填控件，此时抑制一切联动事件
     private bool _loading = false;
+    // 脏标记：界面值相对上次保存是否发生变化
     private bool _hasChanges = false;
+    // 上次保存时的设置快照（键=设置名或 __rules/__categories，值=文本/JSON）
     private Dictionary<string, string> _originalSettings = new();
 
     // 分类列表(用于规则下拉和分类管理)
@@ -32,21 +45,26 @@ public partial class SettingsWindow : Window
     // 分类名列表(供 DataGridComboBoxColumn 绑定用)
     public List<string> _categoryNames = new();
 
+    /// <summary>
+    /// 构造函数：装载设置与分类、记录初始快照、后台刷新占用估算，
+    /// 并按 initialSection 参数定位到指定导航页（供主窗口跳转用）。
+    /// </summary>
+    /// <param name="initialSection">初始分区名，如 "rules"；为空则停在默认页</param>
     public SettingsWindow(string initialSection = null)
     {
-        InitializeComponent();
+        InitializeComponent(); // 初始化 XAML 控件
         try
         {
-            _loading = true;
-            LoadSettings();
-            LoadCategories();
+            _loading = true;   // 装载期：抑制控件联动事件
+            LoadSettings();    // 设置表 → 控件
+            LoadCategories();  // 分类表 → 网格/缓存
             // LoadRules 延迟到用户切到分类规则页才加载
         }
         finally
         {
-            _loading = false;
+            _loading = false;  // 无论成败都退出装载态
         }
-        _hasChanges = false;
+        _hasChanges = false;   // 初始无更改
         SaveSnapshot(); // 记录初始快照,BtnApply 才能正常启用
         // 耗时操作异步执行
         Dispatcher.BeginInvoke(new Action(() =>
@@ -58,6 +76,7 @@ public partial class SettingsWindow : Window
         // 根据初始参数选中对应导航项
         if (!string.IsNullOrEmpty(initialSection))
         {
+            // 分区名 → 导航索引（与 Navigation 部分类中的面板顺序一一对应）
             int index = initialSection.ToLower() switch
             {
                 "tracking" => 0,
@@ -70,9 +89,9 @@ public partial class SettingsWindow : Window
                 "io" => 7,
                 _ => -1
             };
-            if (index >= 0 && NavList != null)
+            if (index >= 0 && NavList != null) // 合法索引才切换
             {
-                NavList.SelectedIndex = index;
+                NavList.SelectedIndex = index; // 触发 SelectionChanged 显示对应面板
             }
         }
     }
@@ -133,7 +152,8 @@ public partial class SettingsWindow : Window
 
     // ========== 保存设置 ==========
 
-    /// <summary>设置保存后的事件通知(主窗口订阅后重启服务、重载规则等)</summary>
+    /// <summary>设置保存后的事件通知(主窗口订阅后重启服务、重载规则等)。
+    /// 静态事件：即使窗口关闭重建，订阅关系依然有效。</summary>
     public static event Action? SettingsSaved;
 
 

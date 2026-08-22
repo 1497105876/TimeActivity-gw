@@ -63,7 +63,6 @@ public partial class MainWindow
     private async Task CheckAutoSummaryAsync()
     {
         // 同一天只执行一次，避免 30 秒刷新重复查库
-        // 同一天只执行一次，避免 30 秒刷新重复查库
         if (_lastAutoSummaryCheckDate == DateTime.Today) return;
         // 立即记录本次检查日期（先赋值再执行，防止后续异常导致同日反复重试）
         _lastAutoSummaryCheckDate = DateTime.Today;
@@ -89,7 +88,8 @@ public partial class MainWindow
             {
                 // 统计上周一~上周日的分类活跃总秒数（不含空闲），判断该周是否有数据
                 int weekSeconds = ActivityRepository.GetCategorySummaryByRange(lastWeekStart, lastWeekStart.AddDays(6), false).Values.Sum();
-                if (weekSeconds > 0) // 有活动数据才值得调用 AI 生成总结                {
+                if (weekSeconds > 0) // 有活动数据才值得调用 AI 生成总结
+                {
                     Logger.Info($"补生成上周总结：{lastWeekStart:yyyy-MM-dd}");
                     string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
                     Logger.Info($"上周总结生成结果：{(result != null ? "成功" : "null")}");
@@ -110,7 +110,8 @@ public partial class MainWindow
             {
                 // 统计上月 1 日~末日的分类活跃总秒数（区间右端 = 本月1号-1天 = 上月末天）
                 int monthSeconds = ActivityRepository.GetCategorySummaryByRange(lastMonthStart, lastMonthStart.AddMonths(1).AddDays(-1), false).Values.Sum();
-                if (monthSeconds > 0) // 上月有数据才生成，否则写占位文案                {
+                if (monthSeconds > 0) // 上月有数据才生成，否则写占位文案
+                {
                     Logger.Info($"补生成上月总结：{lastMonthStart:yyyy-MM-dd}");
                     string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
                     Logger.Info($"上月总结生成结果：{(result != null ? "成功" : "null")}");
