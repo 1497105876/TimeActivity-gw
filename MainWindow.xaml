@@ -57,7 +57,7 @@ MainWindow.xaml — 主窗口布局
 
                     <!-- 日期切换 + 缩放信息 + 配色模式选择 -->
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-                        <Border Background="#F0F0F0" CornerRadius="4"> <!-- 日期导航组 -->
+                        <Border Background="#F0F0F0" CornerRadius="4"><!-- 日期导航组 -->
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="BtnPrevDay" Content="◀" Width="32" Height="28" Background="Transparent" BorderThickness="0" Click="BtnPrevDay_Click"/> <!-- 前一天 -->
                                 <TextBlock x:Name="DateText" Text="今天" VerticalAlignment="Center" HorizontalAlignment="Center" Width="100" TextAlignment="Center" FontSize="14"/> <!-- 日期显示 -->

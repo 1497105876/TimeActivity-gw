@@ -1,4 +1,15 @@
-﻿<Window x:Class="TimeActivity.SettingsWindow"
+﻿<!-- ============================================================================
+SettingsWindow.xaml — 设置窗口布局
+结构（2 行 Grid）：
+  Row0 主体：左列 160px 导航 ListBox(NavList，8 个分区) +
+       右列可滚动 StackPanel，纵向排列 8 个设置面板
+       （PanelTracking/PanelScreenshot/PanelRules/PanelCategories/
+         PanelData/PanelAI/PanelSystem/PanelIO），由代码切换可见性；
+  Row1 底部固定操作栏：未保存提示 + 恢复默认/应用/保存/取消。
+面板内部控件命名规范：Cbx*=下拉框 Chk*=复选框 Txt*=文本框 Btn*=按钮。
+事件处理器实现见 SettingsWindow*.cs 各部分类。
+============================================================================ -->
+<Window x:Class="TimeActivity.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="设置" Height="640" Width="820"
