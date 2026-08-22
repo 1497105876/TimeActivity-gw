@@ -1,3 +1,9 @@
+// ============================================================================
+// TimelineRenderer.cs — 主时间轴渲染器
+// 职责：按视口(_viewStartSeconds/_visibleSeconds)把活动区间绘制为彩色横块，
+//       支持高亮集合（未勾选淡化）；绘制随缩放自适应的时间刻度。
+// 颜色经 GetColorFunc 委托取色（按应用/按分类模式由主窗口注入）。
+// ============================================================================
 using System;
 using System.Collections.Generic;
 using System.Windows;

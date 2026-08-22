@@ -1,3 +1,9 @@
+// ============================================================================
+// AISummaryRepository.cs — AISummaries 表的仓储（静态类）
+// 职责：AI 总结的写入/查询/存在性检查；manual 与 auto 双来源管理；
+//       InvalidateRecent 使近期总结失效以触发重算。
+// 依赖唯一索引 UX_AISummaries_Type(Date,SummaryType,AutoType) 防重复。
+// ============================================================================
 using System;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Services;

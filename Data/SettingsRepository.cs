@@ -1,3 +1,9 @@
+// ============================================================================
+// SettingsRepository.cs — Settings 键值设置表的仓储（静态类）
+// 职责：Get/Set/GetAll/Delete；Defaults 内置全部默认值；
+//       GetDefaultsByPage 支持设置页"按页恢复默认"。
+// 所有值均以字符串存储，调用方自行解析与校验。
+// ============================================================================
 using System;
 using System.Collections.Generic;
 using Microsoft.Data.Sqlite;

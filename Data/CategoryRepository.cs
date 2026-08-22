@@ -1,3 +1,9 @@
+// ============================================================================
+// CategoryRepository.cs — Categories 表的仓储（静态类）
+// 职责：分类 CRUD、颜色更新、预置分类(PresetCategories/MaxPresetCategoryId)
+//       权威定义、恢复默认(ResetToDefault)、UpdateOrInsert 供设置页整体保存。
+// 预置分类 Id ≤ MaxPresetCategoryId 不可删除（UI 与保存逻辑共同遵守）。
+// ============================================================================
 using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Models;

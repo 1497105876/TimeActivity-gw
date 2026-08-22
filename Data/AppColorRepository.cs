@@ -1,3 +1,7 @@
+// ============================================================================
+// AppColorRepository.cs — AppColors 应用专属颜色表的仓储（静态类）
+// 职责：按进程名存取自定义颜色（主键=进程名），供 AppColorAllocator 使用。
+// ============================================================================
 using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 

@@ -1,3 +1,9 @@
+// ============================================================================
+// ChartRenderer.cs — 统计图表渲染器
+// 职责：类别占比条形图(DrawCategoryBars)、每日趋势折线图(DrawTrendChart)、
+//       Top 应用排行列表(DrawTopApps) 的纯绘制逻辑。
+// 数据由 StatisticsPage 聚合后传入；颜色经 CategoryColorHelper 解析。
+// ============================================================================
 using System;
 using System.Collections.Generic;
 using System.Linq;

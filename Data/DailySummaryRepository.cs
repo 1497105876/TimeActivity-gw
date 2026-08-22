@@ -21,7 +21,7 @@ public static class DailySummaryRepository
     /// </summary>
     public static void GenerateAllMissing()
     {
-        using var conn = DbAccess.Open();
+        using var conn = DbAccess.Open(); // 统一连接入口
 
         // 找出 Activities 里有但 DailyTotal 里没有的日期——即缺失汇总的日期
         using var cmd = conn.CreateCommand();
@@ -30,7 +30,7 @@ public static class DailySummaryRepository
             FROM Activities 
             WHERE date(StartTime) NOT IN (SELECT Date FROM DailyTotal)
             ORDER BY D";
-        var missingDates = new List<string>();
+        var missingDates = new List<string>(); // 缺失日期列表
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
             missingDates.Add(reader.GetString(0));
@@ -72,11 +72,11 @@ public static class DailySummaryRepository
         totalCmd.CommandText = "SELECT COALESCE(SUM(Duration),0), COALESCE(SUM(CASE WHEN IsIdle=0 THEN Duration ELSE 0 END),0) FROM Activities WHERE date(StartTime)=@date";
         totalCmd.Parameters.AddWithValue("@date", date);
         using var totalReader = totalCmd.ExecuteReader();
-        long totalSeconds = 0, totalActive = 0;
+        long totalSeconds = 0, totalActive = 0; // 总时长 / 活跃时长
         if (totalReader.Read())
         {
-            totalSeconds = totalReader.GetInt64(0);
-            totalActive = totalReader.GetInt64(1);
+            totalSeconds = totalReader.GetInt64(0);  // SUM(Duration) 全部
+            totalActive = totalReader.GetInt64(1);   // 非空闲部分之和
         }
         totalReader.Close();
 
@@ -164,20 +164,23 @@ public static class DailySummaryRepository
     /// <summary>
     /// 查询日期范围内的每日总活跃时长（趋势图用）
     /// </summary>
+    /// <summary>
+    /// 查询日期范围内的每日总活跃时长（趋势图用）
+    /// </summary>
     public static Dictionary<string, int> GetDailyTotals(DateTime start, DateTime end, bool includeIdle = false)
     {
         EnsureInit();
-        var result = new Dictionary<string, int>();
-        string col = includeIdle ? "TotalSeconds" : "TotalActiveSeconds";
+        var result = new Dictionary<string, int>(); // 结果：日期 → 秒数
+        string col = includeIdle ? "TotalSeconds" : "TotalActiveSeconds"; // 按开关选列（白名单拼接，非用户输入）
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(
-            $"SELECT Date, {col} FROM DailyTotal WHERE Date >= @Start AND Date <= @End ORDER BY Date", conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
+            $"SELECT Date, {col} FROM DailyTotal WHERE Date >= @Start AND Date <= @End ORDER BY Date", conn); // 日期升序
+        cmd.Parameters.AddWithValue("@Start", start.ToDateKey()); // 统一 yyyy-MM-dd 键
         cmd.Parameters.AddWithValue("@End", end.ToDateKey());
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
-            result[reader.GetString(0)] = reader.GetInt32(1);
+            result[reader.GetString(0)] = reader.GetInt32(1); // 填充字典
         return result;
     }
 
@@ -207,8 +210,8 @@ public static class DailySummaryRepository
     public static Dictionary<string, int> GetProcessSummary(DateTime start, DateTime end, string? categoryFilter = null)
     {
         EnsureInit();
-        var result = new Dictionary<string, int>();
-        string filter = string.IsNullOrEmpty(categoryFilter) ? "" : " AND Category=@Cat";
+        var result = new Dictionary<string, int>(); // 结果：进程名 → 秒数
+        string filter = string.IsNullOrEmpty(categoryFilter) ? "" : " AND Category=@Cat"; // 可选分类过滤片段
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         conn.Open();
         using var cmd = new SqliteCommand(

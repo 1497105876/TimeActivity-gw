@@ -1,3 +1,8 @@
+// ============================================================================
+// RuleRepository.cs — Rules 分类规则表的仓储（静态类）
+// 职责：规则的增删改查与整体保存(SaveAll)；按进程改分类(UpdateCategory)；
+//       清空(ClearAll)；预置规则(IsCustom=0)受保护不可删。
+// ============================================================================
 using System.Collections.Generic;
 using Microsoft.Data.Sqlite;
 using TimeActivity.Models;

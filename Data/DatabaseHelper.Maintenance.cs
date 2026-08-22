@@ -1,3 +1,12 @@
+// ============================================================================
+// DatabaseHelper.Maintenance.cs — 数据库运维操作部分类
+// 职责：
+//   1) BackupTo：VACUUM INTO 在线备份（无需停引擎）；
+//   2) ClearAllData：事务化清空用户数据（保留分类/规则/设置/颜色）；
+//   3) ReclassifyAll：规则变更后全量重算历史活动分类并重建每日汇总；
+//   4) CleanOldData：按保留天数清理过期数据（含物理截图文件）。
+// 设计要点：批量写操作一律使用事务，失败回滚保证一致性。
+// ============================================================================
 using System;
 using System.IO;
 using Microsoft.Data.Sqlite;
@@ -32,7 +41,7 @@ public static partial class DatabaseHelper
     /// </summary>
     public static void ClearAllData()
     {
-        Initialize();
+        Initialize(); // 确保库/表存在（空库也能安全执行）
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
 
@@ -63,8 +72,8 @@ public static partial class DatabaseHelper
     /// <returns>更新的记录数</returns>
     public static int ReclassifyAll(System.Func<string, string, string> classifyFunc)
     {
-        Initialize();
-        int updated = 0;
+        Initialize(); // 确保库/表存在
+        int updated = 0; // 更新计数
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
 
@@ -78,19 +87,19 @@ public static partial class DatabaseHelper
                 "SELECT Id, ProcessName, WindowTitle FROM Activities WHERE IsIdle=0", conn, transaction);
             using var reader = selCmd.ExecuteReader();
 
-            var updates = new List<(long id, string category)>();
-            while (reader.Read())
+            var updates = new List<(long id, string category)>(); // 待更新集合
+            while (reader.Read()) // 逐条读取并在内存中重算分类
             {
-                long id = reader.GetInt64(0);
-                string proc = reader.GetString(1);
-                string title = reader.IsDBNull(2) ? "" : reader.GetString(2);
-                string newCat = classifyFunc(proc, title);
+                long id = reader.GetInt64(0);      // 记录主键
+                string proc = reader.GetString(1); // 进程名
+                string title = reader.IsDBNull(2) ? "" : reader.GetString(2); // 标题可能为 NULL
+                string newCat = classifyFunc(proc, title); // 用最新规则计算新分类
                 updates.Add((id, newCat));
             }
 
-            reader.Close();
+            reader.Close(); // 先关 reader 再批量写（SQLite 不允许同时读写）
 
-            foreach (var (id, cat) in updates)
+            foreach (var (id, cat) in updates) // 批量回写新分类
             {
                 using var updCmd = new SqliteCommand(
                     "UPDATE Activities SET Category=@c WHERE Id=@id", conn, transaction);
@@ -134,10 +143,10 @@ public static partial class DatabaseHelper
     /// <returns>总共删除的记录数</returns>
     public static int CleanOldData(int retentionDays)
     {
-        Initialize();
+        Initialize(); // 确保库/表存在
         // 计算截止时间：超过这个时间的数据将被清理
-        string cutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd HH:mm:ss");
-        string dateCutoff = DateTime.Now.AddDays(-retentionDays).ToDateKey();
+        string cutoff = DateTime.Now.AddDays(-retentionDays).ToString("yyyy-MM-dd HH:mm:ss"); // 明细表用完整时间戳
+        string dateCutoff = DateTime.Now.AddDays(-retentionDays).ToDateKey();                 // 汇总/总结表按日期
         int totalDeleted = 0;
 
         using var conn = new SqliteConnection(ConnectionString);

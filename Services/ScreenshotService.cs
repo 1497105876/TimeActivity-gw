@@ -1,4 +1,10 @@
-﻿using System;
+﻿// ============================================================================
+// ScreenshotService.cs — 定时/切换应用截屏服务
+// 职责：按设置间隔定时全屏截图（JPEG/PNG、可调质量），或应用切换时立即截屏；
+//       写入截图目录并登记 Screenshots 表；受容量/天数上限清理策略约束。
+// 线程模型：System.Threading.Timer 后台触发，截图在后台线程执行。
+// ============================================================================
+using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;

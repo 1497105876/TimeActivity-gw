@@ -1,3 +1,12 @@
+<!-- ============================================================================
+StatisticsPage.xaml — 统计报表页布局
+结构（2 行 Grid）：
+  Row0 工具栏：日/周/月切换(Tag=day/week/month)、前后翻页/本期、
+       分类筛选下拉、跳过空闲复选框
+  Row1 可滚动内容：总时长概览 → 类别占比条形图 → 每日趋势折线(周/月) →
+       Top 应用排行 → AI 总结(MdXaml 渲染 + 生成按钮)
+事件处理器实现见 StatisticsPage.xaml.cs。
+============================================================================ -->
 <Page x:Class="TimeActivity.StatisticsPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -5,8 +14,8 @@
       Title="统计报表">
     <Grid Margin="8">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/> <!-- 顶部工具栏 -->
+            <RowDefinition Height="*"/>    <!-- 统计内容区 -->
         </Grid.RowDefinitions>
 
         <!-- 顶部：日/周/月切换 + 日期范围导航 + 分类筛选 + 空闲过滤 -->

@@ -1,3 +1,9 @@
+// ============================================================================
+// ActivityRepository.cs — Activities 活动明细表的仓储（静态类）
+// 职责：活动记录插入/按日查询/区间聚合（分类、进程、每日总量）；
+//       GetUsedProcessNames 供设置页规则管理展示"用过的应用"。
+// 查询均以 StartTime 的 date()/区间为过滤条件，依赖三个索引加速。
+// ============================================================================
 using System;
 using System.Collections.Generic;
 using System.Globalization;

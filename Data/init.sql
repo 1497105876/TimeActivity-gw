@@ -1,3 +1,5 @@
+-- 【重要说明】本文件为早期(SQL Server 版)设计稿，仅作历史参考。
+-- 应用运行时并不执行本脚本；实际建库建表逻辑以 DatabaseHelper.Initialize() 内嵌的 SQLite DDL 为权威。
 -- ============================================
 -- TimeActivity 数据库建表脚本
 -- 数据库：TimeActivityDB
