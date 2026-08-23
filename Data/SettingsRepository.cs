@@ -58,6 +58,32 @@ public static class SettingsRepository
     }
 
     /// <summary>
+    /// 批量写入设置（单连接+单事务）。
+    /// 2026-08-23：设置页保存要写 20+ 个键，逐键 Set 会产生同等次数的连接/命令开销，
+    /// 造成保存瞬间卡顿；合并为一次事务后显著加快。
+    /// </summary>
+    public static void SetMany(IEnumerable<KeyValuePair<string, string>> items)
+    {
+        EnsureInit();
+        const string sql = @"
+            INSERT INTO Settings (Key, Value) VALUES (@Key, @Value)
+            ON CONFLICT(Key) DO UPDATE SET Value = @Value";
+
+        using var conn = DbAccess.Open();
+        using var tx = conn.BeginTransaction();
+        using var cmd = new SqliteCommand(sql, conn, tx);
+        var pKey = cmd.Parameters.Add("@Key", SqliteType.Text);
+        var pVal = cmd.Parameters.Add("@Value", SqliteType.Text);
+        foreach (var kv in items)
+        {
+            pKey.Value = kv.Key;
+            pVal.Value = (object?)kv.Value ?? DBNull.Value;
+            cmd.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
+    /// <summary>
     /// 获取全部设置项
     /// </summary>
     /// <returns>字典：键 → 值</returns>

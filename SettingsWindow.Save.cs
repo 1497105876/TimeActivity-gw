@@ -90,73 +90,68 @@ public partial class SettingsWindow
     }
 
     /// <summary>
-    /// 核心保存流程：读取每个控件 → 解析/校验 → 写入设置表；
+    /// 核心保存流程：读取每个控件 → 解析/校验 → 批量写入设置表（单事务，
+    /// 2026-08-23：原先 20+ 次逐键写库导致保存瞬间卡顿）；
     /// 随后保存规则与分类、通知主窗口应用新配置、刷新估算并更新快照。
     /// </summary>
     private void DoSave()
     {
+        // 统一收集要写的键值对，方法末尾一次性批量落库
+        var kv = new List<KeyValuePair<string, string>>();
+        void Put(string key, string value) => kv.Add(new KeyValuePair<string, string>(key, value));
+
         // 追踪设置:采样间隔和空闲阈值
         string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
-        if (int.TryParse(samplingText, out int sv) && sv > 0)
-            SettingsRepository.Set("PollIntervalSeconds", sv.ToString());
-        else
-            SettingsRepository.Set("PollIntervalSeconds", "3");
+        Put("PollIntervalSeconds", int.TryParse(samplingText, out int sv) && sv > 0 ? sv.ToString() : "3");
 
         string idleText = CbxIdleThreshold.Text.Replace("分钟", "").Trim();
-        if (int.TryParse(idleText, out int iv) && iv > 0)
-            SettingsRepository.Set("IdleThresholdSeconds", (iv * 60).ToString());
-        else
-            SettingsRepository.Set("IdleThresholdSeconds", "300");
+        Put("IdleThresholdSeconds", int.TryParse(idleText, out int iv) && iv > 0 ? (iv * 60).ToString() : "300");
 
-        SettingsRepository.Set("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
+        Put("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
 
         // 截图设置:开关、间隔、格式、质量、路径、存储限制
-        SettingsRepository.Set("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
+        Put("EnableScreenshot", ChkEnableScreenshot.IsChecked == true ? "true" : "false");
+        Put("ScreenshotOnSwitch", ChkScreenshotOnSwitch.IsChecked == true ? "true" : "false");
 
         // 截图间隔
         string intervalText = CbxScreenshotInterval.Text.Replace("分钟", "").Trim();
-        if (int.TryParse(intervalText, out int intervalVal) && intervalVal > 0)
-            SettingsRepository.Set("ScreenshotIntervalMinutes", intervalVal.ToString());
-        else
-            SettingsRepository.Set("ScreenshotIntervalMinutes", "5");
+        Put("ScreenshotIntervalMinutes", int.TryParse(intervalText, out int intervalVal) && intervalVal > 0 ? intervalVal.ToString() : "5");
 
-        SettingsRepository.Set("ScreenshotFormat", CbxScreenshotFormat.SelectedItem is ComboBoxItem fmtItem ? fmtItem.Tag?.ToString() ?? "jpg" : "jpg");
-        SettingsRepository.Set("ScreenshotQuality", GetComboTag(CbxScreenshotQuality));
-        SettingsRepository.Set("ScreenshotPath", TxtScreenshotPath.Text);
+        Put("ScreenshotFormat", CbxScreenshotFormat.SelectedItem is ComboBoxItem fmtItem ? fmtItem.Tag?.ToString() ?? "jpg" : "jpg");
+        Put("ScreenshotQuality", GetComboTag(CbxScreenshotQuality));
+        Put("ScreenshotPath", TxtScreenshotPath.Text);
 
-        SettingsRepository.Set("EnableMaxSize", ChkMaxSize.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("MaxScreenshotSizeMB",
-            int.TryParse(TxtMaxSize.Text, out int ms) && ms > 0 ? ms.ToString() : "5120");
-        SettingsRepository.Set("EnableMaxAge", ChkMaxAge.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("MaxScreenshotAgeDays",
-            int.TryParse(TxtMaxAge.Text, out int ma) && ma > 0 ? ma.ToString() : "30");
+        Put("EnableMaxSize", ChkMaxSize.IsChecked == true ? "true" : "false");
+        Put("MaxScreenshotSizeMB", int.TryParse(TxtMaxSize.Text, out int ms) && ms > 0 ? ms.ToString() : "5120");
+        Put("EnableMaxAge", ChkMaxAge.IsChecked == true ? "true" : "false");
+        Put("MaxScreenshotAgeDays", int.TryParse(TxtMaxAge.Text, out int ma) && ma > 0 ? ma.ToString() : "30");
 
         // 数据设置
         string retentionText = CbxDataRetention.Text.Replace("天", "").Replace("永久", "0").Trim();
-        if (int.TryParse(retentionText, out int dr) && dr >= 0)
-            SettingsRepository.Set("DataRetentionDays", dr.ToString());
-        else
-            SettingsRepository.Set("DataRetentionDays", "90");
+        Put("DataRetentionDays", int.TryParse(retentionText, out int dr) && dr >= 0 ? dr.ToString() : "90");
 
-        // AI 设置（2026-08-23 重做：服务商预设 + 高级参数一并保存；Key 取当前可见控件）
-        SettingsRepository.Set("EnableAI", ChkEnableAI.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("AIProvider", GetComboTag(CbxAIProvider) is var p && p != "" ? p : "custom");
-        SettingsRepository.Set("AIApiUrl", TxtApiUrl.Text);
-        SettingsRepository.Set("AIApiKey", GetKeyInput());
-        SettingsRepository.Set("AIModel", CbxAIModel.Text);
-        SettingsRepository.Set("AITemperature", TxtAITemperature.Text);
-        SettingsRepository.Set("AIMaxTokens", TxtAIMaxTokens.Text);
-        SettingsRepository.Set("AITimeoutSeconds", TxtAITimeout.Text);
+        // AI 设置（服务商预设 + 高级参数一并保存；Key 取当前可见控件）
+        Put("EnableAI", ChkEnableAI.IsChecked == true ? "true" : "false");
+        var providerTag = GetComboTag(CbxAIProvider);
+        Put("AIProvider", providerTag != "" ? providerTag : "custom");
+        Put("AIApiUrl", TxtApiUrl.Text);
+        Put("AIApiKey", GetKeyInput());
+        Put("AIModel", CbxAIModel.Text);
+        Put("AITemperature", TxtAITemperature.Text);
+        Put("AIMaxTokens", TxtAIMaxTokens.Text);
+        Put("AITimeoutSeconds", TxtAITimeout.Text);
 
         // AI 总结文件保存
-        SettingsRepository.Set("AISummaryPath", TxtAISummaryPath.Text);
-        SettingsRepository.Set("AISummaryMaxCount", TxtAISummaryMaxCount.Text);
-        SettingsRepository.Set("AISummaryMaxSizeMB", TxtAISummaryMaxSizeMB.Text);
+        Put("AISummaryPath", TxtAISummaryPath.Text);
+        Put("AISummaryMaxCount", TxtAISummaryMaxCount.Text);
+        Put("AISummaryMaxSizeMB", TxtAISummaryMaxSizeMB.Text);
 
         // 系统设置
-        SettingsRepository.Set("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
+        Put("AutoStartWithWindows", ChkAutoStart.IsChecked == true ? "true" : "false");
+        Put("MinimizeToTray", ChkMinimizeToTray.IsChecked == true ? "true" : "false");
+
+        // —— 一次性批量落库（单连接单事务）——
+        SettingsRepository.SetMany(kv);
 
         // 开机自启设置
         if (ChkAutoStart.IsChecked == true)

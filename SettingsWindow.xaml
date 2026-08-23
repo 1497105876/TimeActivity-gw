@@ -1,4 +1,4 @@
-﻿<!-- ============================================================================
+<!-- ============================================================================
 SettingsWindow.xaml — 设置窗口布局
 结构（2 行 Grid）：
   Row0 主体：左列 160px 导航 ListBox(NavList，8 个分区) +
@@ -390,8 +390,8 @@ SettingsWindow.xaml — 设置窗口布局
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="接口地址 (Base URL)" VerticalAlignment="Center"/>
                                     <StackPanel Orientation="Horizontal" Grid.Column="1">
-                                        <TextBox x:Name="TxtApiUrl" Width="340" HorizontalAlignment="Left"/>
-                                        <Button x:Name="BtnTestAI" Content="测试连接" Width="75" Height="26" Margin="8,0,0,0" FontSize="11" Click="BtnTestAI_Click"/>
+                                        <TextBox x:Name="TxtApiUrl" Width="340" Height="28" HorizontalAlignment="Left" VerticalContentAlignment="Center"/>
+                                        <Button x:Name="BtnTestAI" Content="测试连接" Width="75" Height="28" Margin="8,0,0,0" FontSize="11" VerticalAlignment="Center" Click="BtnTestAI_Click"/>
                                     </StackPanel>
                                 </Grid>
                                 <!-- API Key：密码框+显示切换，控件紧跟标签列排布（与整页风格一致） -->
@@ -402,10 +402,10 @@ SettingsWindow.xaml — 设置窗口布局
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="API Key" VerticalAlignment="Center"/>
                                     <StackPanel Orientation="Horizontal" Grid.Column="1">
-                                        <PasswordBox x:Name="TxtApiKey" Width="240" HorizontalAlignment="Left" Margin="0,0,8,0"/>
+                                        <PasswordBox x:Name="TxtApiKey" Width="240" Height="28" HorizontalAlignment="Left" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
                                         <TextBox x:Name="TxtApiKeyPlain" Visibility="Collapsed" Width="240" HorizontalAlignment="Left" Margin="0,0,8,0"
                                                  TextChanged="TxtApiKeyPlain_TextChanged"/>
-                                        <ToggleButton x:Name="TglShowKey" Content="显示" Width="52" Height="26" FontSize="11"
+                                        <ToggleButton x:Name="TglShowKey" Content="显示" Width="52" Height="28" FontSize="11"
                                                       VerticalAlignment="Center" Margin="0,0,0,0"
                                                       Checked="TglShowKey_Changed" Unchecked="TglShowKey_Changed"/>
                                     </StackPanel>
@@ -418,8 +418,8 @@ SettingsWindow.xaml — 设置窗口布局
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="模型名称" VerticalAlignment="Center"/>
                                     <StackPanel Orientation="Horizontal" Grid.Column="1">
-                                        <ComboBox x:Name="CbxAIModel" Width="240" HorizontalAlignment="Left" IsEditable="True" Margin="0,0,8,0"/>
-                                        <Button x:Name="BtnFetchModels" Content="获取模型列表" Width="90" Height="26" FontSize="11" Click="BtnFetchModels_Click"/>
+                                        <ComboBox x:Name="CbxAIModel" Width="240" Height="28" HorizontalAlignment="Left" IsEditable="True" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+                                        <Button x:Name="BtnFetchModels" Content="获取模型列表" Width="90" Height="28" FontSize="11" VerticalAlignment="Center" Click="BtnFetchModels_Click"/>
                                     </StackPanel>
                                 </Grid>
                                 <!-- 测试结果输出（状态码/耗时/模型存在性） -->

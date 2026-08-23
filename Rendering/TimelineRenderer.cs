@@ -138,22 +138,20 @@ public class TimelineRenderer
             }
         }
 
-        // 遍历活动记录，把可见段按 (颜色, 是否淡化) 分组累积进 StreamGeometry。
-        // 2026-08-23 三轮优化：此前逐段建 Rectangle（数千个 UIElement，缩放每帧全量重建），
-        // 现在每种颜色只生成一个 Path —— 元素数从 O(活动数) 降到 O(颜色数)，缩放全程流畅。
-        int z = 50;
-        var groups = new Dictionary<(Color C, bool Dim), StreamGeometry>();
+        // 遍历活动记录，把可见段按 (颜色, 是否淡化) 分组收集矩形。
+        // 2026-08-23 三轮优化：每种颜色只生成一个 Path（元素数 O(活动数)→O(颜色数)）。
+        // 注意：StreamGeometry 必须在【单个 Open 会话】里写完全部图形 ——
+        // 反复 Open 会重置内容导致丢块（二轮版本的教训），故先收集后统一构建。
+        var groups = new Dictionary<(Color C, bool Dim), List<(double X, double W)>>();
 
         foreach (var act in activities)
         {
             if (act.IsIdle) continue;
 
-            // 把活动时间转成秒数
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double endSec = act.EndTime.TimeOfDay.TotalSeconds;
             if (endSec < startSec) endSec += 86400;      // 跨午夜修正
 
-            // 不在可见范围内就跳过
             if (endSec <= viewStart || startSec >= viewStart + visibleSeconds)
                 continue;
 
@@ -173,28 +171,32 @@ public class TimelineRenderer
             }
 
             var key = (color, dim);
-            if (!groups.TryGetValue(key, out var geo))
+            if (!groups.TryGetValue(key, out var list))
             {
-                geo = new StreamGeometry { FillRule = FillRule.Nonzero };
-                groups[key] = geo;
+                list = new List<(double X, double W)>();
+                groups[key] = list;
             }
-
-            // 追加一个矩形轮廓（四点闭合）
-            using (var ctx = geo.Open())
-            {
-                ctx.BeginFigure(new Point(x, 0), true, true);
-                ctx.LineTo(new Point(x + w, 0), true, false);
-                ctx.LineTo(new Point(x + w, height), true, false);
-                ctx.LineTo(new Point(x, height), true, false);
-            }
+            list.Add((x, w));
         }
 
-        // 每组几何 → 单个 Path 元素
+        // 每组：单会话写入全部矩形轮廓 → 一个 Path
+        int z = 50;
         foreach (var kv in groups)
         {
+            var geo = new StreamGeometry { FillRule = FillRule.Nonzero };
+            using (var ctx = geo.Open())
+            {
+                foreach (var (x, w) in kv.Value)
+                {
+                    ctx.BeginFigure(new Point(x, 0), true, true);
+                    ctx.LineTo(new Point(x + w, 0), true, false);
+                    ctx.LineTo(new Point(x + w, height), true, false);
+                    ctx.LineTo(new Point(x, height), true, false);
+                }
+            }
             var path = new Path
             {
-                Data = kv.Value,
+                Data = geo,
                 Fill = new SolidColorBrush(kv.Key.C),
                 Opacity = kv.Key.Dim ? 0.2 : 1.0,
                 StrokeThickness = 0

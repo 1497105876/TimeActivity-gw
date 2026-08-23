@@ -70,9 +70,9 @@ public class OverviewRenderer
         canvas.Children.Add(bg);
 
         // 画每个活动的缩略色块（跳过空闲）
-        // 2026-08-23 三轮优化：按颜色分组进 StreamGeometry，每种颜色一个 Path，
-        // 整天大数据量下不再创建数千个 Rectangle。
-        var groups = new Dictionary<Color, StreamGeometry>();
+        // 2026-08-23 三轮优化：按颜色分组收集矩形，每组一个 Path（单 Open 会话，
+        // 避免反复 Open 重置几何导致丢块）。整天大数据量下不再创建数千个 Rectangle。
+        var groups = new Dictionary<Color, List<(double X, double W)>>();
         foreach (var act in activities)
         {
             if (act.IsIdle) continue;
@@ -82,24 +82,29 @@ public class OverviewRenderer
             double w = Math.Max(Math.Min((durSec / totalSeconds) * width, width - x), 1);
 
             var color = GetColorFunc(act.ProcessName, act.Category);
-            if (!groups.TryGetValue(color, out var geo))
+            if (!groups.TryGetValue(color, out var list))
             {
-                geo = new StreamGeometry { FillRule = FillRule.Nonzero };
-                groups[color] = geo;
+                list = new List<(double X, double W)>();
+                groups[color] = list;
             }
-            using (var ctx = geo.Open())
-            {
-                ctx.BeginFigure(new Point(x, 0), true, true);
-                ctx.LineTo(new Point(x + w, 0), true, false);
-                ctx.LineTo(new Point(x + w, height), true, false);
-                ctx.LineTo(new Point(x, height), true, false);
-            }
+            list.Add((x, w));
         }
         foreach (var kv in groups)
         {
+            var geo = new StreamGeometry { FillRule = FillRule.Nonzero };
+            using (var ctx = geo.Open())
+            {
+                foreach (var (x, w) in kv.Value)
+                {
+                    ctx.BeginFigure(new Point(x, 0), true, true);
+                    ctx.LineTo(new Point(x + w, 0), true, false);
+                    ctx.LineTo(new Point(x + w, height), true, false);
+                    ctx.LineTo(new Point(x, height), true, false);
+                }
+            }
             var path = new Path
             {
-                Data = kv.Value,
+                Data = geo,
                 Fill = new SolidColorBrush(kv.Key),
                 Opacity = 0.7,
                 StrokeThickness = 0
