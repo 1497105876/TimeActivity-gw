@@ -1,18 +1,48 @@
 ﻿// ============================================================================
-// App.xaml.cs — 应用入口类的代码后置
-// 当前为空实现：启动窗口由 App.xaml 的 StartupUri 指定，
-// 全局初始化（数据库/引擎/托盘等）集中在 MainWindow 构造函数中完成。
+// App.xaml.cs — 应用入口类（2026-08-23 方案A 重写启动流程）
+// 流程：
+//   1) AppServices.Initialize()：建库/按需重分类/创建并按配置启动后台服务；
+//   2) 创建托盘宿主 TrayHost（0x0 屏幕外窗口，承担托盘图标与消息）；
+//   3) 仅当非 --minimized 启动时才立即创建并显示 MainWindow；
+//      --minimized（开机自启）时只驻留托盘，首次点击托盘再延迟创建主窗口。
+//   退出时 OnExit 统一停止全部后台服务。
 // ============================================================================
-using System.Configuration;
-using System.Data;
+using System;
 using System.Windows;
+using TimeActivity.Services;
 
 namespace TimeActivity;
 
-/// <summary>
-/// Interaction logic for App.xaml
-/// </summary>
 public partial class App : Application
 {
-}
+    /// <summary>托盘宿主引用（供主窗口刷新托盘提示等）。</summary>
+    public TrayHost? Host { get; private set; }
 
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        // 后台服务先行：无论是否显示界面都要开始追踪
+        AppServices.Initialize();
+
+        // 托盘宿主：始终创建（承担托盘图标与消息泵）
+        Host = new TrayHost();
+        Host.Show(); // 0x0 且定位屏幕外，用户不可见
+
+        // 非 --minimized 启动 → 立即显示主窗口；--minimized → 只驻留托盘
+        bool minimized = e.Args is { Length: > 0 } args &&
+                         Array.Exists(args, a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
+        if (!minimized)
+        {
+            Host.ShowMainFromStartup();
+        }
+
+        Logger.Info($"应用启动完成（{(minimized ? "隐藏到托盘" : "显示主窗口")}）");
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        AppServices.ShutdownAll(); // 统一停引擎/截图/调度器
+        base.OnExit(e);
+    }
+}

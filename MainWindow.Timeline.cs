@@ -30,6 +30,31 @@ namespace TimeActivity;
 // ============================================================================
 public partial class MainWindow
 {
+    // ===== 渲染合帧（2026-08-23 性能优化）=====
+    // 滚轮缩放/概览拖拽每秒可触发几十次，直接每次 DrawAll 会全量重绘数千元素导致卡顿；
+    // 这里只把"需要重绘"标记置位，真正的绘制由 CompositionTarget.Rendering 合并到下一帧执行。
+    private bool _renderQueued = false;
+
+    /// <summary>请求一次合并式重绘：多次调用在一帧内只画一次。</summary>
+    private void QueueDrawAll()
+    {
+        if (_renderQueued) return;   // 已排队则本次忽略
+        _renderQueued = true;
+        CompositionTarget.Rendering += RenderFrame; // 下一渲染帧回调一次即摘除
+    }
+
+    private void RenderFrame(object? sender, EventArgs e)
+    {
+        CompositionTarget.Rendering -= RenderFrame;
+        _renderQueued = false;
+        DrawAll();
+    }
+
+    // ===== 悬停截图路径缓存（2026-08-23 性能优化）=====
+    // 之前鼠标每次移动命中活动都查一次 SQLite(Screenshots 表)；现在按活动 Id 缓存查询结果，
+    // 切换日期时随 LoadDateData 清空。值可为 null(该活动无截图)，同样缓存避免重复查库。
+    private readonly Dictionary<long, string?> _screenshotPathCache = new();
+
     /// <summary>
     /// 重绘全部可视化组件：时间轴主体、顶部刻度、概览条及其刻度、缩放倍数文本。
     /// 数据来源为 _cachedActivities；视口参数为 _viewStartSeconds/_visibleSeconds。
@@ -83,7 +108,7 @@ public partial class MainWindow
         _viewStartSeconds = mouseTime - (mouseX / width) * _visibleSeconds;
         _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, MaxVisibleSeconds - _visibleSeconds); // 起点不能越界
 
-        DrawAll();        // 立即重绘反映新视口
+        QueueDrawAll();   // 合帧重绘：连滚多档只画一次（2026-08-23）
         e.Handled = true; // 标记已处理，阻止滚动冒泡到父容器
     }
 
@@ -108,7 +133,7 @@ public partial class MainWindow
         double curX = e.GetPosition(OverviewCanvas).X;
         double deltaSeconds = ((curX - _dragStartX) / width) * 86400; // 像素差 → 秒差（概览覆盖全天86400s）
         _viewStartSeconds = Math.Clamp(_dragStartViewStart + deltaSeconds, 0, MaxVisibleSeconds - _visibleSeconds); // 平移并防越界
-        DrawAll(); // 每次移动都重绘（轻量绘制，可接受）
+        QueueDrawAll(); // 合帧重绘：拖拽过程每帧只画一次（2026-08-23）
     }
 
     /// <summary>概览条松开鼠标：结束拖拽并释放鼠标捕获。</summary>
@@ -132,19 +157,23 @@ public partial class MainWindow
         double mouseTime = _viewStartSeconds + (mouseX / width) * _visibleSeconds;
 
         // 查找鼠标时间落在哪个活动区间
+        // 2026-08-23 性能优化：_cachedActivities 按 StartTime 升序，
+        // 遇到"开始时间已超过鼠标时刻且非跨午夜段"即可提前结束扫描（后面只会更晚）。
         ActivityRecord? hit = null; // 命中的活动记录
         foreach (var act in _cachedActivities)
         {
             if (act.IsIdle) continue; // 空闲段不参与悬停提示
-            // 用绝对时间比较，不用 TimeOfDay（跨午夜活动EndTime.TimeOfDay会归零）
-            // 将活动起止转为当天秒数，跨午夜活动endSec会小于startSec，需特殊处理
+
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double endSec = act.EndTime.TimeOfDay.TotalSeconds;
-            // 跨午夜活动（endSec < startSec），endSec 加一天秒数
-            if (endSec < startSec) endSec += 86400;
-            // mouseTime 也可能小于 startSec（如凌晨0点后看前一天23点开始的活踯）
+            bool wrapped = endSec < startSec;      // 是否跨午夜段
+            if (wrapped) endSec += 86400;          // 跨午夜：end 加一天
             double mt = mouseTime;
-            if (mt < startSec) mt += 86400;
+
+            // 提前退出：本段开始晚于鼠标且不是跨午夜段 → 之后的活动更不可能命中
+            if (!wrapped && startSec > mt && hit == null && mt < startSec)
+                break;
+
             if (mt >= startSec && mt < endSec)
             {
                 hit = act;
@@ -177,13 +206,25 @@ public partial class MainWindow
             PopupTitle.Visibility = string.IsNullOrEmpty(hit.WindowTitle) ? Visibility.Collapsed : Visibility.Visible;
 
             // 用活动的开始~结束时间查截图（截图必须在活动期间内拍的）
-            var screenshotPath = ScreenshotService.GetScreenshotForTime(hit.StartTime, hit.EndTime);
+            // 2026-08-23 性能优化：按活动 Id 缓存查询结果，避免悬停移动时反复查库；
+            // 位图仅解码 320px 宽缩略图并 Freeze，显著降低 UI 线程开销与内存占用。
+            if (!_screenshotPathCache.TryGetValue(hit.Id, out var screenshotPath))
+            {
+                screenshotPath = ScreenshotService.GetScreenshotForTime(hit.StartTime, hit.EndTime);
+                _screenshotPathCache[hit.Id] = screenshotPath;
+            }
             if (screenshotPath != null) // 找到匹配截图
             {
                 if (_lastScreenshotPath != screenshotPath) // 与上次不同才重新加载位图（避免重复 IO）
                 {
-                    PopupScreenshot.Source = new System.Windows.Media.Imaging.BitmapImage(
-                        new Uri(screenshotPath));
+                    var img = new System.Windows.Media.Imaging.BitmapImage();
+                    img.BeginInit();
+                    img.UriSource = new Uri(screenshotPath);
+                    img.DecodePixelWidth = 320;              // 只解码缩略尺寸，避免全屏大图卡顿
+                    img.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    img.EndInit();
+                    img.Freeze();                            // 冻结：跨线程安全且不再占用解码器
+                    PopupScreenshot.Source = img;
                     _lastScreenshotPath = screenshotPath;
                 }
                 PopupScreenshot.Visibility = Visibility.Visible;

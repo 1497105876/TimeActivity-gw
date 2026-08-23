@@ -80,8 +80,73 @@ public class TimelineRenderer
         Canvas.SetTop(bg, 0);
         canvas.Children.Add(bg);
 
+        bool hasHighlight = (highlightedApps != null && highlightedApps.Count > 0) ||
+                            (highlightedCategories != null && highlightedCategories.Count > 0);
+
+        // —— 高亮灰条（2026-08-23 新增）：选中应用/分类的时段画一条贯穿上下的灰色半透明竖带，
+        //    即使色块本身很细也能一眼看到选中内容在时间轴上的分布位置 ——
+        if (hasHighlight)
+        {
+            // 第一遍：收集选中段在可见范围内的像素区间 [x, x+w]
+            var bands = new List<(double X, double W)>();
+            foreach (var act in activities)
+            {
+                if (act.IsIdle) continue;
+                bool sel = (highlightedApps != null && highlightedApps.Contains(act.ProcessName)) ||
+                           (highlightedCategories != null && highlightedCategories.Contains(act.Category));
+                if (!sel) continue;
+
+                double startSec = act.StartTime.TimeOfDay.TotalSeconds;
+                double endSec = act.EndTime.TimeOfDay.TotalSeconds;
+                if (endSec < startSec) endSec += 86400;               // 跨午夜修正
+                if (endSec <= viewStart || startSec >= viewStart + visibleSeconds) continue;
+
+                double clipStart = Math.Max(startSec, viewStart);
+                double clipEnd = Math.Min(endSec, viewStart + visibleSeconds);
+                double x = ((clipStart - viewStart) / visibleSeconds) * width;
+                double w = Math.Max((clipEnd - clipStart) / visibleSeconds * width, 1.5);
+                bands.Add((x, w));
+            }
+            // 合并相邻/重叠区间，减少元素数量并避免接缝闪烁
+            bands.Sort((a, b) => a.X.CompareTo(b.X));
+            var merged = new List<(double X, double W)>();
+            foreach (var b in bands)
+            {
+                if (merged.Count > 0 && b.X <= merged[^1].X + merged[^1].W + 1.5)
+                {
+                    var last = merged[^1];
+                    double rightEnd = Math.Max(last.X + last.W, b.X + b.W);
+                    merged[^1] = (last.X, rightEnd - last.X);
+                }
+                else merged.Add(b);
+            }
+            int bz = 0;
+            foreach (var (x, w) in merged)
+            {
+                var band = new Rectangle
+                {
+                    Width = w,
+                    Height = height,
+                    Fill = new SolidColorBrush(Color.FromArgb(70, 0x60, 0x60, 0x60)), // 灰色半透明贯穿带
+                    RadiusX = 2,
+                    RadiusY = 2
+                };
+                Panel.SetZIndex(band, ++bz); // 位于背景之上、彩色块之下
+                Canvas.SetLeft(band, x - 1); // 左右各扩 1px，让窄块也有可视宽度
+                Canvas.SetTop(band, 0);
+                canvas.Children.Add(band);
+            }
+        }
+
         // 遍历活动记录，画可见范围内的色块
-        int z = 1;
+        // 2026-08-23 性能优化：相邻且同色(含同样高亮状态)的段合并为一个矩形，
+        // 整天数据时元素数从数千降到几十，重绘成本大幅下降。
+        int z = 50; // 彩色块统一压在灰条之上
+        Rectangle? run = null;      // 当前正在累积的同色段矩形
+        double runX = 0, runW = 0;  // 累积段的位置与宽度
+        Color runColor = default;   // 累积段颜色
+        bool runDim = false;        // 累积段是否处于淡化状态
+
         foreach (var act in activities)
         {
             if (act.IsIdle) continue;
@@ -107,28 +172,51 @@ public class TimelineRenderer
 
             var color = GetColorFunc(act.ProcessName, act.Category);
 
-            // 高亮逻辑：有选中项时，没选中的变暗（透明度 0.2）
-            bool hasHighlight = (highlightedApps != null && highlightedApps.Count > 0) ||
-                                (highlightedCategories != null && highlightedCategories.Count > 0);
+            // 高亮逻辑：hasHighlight 已在灰条阶段计算；未选中的色块淡化（透明度 0.2）
             bool isHighlighted = false;
             if (hasHighlight)
             {
                 isHighlighted = (highlightedApps != null && highlightedApps.Contains(act.ProcessName)) ||
                                 (highlightedCategories != null && highlightedCategories.Contains(act.Category));
             }
+            bool dim = hasHighlight && !isHighlighted;
 
-            var block = new Rectangle
+            // 判断能否并入当前累积段：颜色相同、淡化状态相同、且与上一段首尾相接（容差 0.75px）
+            if (run != null && runColor == color && runDim == dim &&
+                Math.Abs((runX + runW) - x) <= 0.75)
             {
-                Width = w,
-                Height = height,
-                Fill = new SolidColorBrush(color),
-                Opacity = hasHighlight && !isHighlighted ? 0.2 : 1.0,
-                Tag = act
-            };
-            Panel.SetZIndex(block, z++);
-            Canvas.SetLeft(block, x);
-            Canvas.SetTop(block, 0);
-            canvas.Children.Add(block);
+                double rightEnd = x + w;
+                runW = Math.Max(runW, rightEnd - runX); // 扩展宽度
+                continue;
+            }
+
+            // 无法并入 → 先把已累积的段落盘
+            if (run != null)
+            {
+                run.Width = runW;
+                Panel.SetZIndex(run, z++);
+                Canvas.SetLeft(run, runX);
+                Canvas.SetTop(run, 0);
+                canvas.Children.Add(run);
+            }
+
+            // 开启新的累积段
+            run = new Rectangle { Height = height, Fill = new SolidColorBrush(color), RadiusX = 1, RadiusY = 1 };
+            run.Opacity = dim ? 0.2 : 1.0;
+            runX = x;
+            runW = w;
+            runColor = color;
+            runDim = dim;
+        }
+
+        // 收尾：把最后一段累积落盘
+        if (run != null)
+        {
+            run.Width = runW;
+            Panel.SetZIndex(run, z++);
+            Canvas.SetLeft(run, runX);
+            Canvas.SetTop(run, 0);
+            canvas.Children.Add(run);
         }
     }
 

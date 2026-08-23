@@ -110,7 +110,7 @@ public static partial class DatabaseHelper
 
             // 重新生成每日汇总（在同一个事务内）
             using var datesCmd = new SqliteCommand(
-                "SELECT DISTINCT date(StartTime) FROM Activities", conn, transaction);
+                "SELECT DISTINCT date(StartTimeUtc,'localtime') FROM Activities", conn, transaction); // UTC 派生业务日期（2026-08-23）
             using var dateReader = datesCmd.ExecuteReader();
             var dates = new List<string>();
             while (dateReader.Read())

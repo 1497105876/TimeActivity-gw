@@ -195,6 +195,47 @@ public static partial class DatabaseHelper
                 idxCmd.ExecuteNonQuery();
             }
             catch (Exception ex) { Logger.Error("AISummaries 唯一索引创建失败", ex); }
+
+            // 迁移：Activities 增加 UTC 时间双列（2026-08-23）
+            // 目的：本地时间字符串在夏令时切换/手动改时钟时会产生重叠或空洞，
+            //       统计口径改用 StartTimeUtc/EndTimeUtc 派生，展示仍用本地列。
+            try
+            {
+                bool hasStartUtc = false, hasEndUtc = false;
+                using (var infoCmd = new SqliteCommand("PRAGMA table_info(Activities)", conn))
+                using (var infoReader = infoCmd.ExecuteReader())
+                {
+                    while (infoReader.Read())
+                    {
+                        var colName = infoReader.GetString(1);
+                        if (colName == "StartTimeUtc") hasStartUtc = true;
+                        else if (colName == "EndTimeUtc") hasEndUtc = true;
+                    }
+                }
+                // 缺列则补（可空列，老数据随后回填）
+                if (!hasStartUtc)
+                    new SqliteCommand("ALTER TABLE Activities ADD COLUMN StartTimeUtc TEXT", conn).ExecuteNonQuery();
+                if (!hasEndUtc)
+                    new SqliteCommand("ALTER TABLE Activities ADD COLUMN EndTimeUtc TEXT", conn).ExecuteNonQuery();
+
+                // 回填历史行：按"历史值即写入时的本地时间、以当前时区换算"的假设一次性补齐。
+                // 局限：历史上发生过时制切换的边界天可能有 ±1 小时偏差（一次性，不会恶化）。
+                using (var backfill = new SqliteCommand(@"
+                    UPDATE Activities
+                    SET StartTimeUtc = strftime('%Y-%m-%dT%H:%M:%SZ', StartTime, 'utc'),
+                        EndTimeUtc   = strftime('%Y-%m-%dT%H:%M:%SZ', EndTime,  'utc')
+                    WHERE StartTimeUtc IS NULL OR EndTimeUtc IS NULL", conn))
+                {
+                    int rows = backfill.ExecuteNonQuery();
+                    if (rows > 0) Logger.Info($"UTC 双列迁移：已回填 {rows} 行活动记录");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Activities UTC 列迁移失败", ex);
+                throw; // 统计口径依赖该列，失败必须暴露
+            }
+
             // Categories 表为空时插入预置分类（首次运行）
             var countCmd = new SqliteCommand("SELECT COUNT(*) FROM Categories", conn);
             if ((long)(countCmd.ExecuteScalar() ?? 0L) == 0) // 空表才播种

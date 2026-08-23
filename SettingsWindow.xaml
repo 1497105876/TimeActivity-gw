@@ -343,15 +343,6 @@ SettingsWindow.xaml — 设置窗口布局
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="清空所有数据" VerticalAlignment="Center"/>
-                                    <Button x:Name="BtnClearData" Grid.Column="1" Content="清空..." HorizontalAlignment="Left" Width="80"
-                                            Background="#FFE0E0" BorderBrush="#FFCCCC" Click="BtnClearData_Click"/>
-                                </Grid>
-                                <Grid Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="120"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
                                     <TextBlock Text="备份数据库" VerticalAlignment="Center"/>
                                     <Button x:Name="BtnBackupDb" Grid.Column="1" Content="备份..." HorizontalAlignment="Left" Width="80"
                                             Click="BtnBackupDb_Click"/>
@@ -360,7 +351,7 @@ SettingsWindow.xaml — 设置窗口布局
                         </Border>
                     </StackPanel>
 
-                    <!-- 面板 6: AI 设置 — 开关、模式（局域网/自定义API）、模型、总结文件保存 -->
+                    <!-- 面板 6: AI 设置 — 服务商预设/OpenAI 兼容接口/模型/高级参数/测试连接/总结文件保存 -->
                     <StackPanel x:Name="PanelAI" Margin="0,0,0,8" Visibility="Collapsed">
                         <TextBlock Text="AI 设置" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
                         <Border Background="White" CornerRadius="4" Padding="12,8">
@@ -373,15 +364,22 @@ SettingsWindow.xaml — 设置窗口布局
                                     <TextBlock Text="启用 AI 总结" VerticalAlignment="Center"/>
                                     <CheckBox x:Name="ChkEnableAI" Grid.Column="1" VerticalAlignment="Center"/>
                                 </Grid>
+                                <!-- 服务商预设：选中即自动填接口地址示例；本机服务不需要 Key -->
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="AI 模式" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="CbxAIMode" Grid.Column="1" Width="180" HorizontalAlignment="Left" SelectionChanged="AIMode_Changed">
-                                        <ComboBoxItem Content="局域网共享 (Ollama)" Tag="lan"/>
-                                        <ComboBoxItem Content="自定义 API" Tag="custom"/>
+                                    <TextBlock Text="服务商预设" VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CbxAIProvider" Grid.Column="1" Width="220" HorizontalAlignment="Left" SelectionChanged="AIProvider_Changed">
+                                        <ComboBoxItem Content="自定义 (OpenAI 兼容)" Tag="custom"/>
+                                        <ComboBoxItem Content="Ollama (本机)" Tag="ollama"/>
+                                        <ComboBoxItem Content="LM Studio (本机)" Tag="lmstudio"/>
+                                        <ComboBoxItem Content="DeepSeek" Tag="deepseek"/>
+                                        <ComboBoxItem Content="月之暗面 Kimi" Tag="moonshot"/>
+                                        <ComboBoxItem Content="通义千问 Qwen" Tag="qwen"/>
+                                        <ComboBoxItem Content="MiniMax" Tag="minimax"/>
+                                        <ComboBoxItem Content="硅基流动 SiliconFlow" Tag="siliconflow"/>
                                     </ComboBox>
                                 </Grid>
                                 <Grid Margin="0,0,0,12">
@@ -389,17 +387,25 @@ SettingsWindow.xaml — 设置窗口布局
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="服务地址" VerticalAlignment="Center"/>
-                                    <TextBox x:Name="TxtApiUrl" Grid.Column="1" Margin="0,0,8,0"/>
+                                    <TextBlock Text="接口地址 (Base URL)" VerticalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <TextBox x:Name="TxtApiUrl" Width="340" HorizontalAlignment="Left"/>
+                                        <Button x:Name="BtnTestAI" Content="测试连接" Width="75" Height="26" Margin="8,0,0,0" FontSize="11" Click="BtnTestAI_Click"/>
+                                    </StackPanel>
                                 </Grid>
+                                <!-- API Key：PasswordBox + 明文切换；本机服务可留空 -->
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="API Key" VerticalAlignment="Center"/>
-                                    <PasswordBox x:Name="TxtApiKey" Grid.Column="1" Margin="0,0,8,0"/>
+                                    <PasswordBox x:Name="TxtApiKey" Grid.Column="1" Width="240" HorizontalAlignment="Left" Margin="0,0,8,0"/>
+                                    <ToggleButton x:Name="TglShowKey" Grid.Column="2" Content="显示" Width="52" Height="24" FontSize="11" Checked="TglShowKey_Changed" Unchecked="TglShowKey_Changed"/>
                                 </Grid>
+                                <TextBox x:Name="TxtApiKeyPlain" Visibility="Collapsed" Width="240" HorizontalAlignment="Left" Margin="200,0,0,12" Height="24" TextChanged="TxtApiKeyPlain_TextChanged"/>
+                                <!-- 模型：可手输，也可一键拉取模型列表（GET {base}/models，仅状态码不耗 token） -->
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
@@ -407,9 +413,44 @@ SettingsWindow.xaml — 设置窗口布局
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="模型名称" VerticalAlignment="Center"/>
-                                    <TextBox x:Name="TxtAIModel" Grid.Column="1" Margin="0,0,8,0"/>
-                                    <Button x:Name="BtnTestAI" Grid.Column="2" Content="测试连接" Width="75" Height="26" FontSize="11" Click="BtnTestAI_Click"/>
+                                    <ComboBox x:Name="CbxAIModel" Grid.Column="1" Width="240" HorizontalAlignment="Left" IsEditable="True" Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnFetchModels" Grid.Column="2" Content="获取模型列表" Width="90" Height="26" FontSize="11" Click="BtnFetchModels_Click"/>
                                 </Grid>
+                                <!-- 测试结果输出（状态码/耗时/模型存在性） -->
+                                <TextBlock x:Name="TxtAITestResult" FontSize="11" Foreground="#666" Margin="200,0,12,12" TextWrapping="Wrap"/>
+                                <!-- 高级参数：留空 = 使用服务商默认值 -->
+                                <Border Background="#F8F8F8" CornerRadius="4" Padding="8,6" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock Text="高级参数（留空使用默认）" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="温度 temperature (0~2)" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox x:Name="TxtAITemperature" Grid.Column="1" Width="100" HorizontalAlignment="Left" FontSize="12"
+                                                     PreviewTextInput="NumberDecimalOnly_Preview"/>
+                                        </Grid>
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="最大生成 tokens" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox x:Name="TxtAIMaxTokens" Grid.Column="1" Width="100" HorizontalAlignment="Left" FontSize="12"
+                                                     PreviewTextInput="NumberOnly_Preview"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="请求超时 (秒)" VerticalAlignment="Center" FontSize="12"/>
+                                            <TextBox x:Name="TxtAITimeout" Grid.Column="1" Width="100" HorizontalAlignment="Left" FontSize="12"
+                                                     PreviewTextInput="NumberOnly_Preview"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
                                 <Border Background="#F8F8F8" CornerRadius="4" Padding="8,6" Margin="0,8,0,8">
                                     <StackPanel>
                                         <TextBlock Text="总结文件保存" FontWeight="Bold" FontSize="12" Margin="0,0,0,8"/>

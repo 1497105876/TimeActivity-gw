@@ -77,64 +77,163 @@ public partial class SettingsWindow
         }
     }
 
+    // ==================== AI 设置（2026-08-23 重做）====================
+
+    // 服务商预设表：Tag → (名称, 默认 Base URL, 模型名提示)
+    private static readonly Dictionary<string, (string Base, string ModelHint)> AiPresets = new()
+    {
+        ["custom"]      = ("", ""),
+        ["ollama"]      = ("http://localhost:11434/v1", "qwen2.5:7b"),
+        ["lmstudio"]    = ("http://localhost:1234/v1", ""),
+        ["deepseek"]    = ("https://api.deepseek.com/v1", "deepseek-chat"),
+        ["moonshot"]    = ("https://api.moonshot.cn/v1", "moonshot-v1-8k"),
+        ["qwen"]        = ("https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
+        ["minimax"]     = ("https://api.minimaxi.com/v1", "MiniMax-Text-01"),
+        ["siliconflow"] = ("https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-7B-Instruct"),
+    };
+
+    /// <summary>读取当前 Key 输入框内容（明文/密文两种状态之一）。</summary>
+    private string GetKeyInput() =>
+        TxtApiKey.Visibility == Visibility.Visible ? TxtApiKey.Password : TxtApiKeyPlain.Text;
+
+    /// <summary>写入 Key 输入框（自动落到当前可见的那个控件）。</summary>
+    private void SetKeyInput(string value)
+    {
+        if (TxtApiKey.Visibility == Visibility.Visible) TxtApiKey.Password = value;
+        else TxtApiKeyPlain.Text = value;
+    }
+
     /// <summary>
-    /// "测试连接"按钮：按当前选择的 AI 模式探测服务可用性。
-    /// lan 模式 → GET {url}/api/tags 探测 Ollama；custom 模式 → 发送一条最小对话请求。
+    /// 服务商预设切换：自动填入该服务商的 Base URL 与常用模型提示。
+    /// 选"自定义"时不清空用户已填内容。
+    /// </summary>
+    private void AIProvider_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || CbxAIProvider == null) return; // 装载期不联动
+        var tag = (CbxAIProvider.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (tag != null && AiPresets.TryGetValue(tag, out var p) && !string.IsNullOrEmpty(p.Base))
+        {
+            TxtApiUrl.Text = p.Base;          // 填接口地址示例
+            if (!string.IsNullOrEmpty(p.ModelHint))
+                CbxAIModel.Text = p.ModelHint; // 填模型提示（仍可手改）
+            SetKeyInput("");                  // 切换预设时清空旧 Key，避免串用
+        }
+        MarkChanged();
+    }
+
+    /// <summary>Key"显示"开关：在 PasswordBox 与明文 TextBox 间切换并同步值。</summary>
+    private void TglShowKey_Changed(object sender, RoutedEventArgs e)
+    {
+        if (TxtApiKey == null || TxtApiKeyPlain == null) return; // XAML 未就绪
+        if (TglShowKey.IsChecked == true)
+        {
+            TxtApiKeyPlain.Text = TxtApiKey.Password;   // 密文 → 明文
+            TxtApiKey.Visibility = Visibility.Collapsed;
+            TxtApiKeyPlain.Visibility = Visibility.Visible;
+            TglShowKey.Content = "隐藏";
+        }
+        else
+        {
+            TxtApiKey.Password = TxtApiKeyPlain.Text;   // 明文 → 密文
+            TxtApiKeyPlain.Visibility = Visibility.Collapsed;
+            TxtApiKey.Visibility = Visibility.Visible;
+            TglShowKey.Content = "显示";
+        }
+    }
+
+    /// <summary>明文 Key 编辑时同步回 PasswordBox，保证任一状态下保存取值正确。</summary>
+    private void TxtApiKeyPlain_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_loading || TxtApiKey == null) return;
+        if (TxtApiKeyPlain.Visibility == Visibility.Visible)
+            TxtApiKey.Password = TxtApiKeyPlain.Text;
+    }
+
+    /// <summary>
+    /// "获取模型列表"：GET {base}/models（仅状态码，不消耗 token），成功则填充模型下拉。
+    /// </summary>
+    private async void BtnFetchModels_Click(object sender, RoutedEventArgs e)
+    {
+        string apiUrl = TxtApiUrl.Text.Trim();
+        if (string.IsNullOrEmpty(apiUrl)) { MessageBox.Show("请先填写接口地址", "提示"); return; }
+
+        BtnFetchModels.IsEnabled = false;
+        var old = BtnFetchModels.Content;
+        BtnFetchModels.Content = "获取中...";
+        try
+        {
+            var (ok, status, models, err) = await AISummaryService.TryFetchModelsAsync(apiUrl, GetKeyInput());
+            if (!ok)
+            {
+                TxtAITestResult.Text = $"获取失败：{(status == null ? "网络错误：" + err : "HTTP " + status)}";
+                return;
+            }
+            CbxAIModel.Items.Clear();               // 重填下拉
+            foreach (var m in models.OrderBy(x => x))
+                CbxAIModel.Items.Add(new ComboBoxItem { Content = m });
+            TxtAITestResult.Text = $"HTTP {status} · 获取到 {models.Count} 个模型";
+            if (models.Count == 0)
+                TxtAITestResult.Text += "（列表为空，可手输模型名）";
+        }
+        finally
+        {
+            BtnFetchModels.Content = old;
+            BtnFetchModels.IsEnabled = true;
+        }
+    }
+
+    /// <summary>
+    /// "测试连接"：按你的要求采用**状态码探测** —— GET {base}/models，
+    /// 不真实发送对话、不消耗 token；成功时额外校验所填模型是否在列表中。
     /// </summary>
     private async void BtnTestAI_Click(object sender, RoutedEventArgs e)
     {
-        string apiUrl = TxtApiUrl.Text.Trim();     // 服务地址
-        string apiKey = TxtApiKey.Password;        // 密钥（PasswordBox）
-        string model = TxtAIModel.Text.Trim();     // 模型名
-        string mode = (CbxAIMode.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "lan"; // 当前模式
+        string apiUrl = TxtApiUrl.Text.Trim();     // 接口地址
+        string apiKey = GetKeyInput();             // Key（可能为空=本机服务）
+        string model = CbxAIModel.Text.Trim();     // 模型名
 
         if (string.IsNullOrEmpty(apiUrl)) // 地址必填
         {
-            MessageBox.Show("请先填写服务地址", "提示");
+            TxtAITestResult.Text = "❌ 请先填写接口地址";
             return;
         }
 
-        BtnTestAI.Content = "测试中..."; // 按钮进入忙碌态
+        BtnTestAI.Content = "测试中..."; // 忙碌态
         BtnTestAI.IsEnabled = false;
+        TxtAITestResult.Text = "测试中...";
+        var sw = System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) }; // 10 秒超时
+            var (ok, status, models, err) = await AISummaryService.TryFetchModelsAsync(apiUrl, apiKey);
+            sw.Stop();
 
-            if (mode == "lan")
+            if (!ok && status == null) // 异常类失败（DNS/拒绝连接/超时）
             {
-                // Ollama 模式:GET /api/tags 检测在线
-                using var resp = await http.GetAsync($"{apiUrl.TrimEnd('/')}/api/tags");
-                if (resp.IsSuccessStatusCode)
-                    MessageBox.Show($"连接成功!Ollama 服务正常运行。\n模型名:{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
-                else
-                    MessageBox.Show($"连接失败,HTTP {resp.StatusCode}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TxtAITestResult.Text = $"❌ 连接失败：{err}";
+                return;
             }
+            if (!ok) // HTTP 非 2xx
+            {
+                string hint = status switch
+                {
+                    401 or 403 => "（Key 无效或无权限）",
+                    404 => "（地址可能缺少 /v1 或服务未开启兼容端点）",
+                    _ => ""
+                };
+                TxtAITestResult.Text = $"❌ HTTP {status} {hint} · 端点:{AISummaryService.BuildModelsEndpoint(apiUrl)}";
+                return;
+            }
+
+            // 2xx：连接正常；进一步校验模型名是否存在
+            string result = $"✅ HTTP {status} · {sw.ElapsedMilliseconds}ms · 模型 {models.Count} 个";
+            if (!string.IsNullOrEmpty(model) && models.Count > 0 && !models.Contains(model))
+                result += $"\n⚠️ 所填模型「{model}」不在列表中，请核对拼写或点\"获取模型列表\"选择";
+            else if (string.IsNullOrEmpty(model))
+                result += "\n⚠️ 尚未填写模型名称";
             else
-            {
-                // 自定义模式:POST 一个简单消息测试
-                if (!string.IsNullOrEmpty(apiKey)) // 有密钥才加鉴权头
-                    http.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
-                // 用 JsonSerializer 构造请求体，避免模型名含特殊字符破坏 JSON
-                var payloadObj = new { model, messages = new[] { new { role = "user", content = "hi" } }, max_tokens = 10 };
-                var payload = System.Text.Json.JsonSerializer.Serialize(payloadObj);
-                var content = new StringContent(payload, Encoding.UTF8, "application/json");
-                using var resp = await http.PostAsync(apiUrl, content);
-
-                if (resp.IsSuccessStatusCode)
-                    MessageBox.Show($"连接成功!API 可正常调用。\n模型名:{model}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Information);
-                else
-                    MessageBox.Show($"连接失败,HTTP {resp.StatusCode}\n{await resp.Content.ReadAsStringAsync()}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-        catch (TaskCanceledException) // HttpClient 超时会抛 TaskCanceledException
-        {
-            MessageBox.Show("连接超时,请检查服务是否已启动", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"连接失败:{ex.Message}", "测试连接", MessageBoxButton.OK, MessageBoxImage.Warning);
+                result += "\n✔ 已确认模型在列表中";
+            TxtAITestResult.Text = result;
         }
         finally
         {
@@ -259,34 +358,16 @@ public partial class SettingsWindow
         }
     }
 
-    /// <summary>
-    /// AI 模式下拉框变化：切换到局域网模式时若当前地址为空或是云 API 地址，
-    /// 自动填入 Ollama 默认配置；切回自定义模式时清掉 Ollama 默认值让用户填写。
-    /// </summary>
-    private void AIMode_Changed(object sender, SelectionChangedEventArgs e)
+    // （原 AIMode_Changed 已随"局域网共享模式"一并移除，2026-08-23：
+    //   现在统一为 OpenAI 兼容接口，服务商联动见 AIProvider_Changed）
+
+    /// <summary>小数输入校验：允许数字与一个小数点（用于温度输入框）。</summary>
+    private void NumberDecimalOnly_Preview(object sender, TextCompositionEventArgs e)
     {
-        if (_loading) return; // 初始化装载阶段不触发联动
-        string mode = CbxAIMode.SelectedItem is ComboBoxItem item ? item.Tag?.ToString() ?? "lan" : "lan";
-        if (mode == "lan")
+        foreach (char c in e.Text)
         {
-            // 局域网共享模式:默认 Ollama 地址
-            if (string.IsNullOrWhiteSpace(TxtApiUrl.Text) || TxtApiUrl.Text.Contains("minimax") || TxtApiUrl.Text.Contains("openai"))
-            {
-                TxtApiUrl.Text = "http://localhost:11434"; // Ollama 默认端口
-                TxtApiKey.Password = "";                   // 本地服务无需密钥
-                TxtAIModel.Text = "qwen2.5:7b";            // 默认模型
-            }
+            if (!char.IsDigit(c) && c != '.') { e.Handled = true; return; } // 非数字/点直接吞掉
         }
-        else
-        {
-            // 自定义模式:如果当前是 Ollama 地址就清空让用户填
-            if (TxtApiUrl.Text.Contains("localhost:11434"))
-            {
-                TxtApiUrl.Text = "";
-                TxtAIModel.Text = "";
-            }
-        }
-        MarkChanged(); // 标记未保存更改
     }
 
     /// <summary>截图间隔/格式变化：PNG 隐藏质量行、刷新占用估算并标记更改。</summary>

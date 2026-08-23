@@ -178,10 +178,12 @@ public partial class MainWindow
                             _classifier.ReloadRules(); // 分类器重载规则，立即生效
                             try
                             {
-                                DatabaseHelper.ReclassifyAll(_classifier.Classify); // 用新规则全量重算历史记录分类
+                                DatabaseHelper.ReclassifyAll(_classifier.Classify);
                                 // 底层数据已变，使近期自动总结失效并立即补算刷新
                                 AISummaryRepository.InvalidateRecent();
                                 _summaryScheduler.RegenerateNow();
+                                // 规则已变：同步刷新指纹，避免下次启动重复重算（2026-08-23）
+                                RuleRepository.StoreFingerprint();
                             }
                             catch (Exception ex) { Logger.Error("ReclassifyAll 失败", ex); }
                             // 重新从数据库加载缓存，否则 LoadStatsLists 读到的还是旧分类

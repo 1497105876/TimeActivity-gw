@@ -150,23 +150,17 @@ public partial class MainWindow
     /// <summary>开始追踪：启动引擎；若开启了截图功能则同时启动截图服务，并刷新按钮状态。</summary>
     private void BtnStart_Click(object sender, RoutedEventArgs e)
     {
-        _engine.Start(); // 启动轮询采样引擎
-        // 截图为可选功能，按设置决定是否随之启动
-        if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
-            _screenshotService.Start();
-        BtnStart.IsEnabled = false; // 开始按钮置灰，防止重复启动
-        BtnStop.IsEnabled = true;   // 启用停止按钮
-        StatusText.Text = "追踪中..."; // 更新界面状态文字
+        AppServices.StartTracking();  // 统一入口：引擎+按配置启动截图（2026-08-23）
+        RefreshTrackingButtons();     // 按钮与状态文字对齐
+        (Application.Current as App)?.Host?.UpdateTooltip(); // 托盘提示同步
     }
 
     /// <summary>停止追踪：同时停止引擎与截图服务，并恢复按钮初始状态。</summary>
     private void BtnStop_Click(object sender, RoutedEventArgs e)
     {
-        _engine.Stop();           // 停止采样（会结算当前活动并落库）
-        _screenshotService.Stop();// 停止截图
-        BtnStart.IsEnabled = true;  // 恢复开始按钮
-        BtnStop.IsEnabled = false;  // 置灰停止按钮
-        StatusText.Text = "已停止"; // 更新状态文字
+        AppServices.StopTracking();   // 统一入口：停止采样（结算落库）+ 停止截图
+        RefreshTrackingButtons();     // 按钮与状态文字对齐
+        (Application.Current as App)?.Host?.UpdateTooltip(); // 托盘提示同步
     }
 
     /// <summary>刷新按钮：按当前日期重新加载数据（视为切日，重置勾选）。</summary>
@@ -274,6 +268,7 @@ public partial class MainWindow
 
         // 清空旧列表，倒序填充（最新的在最上面）
         _items.Clear();
+        _screenshotPathCache.Clear(); // 换日期后旧截图缓存作废（2026-08-23）
         var activities = ActivityRepository.GetByDate(date); // 从库中按时间升序取出当日记录
         _cachedActivities = activities;                      // 同步更新渲染用的缓存
         foreach (var a in activities.AsEnumerable().Reverse()) // 反转成新→旧顺序

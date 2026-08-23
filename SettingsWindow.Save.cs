@@ -139,12 +139,15 @@ public partial class SettingsWindow
         else
             SettingsRepository.Set("DataRetentionDays", "90");
 
-        // AI 设置
+        // AI 设置（2026-08-23 重做：服务商预设 + 高级参数一并保存；Key 取当前可见控件）
         SettingsRepository.Set("EnableAI", ChkEnableAI.IsChecked == true ? "true" : "false");
-        SettingsRepository.Set("AIMode", CbxAIMode.SelectedItem is ComboBoxItem aiItem ? aiItem.Tag?.ToString() ?? "lan" : "lan");
+        SettingsRepository.Set("AIProvider", GetComboTag(CbxAIProvider) is var p && p != "" ? p : "custom");
         SettingsRepository.Set("AIApiUrl", TxtApiUrl.Text);
-        SettingsRepository.Set("AIApiKey", TxtApiKey.Password);
-        SettingsRepository.Set("AIModel", TxtAIModel.Text);
+        SettingsRepository.Set("AIApiKey", GetKeyInput());
+        SettingsRepository.Set("AIModel", CbxAIModel.Text);
+        SettingsRepository.Set("AITemperature", TxtAITemperature.Text);
+        SettingsRepository.Set("AIMaxTokens", TxtAIMaxTokens.Text);
+        SettingsRepository.Set("AITimeoutSeconds", TxtAITimeout.Text);
 
         // AI 总结文件保存
         SettingsRepository.Set("AISummaryPath", TxtAISummaryPath.Text);
@@ -209,10 +212,13 @@ public partial class SettingsWindow
         snap["MaxScreenshotAgeDays"] = TxtMaxAge.Text;
         snap["DataRetentionDays"] = CbxDataRetention.Text ?? "";
         snap["EnableAI"] = (ChkEnableAI.IsChecked == true).ToString().ToLower();
-        snap["AIMode"] = GetComboTag(CbxAIMode);
+        snap["AIProvider"] = GetComboTag(CbxAIProvider);
         snap["AIApiUrl"] = TxtApiUrl.Text;
-        snap["AIApiKey"] = TxtApiKey.Password;
-        snap["AIModel"] = TxtAIModel.Text;
+        snap["AIApiKey"] = GetKeyInput();
+        snap["AIModel"] = CbxAIModel.Text;
+        snap["AITemperature"] = TxtAITemperature.Text;
+        snap["AIMaxTokens"] = TxtAIMaxTokens.Text;
+        snap["AITimeoutSeconds"] = TxtAITimeout.Text;
         snap["AISummaryPath"] = TxtAISummaryPath.Text;
         snap["AISummaryMaxCount"] = TxtAISummaryMaxCount.Text;
         snap["AISummaryMaxSizeMB"] = TxtAISummaryMaxSizeMB.Text;

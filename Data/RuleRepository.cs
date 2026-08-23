@@ -143,4 +143,54 @@ public static class RuleRepository
         using var cmd = new SqliteCommand("DELETE FROM Rules WHERE IsCustom=1", conn);
         cmd.ExecuteNonQuery();
     }
+
+    // ========================================================================
+    // 规则指纹（2026-08-23 新增）：用于"规则是否变化"的低成本判断，
+    // 让启动/保存设置时只在规则真正变化后才执行 全量重分类+总结失效。
+    // ========================================================================
+
+    /// <summary>
+    /// 计算当前规则集的指纹（SHA-256 前 16 字节的十六进制）。
+    /// 参与指纹的字段：ProcessName、TitleKeyword、CategoryId、IsCustom，按 Id 排序保证稳定。
+    /// </summary>
+    public static string ComputeFingerprint()
+    {
+        var lines = new List<string>();
+        using (var conn = DbAccess.Open())
+        using (var cmd = new SqliteCommand(
+            "SELECT Id, ProcessName, IFNULL(TitleKeyword,''), CategoryId, IsCustom FROM Rules ORDER BY Id", conn))
+        using (var r = cmd.ExecuteReader())
+        {
+            while (r.Read())
+                lines.Add($"{r.GetInt64(0)}|{r.GetString(1)}|{r.GetString(2)}|{r.GetInt64(3)}|{r.GetInt64(4)}");
+        }
+        // 无规则时也给出稳定指纹（空串哈希），保证"清空规则"同样能被检测到
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Join("\n", lines)));
+        var sb = new System.Text.StringBuilder(hash.Length * 2);
+        foreach (var b in hash) sb.Append(b.ToString("x2"));
+        return sb.ToString()[..32]; // 128 位足够防碰撞
+    }
+
+    /// <summary>读取设置表中存储的上次指纹；从未记录过返回 null。</summary>
+    public static string? GetStoredFingerprint()
+    {
+        var v = SettingsRepository.Get("RulesFingerprint", "");
+        return string.IsNullOrEmpty(v) ? null : v;
+    }
+
+    /// <summary>把当前指纹写入设置表（在完成重分类后调用）。</summary>
+    public static void StoreFingerprint()
+    {
+        SettingsRepository.Set("RulesFingerprint", ComputeFingerprint());
+    }
+
+    /// <summary>
+    /// 判断规则是否相对上次记录发生了变化（不落库，仅比对）。
+    /// </summary>
+    public static bool HasChangedSinceStored()
+    {
+        var stored = GetStoredFingerprint();
+        return stored == null || stored != ComputeFingerprint();
+    }
 }

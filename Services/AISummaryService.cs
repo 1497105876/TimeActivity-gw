@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
@@ -12,26 +12,74 @@ using TimeActivity.Models;
 namespace TimeActivity.Services;
 
 /// <summary>
-/// AI 每日总结服务 — 支持两种模式：
-/// 1. 局域网共享（Ollama）：本机 Ollama HTTP API，无需 Key
-/// 2. 自定义 API：OpenAI 兼容格式，用户自填 URL/Key/Model
+/// AI 每日总结服务 — 统一走 OpenAI 兼容接口（2026-08-23 起移除 Ollama 私有协议模式；
+/// 本机 Ollama/LM Studio 通过其内置的 /v1 OpenAI 兼容端点同样适用）。
 /// 提示词构建见 AISummaryService.Prompts.cs，总结文件保存见 AISummaryService.Files.cs（同属一个 partial class）。
 /// </summary>
 public partial class AISummaryService
 {
-    // 全局复用的 HTTP 客户端，超时 120 秒（AI 模型生成可能比较慢）
+    // 全局复用的 HTTP 客户端（默认超时；每次请求可用独立超时覆盖）
     private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(120) };
 
-    // AI 服务地址，Ollama 默认本机 11434 端口
-    private string ApiUrl => SettingsRepository.Get("AIApiUrl", "http://localhost:11434");
-    // API Key，自定义模式才需要
+    // AI 服务根地址，代码内部负责拼接为具体端点
+    private string ApiUrl => SettingsRepository.Get("AIApiUrl", "");
+    // API Key（OpenAI 兼容 Bearer 认证）
     private string ApiKey => SettingsRepository.Get("AIApiKey", "");
-    // 模型名称，默认用 qwen2.5:7b
-    private string AiModel => SettingsRepository.Get("AIModel", "qwen2.5:7b");
-    // 模式：lan=局域网 Ollama，custom=自定义 OpenAI 兼容 API
-    private string AiMode => SettingsRepository.Get("AIMode", "lan");
+    // 模型名称
+    private string AiModel => SettingsRepository.Get("AIModel", "");
     // AI 功能总开关
     private bool Enabled => SettingsRepository.Get("EnableAI", "true") == "true";
+
+    /// <summary>由 Base URL 推导对话端点：尊重已写全的地址，否则补全 /v1/chat/completions。</summary>
+    public static string BuildChatEndpoint(string baseUrl)
+    {
+        var u = (baseUrl ?? "").Trim().TrimEnd('/');
+        if (u.EndsWith("/chat/completions")) return u;
+        if (u.EndsWith("/v1")) return u + "/chat/completions";
+        return u + "/v1/chat/completions";
+    }
+
+    /// <summary>由 Base URL 推导模型列表端点（GET，仅状态码不消耗 token）。</summary>
+    public static string BuildModelsEndpoint(string baseUrl)
+    {
+        var u = (baseUrl ?? "").Trim().TrimEnd('/');
+        if (u.EndsWith("/models")) return u;
+        if (u.EndsWith("/v1")) return u + "/models";
+        return u + "/v1/models";
+    }
+
+    /// <summary>
+    /// 拉取模型列表（GET {base}/models）。供设置页"获取模型列表/测试连接"使用。
+    /// </summary>
+    /// <returns>Ok=HTTP 2xx；Status=状态码；Models=解析出的模型 id 列表；Error=异常消息</returns>
+    public static async Task<(bool Ok, int? Status, List<string> Models, string Error)> TryFetchModelsAsync(
+        string baseUrl, string apiKey, int timeoutSeconds = 10)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(Math.Max(3, timeoutSeconds)) };
+            using var req = new HttpRequestMessage(HttpMethod.Get, BuildModelsEndpoint(baseUrl));
+            if (!string.IsNullOrWhiteSpace(apiKey))
+                req.Headers.Add("Authorization", $"Bearer {apiKey}");
+            using var resp = await http.SendAsync(req);
+            var status = (int)resp.StatusCode;
+            if (!resp.IsSuccessStatusCode)
+                return (false, status, new List<string>(), $"HTTP {status} {resp.ReasonPhrase}");
+            var json = await resp.Content.ReadAsStringAsync();
+            var models = new List<string>();
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("data", out var arr) && arr.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var m in arr.EnumerateArray())
+                    if (m.TryGetProperty("id", out var id)) models.Add(id.GetString() ?? "");
+            }
+            return (true, status, models, "");
+        }
+        catch (Exception ex)
+        {
+            return (false, null, new List<string>(), ex.Message);
+        }
+    }
 
     /// <summary>
     /// 两类 AI 模式共用的系统提示词（拼接 prompt 时作为 system 消息内容）。
@@ -56,9 +104,8 @@ public partial class AISummaryService
     {
         // 没开 AI 功能直接返回
         if (!Enabled) return null;
-        // Ollama 模式只需要 URL，自定义模式必须有 API Key
-        if (AiMode == "lan" && string.IsNullOrEmpty(ApiUrl)) return null;
-        if (AiMode == "custom" && string.IsNullOrEmpty(ApiKey)) return null;
+        // 服务地址必填（统一 OpenAI 兼容端点）
+        if (string.IsNullOrWhiteSpace(ApiUrl)) return null;
 
         // 拉当天的活动记录和统计汇总
         var activities = ActivityRepository.GetByDate(date);
@@ -75,86 +122,15 @@ public partial class AISummaryService
         // 日报与周/月报统一走同一分发入口，避免两份同构逻辑（改分发时漏改一处）
         return await CallAIInternal(prompt);
     }
-
     /// <summary>
-    /// Ollama 模式 — 调用本地 Ollama 的 /api/chat 接口获取 AI 回复。
-    /// 调用前会先检测 Ollama 服务是否在线。
-    /// </summary>
-    /// <param name="prompt">拼好的用户提示词</param>
-    /// <returns>AI 回复的文本，失败返回 null</returns>
-    private async Task<string?> CallOllama(string prompt)
-    {
-        if (string.IsNullOrWhiteSpace(ApiUrl))
-        {
-            Logger.Error("Ollama API Url 为空，请在设置中配置", null);
-            return null;
-        }
-
-        // 先检测 Ollama 是否在线（请求 /api/tags 列出本地模型）
-        try
-        {
-            using var checkResp = await _httpClient.GetAsync(ApiUrl.TrimEnd('/') + "/api/tags");
-            if (!checkResp.IsSuccessStatusCode)
-            {
-                Logger.Error($"Ollama 服务返回错误状态 {checkResp.StatusCode}，请确认 Ollama 正在运行", null);
-                return null;
-            }
-        }
-        catch (HttpRequestException)
-        {
-            Logger.Error($"无法连接到 Ollama 服务（{ApiUrl}），请确认 Ollama 已启动", null);
-            return null;
-        }
-
-        // 构建请求体：模型名 + system/user 消息 + 关闭流式输出
-        var requestBody = new
-        {
-            model = AiModel,
-            messages = new[]
-            {
-                new { role = "system", content = SystemPrompt },
-                new { role = "user", content = prompt }
-            },
-            stream = false
-        };
-
-        var json = JsonSerializer.Serialize(requestBody);
-        var url = ApiUrl.TrimEnd('/') + "/api/chat";
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync(url, content);
-        using var resp = response;
-        if (!resp.IsSuccessStatusCode)
-        {
-            var errBody = await resp.Content.ReadAsStringAsync();
-            Logger.Error($"Ollama /api/chat 返回 {resp.StatusCode}，模型={AiModel}，响应={errBody.Substring(0, Math.Min(500, errBody.Length))}", null);
-            return null;
-        }
-
-        // 解析 Ollama 返回的 JSON：message.content 字段就是回复文本
-        var respJson = await resp.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(respJson);
-
-        if (doc.RootElement.TryGetProperty("message", out var msg) &&
-            msg.TryGetProperty("content", out var msgContent))
-        {
-            return msgContent.GetString();
-        }
-        Logger.Error($"Ollama 返回 JSON 无 message.content 字段，响应={respJson.Substring(0, Math.Min(500, respJson.Length))}", null);
-        return null;
-    }
-
-    /// <summary>
-    /// 自定义模式 — 调用 OpenAI 兼容格式的 API（MiniMax/OpenAI/DeepSeek 等）。
+    /// 调用 OpenAI 兼容接口（端点由 Base URL 拼接，见 BuildChatEndpoint）。
     /// 带 Bearer Token 认证，解析 choices[0].message.content。
     /// </summary>
-    /// <param name="prompt">拼好的用户提示词</param>
-    /// <returns>AI 回复的文本，失败返回 null</returns>
     private async Task<string?> CallCustomAPI(string prompt)
     {
         if (string.IsNullOrWhiteSpace(ApiUrl))
         {
-            Logger.Error("自定义 AI API Url 为空，请在设置中配置", null);
+            Logger.Error("AI API Url 为空，请在设置中配置", null);
             return null;
         }
 
@@ -181,12 +157,22 @@ public partial class AISummaryService
             requestBody["temperature"] = temperature;
 
         var json = JsonSerializer.Serialize(requestBody);
-        var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl);
-        // OpenAI 兼容格式用 Bearer Token 认证
-        request.Headers.Add("Authorization", $"Bearer {ApiKey}");
+        // 端点由 Base URL 拼接：尊重已写全地址，否则补全 /v1/chat/completions
+        var request = new HttpRequestMessage(HttpMethod.Post, BuildChatEndpoint(ApiUrl));
+        // OpenAI 兼容格式用 Bearer Token 认证（本机服务留空则不带头）
+        if (!string.IsNullOrWhiteSpace(ApiKey))
+            request.Headers.Add("Authorization", $"Bearer {ApiKey}");
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await _httpClient.SendAsync(request);
+        // 请求级超时：设置里配了 AITimeoutSeconds 就用它，否则走客户端默认 120s
+        HttpResponseMessage? response;
+        using (var cts = new CancellationTokenSource())
+        {
+            var timeoutRaw = SettingsRepository.Get("AITimeoutSeconds", "");
+            if (int.TryParse(timeoutRaw, out var t) && t >= 5 && t <= 600)
+                cts.CancelAfter(TimeSpan.FromSeconds(t));
+            response = await _httpClient.SendAsync(request, cts.Token);
+        }
         using var resp2 = response;
         if (!resp2.IsSuccessStatusCode)
         {
@@ -212,18 +198,14 @@ public partial class AISummaryService
     }
 
     /// <summary>
-    /// 统一 AI 调用入口，根据当前模式分发到 Ollama 或自定义 API。
+    /// 统一 AI 调用入口：全部走 OpenAI 兼容端点（由 Base URL 拼接）。
+    /// 请求级超时优先读 AITimeoutSeconds 设置（未配置用客户端默认 120 秒）。
     /// </summary>
-    /// <param name="prompt">拼好的提示词</param>
-    /// <returns>AI 回复文本，失败返回 null</returns>
     private async Task<string?> CallAIInternal(string prompt)
     {
         try
         {
-            if (AiMode == "lan")
-                return await CallOllama(prompt);
-            else
-                return await CallCustomAPI(prompt);
+            return await CallCustomAPI(prompt);
         }
         catch (Exception ex)
         {

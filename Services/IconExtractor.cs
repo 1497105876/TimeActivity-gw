@@ -20,9 +20,17 @@ namespace TimeActivity.Services;
 /// </summary>
 public static class IconExtractor
 {
-    // 进程名→图标的缓存，同一进程只提取一次
-    private static readonly Dictionary<string, ImageSource?> _cache = new();
+    // 进程名→(图标, 记录时间)。成功图标长期缓存；失败的(含字母头像标记)带时间戳，超时可重试
+    private static readonly Dictionary<string, (ImageSource? Icon, DateTime At)> _cache = new();
     private static readonly object _lock = new();
+
+    // 负结果重试间隔：拿不到图标的进程每 10 分钟允许再试一次（环境可能变化，如提权后）
+    private static readonly TimeSpan NegativeTtl = TimeSpan.FromMinutes(10);
+
+    // 进程名→exe路径 的全量快照缓存：避免每次取图标都遍历进程
+    private static Dictionary<string, string>? _pathMap;
+    private static DateTime _pathMapAt = DateTime.MinValue;
+    private static readonly object _mapLock = new();
 
     // Win32 API：通过进程句柄拿 exe 完整路径（比 MainModule 更可靠，UWP/系统进程也能拿）
     // dwFlags=0 表示返回完整路径，lpExeName 接收路径字符串，lpdwSize 传入缓冲区大小、返回实际长度
@@ -42,27 +50,31 @@ public static class IconExtractor
     private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
     /// <summary>
-    /// 根据进程名获取图标（带缓存，同一进程名只提取一次）。
+    /// 根据进程名获取图标（带缓存）。
+    /// 2026-08-23 增强：① 负缓存 10 分钟过期自动重试；② 彻底弃用 MainModule（消除"拒绝访问"异常）；
+    /// ③ 最终兜底返回"首字母+分类色系圆角块"头像，界面不再出现大片空白。
     /// </summary>
-    /// <param name="processName">进程名（不含 .exe 后缀）</param>
-    /// <returns>图标的 ImageSource，提取失败返回 null</returns>
     public static ImageSource? GetIcon(string processName)
     {
         if (string.IsNullOrEmpty(processName)) return null;
 
-        // 先查缓存
+        // 先查缓存：成功结果永久有效；失败结果(含 null)在 TTL 内直接复用
         lock (_lock)
         {
             if (_cache.TryGetValue(processName, out var cached))
-                return cached;
+            {
+                bool fresh = cached.Icon != null ||
+                             DateTime.Now - cached.At < NegativeTtl;
+                if (fresh) return cached.Icon;
+            }
         }
 
-        // 缓存没有就提取，然后存入缓存
-        ImageSource? icon = ExtractIconInternal(processName);
+        // 缓存没有/已过期就提取；仍失败则生成字母头像兜底
+        ImageSource? icon = ExtractIconInternal(processName) ?? CreateLetterAvatar(processName);
 
         lock (_lock)
         {
-            _cache[processName] = icon;
+            _cache[processName] = (icon, DateTime.Now);
         }
         return icon;
     }
@@ -111,66 +123,107 @@ public static class IconExtractor
     }
 
     /// <summary>
-    /// 通过进程名拿 exe 路径：先试 MainModule（大部分进程能用），
-    /// 失败了用 Win32 QueryFullProcessImageName（UWP/系统进程/权限不足时兜底）。
+    /// 通过进程名拿 exe 路径：优先查"全进程路径快照"（全部走 Win32 低权限查询，
+    /// 完全不触碰 MainModule，从根上消除 UWP/系统进程的"拒绝访问"异常）。
     /// </summary>
-    /// <param name="processName">进程名</param>
-    /// <returns>exe 完整路径，找不到返回 null</returns>
     private static string? GetExePathByProcessName(string processName)
     {
-        var procs = Process.GetProcessesByName(processName);
-        if (procs.Length == 0) return null;
+        var map = GetProcessPathMap();
+        return map.TryGetValue(processName.ToLowerInvariant(), out var path) ? path : null;
+    }
 
-        foreach (var proc in procs)
+    /// <summary>
+    /// 构建并缓存"所有运行中进程 → exe 路径"映射（30 秒刷新一次）。
+    /// 对每个进程只用 OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)+QueryFullProcessImageNameW，
+    /// 普通用户权限即可，绝大多数进程都能拿到；个别仍失败的自动跳过。
+    /// </summary>
+    private static Dictionary<string, string> GetProcessPathMap()
+    {
+        lock (_mapLock)
         {
-            // 方法1：MainModule.FileName（大部分进程能用，但 UWP/系统进程会抛异常）
-            try
-            {
-                string? path = proc.MainModule?.FileName;
-                if (!string.IsNullOrEmpty(path) && File.Exists(path))
-                {
-                    proc.Dispose();
-                    return path;
-                }
-            }
-            catch
-            {
-                // MainModule 访问失败（UWP/系统进程/权限不足），试方法2
-            }
+            if (_pathMap != null && DateTime.Now - _pathMapAt < TimeSpan.FromSeconds(30))
+                return _pathMap;
 
-            // 方法2：Win32 QueryFullProcessImageName（只需要 PROCESS_QUERY_LIMITED_INFORMATION，普通用户权限就行）
-            try
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var proc in Process.GetProcesses())
             {
-                IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)proc.Id);
-                if (hProcess != IntPtr.Zero)
+                IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)proc.Id);
+                if (h == IntPtr.Zero) { proc.Dispose(); continue; }
+                try
                 {
-                    try
+                    var sb = new System.Text.StringBuilder(520);
+                    uint size = (uint)sb.Capacity;
+                    if (QueryFullProcessImageNameW(h, 0, sb, ref size))
                     {
-                        var sb = new System.Text.StringBuilder(260);
-                        uint size = (uint)sb.Capacity;
-                        // 返回 true 表示成功拿到路径
-                        if (QueryFullProcessImageNameW(hProcess, 0, sb, ref size))
-                        {
-                            string? result = sb.ToString();
-                            if (!string.IsNullOrEmpty(result) && File.Exists(result))
-                            {
-                                proc.Dispose();
-                                return result;
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        // 句柄用完必须关，否则泄漏
-                        CloseHandle(hProcess);
+                        string p = sb.ToString();
+                        if (!string.IsNullOrEmpty(p))
+                            map[proc.ProcessName.ToLowerInvariant()] = p;
                     }
                 }
+                catch { /* 个别进程查询失败直接跳过 */ }
+                finally { CloseHandle(h); proc.Dispose(); }
             }
-            catch (Exception ex) { Logger.Error("IconExtractor GetExePath 失败", ex); }
-
-            proc.Dispose();
+            _pathMap = map;
+            _pathMapAt = DateTime.Now;
+            return map;
         }
-        return null;
+    }
+
+    /// <summary>
+    /// 兜底头像：以分类色系(按名称哈希取柔和色相)画圆角块 + 白色首字母，
+    /// 保证任何进程都有可辨识的视觉占位。
+    /// </summary>
+    private static ImageSource? CreateLetterAvatar(string processName)
+    {
+        try
+        {
+            // 由名称哈希生成稳定的柔和色相，避免全灰一片
+            int hash = 0;
+            foreach (var ch in processName) hash = hash * 31 + ch;
+            var hue = (byte)(hash % 360);
+            var fill = ColorFromHsv(hue, 0.45, 0.78);
+
+            const int size = 16;
+            var visual = new DrawingVisual();
+            using (var dc = visual.RenderOpen())
+            {
+                var rect = new Rect(0, 0, size, size);
+                dc.DrawRoundedRectangle(new SolidColorBrush(fill), null, rect, 3, 3);
+                var text = new FormattedText(
+                    processName.Substring(0, 1).ToUpperInvariant(),
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface(new System.Windows.Media.FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+                    10, System.Windows.Media.Brushes.White, 1.25);
+                dc.DrawText(text, new System.Windows.Point((size - text.Width) / 2, (size - text.Height) / 2));
+            }
+            var bmp = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
+            bmp.Render(visual);
+            bmp.Freeze(); // 冻结后可跨线程使用
+            return bmp;
+        }
+        catch
+        {
+            return null; // 极端失败退回 null（调用方还有占位边框）
+        }
+    }
+
+    /// <summary>HSV → WPF Color（用于按哈希色相生成头像底色）。</summary>
+    private static System.Windows.Media.Color ColorFromHsv(double hue360, double s, double v)
+    {
+        double c = v * s;
+        double x = c * (1 - Math.Abs((hue360 / 60) % 2 - 1));
+        double m = v - c;
+        (double r, double g, double b) = ((int)(hue360 / 60)) switch
+        {
+            0 => (c, x, 0.0),
+            1 => (x, c, 0.0),
+            2 => (0.0, c, x),
+            3 => (0.0, x, c),
+            4 => (x, 0.0, c),
+            _ => (c, 0.0, x)
+        };
+        return System.Windows.Media.Color.FromRgb((byte)((r + m) * 255), (byte)((g + m) * 255), (byte)((b + m) * 255));
     }
 
     /// <summary>
@@ -181,11 +234,13 @@ public static class IconExtractor
     private static string? FindExePath(string processName)
     {
         string[] extensions = { ".exe", "" };
-        // 常见安装目录
+        // 常见安装目录（含 Electron/VSCode 等常用的 %LocalAppData%\Programs）
+        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string[] searchPaths = {
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            Path.Combine(localAppData, "Programs"),          // 现代 per-user 安装默认位置
+            localAppData,
             Environment.GetFolderPath(Environment.SpecialFolder.Windows),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32")
         };

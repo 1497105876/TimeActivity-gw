@@ -31,9 +31,10 @@ public static class ActivityRepository
     {
         EnsureInit();
         // 插入活动记录并取回自增 Id
+        // 2026-08-23 UTC 双列：本地时间列照旧（展示用），同时写入 UTC 列（统计口径抗时区/改钟）
         const string sql = @"
-            INSERT INTO Activities (ProcessName, WindowTitle, Category, StartTime, EndTime, Duration, IsIdle, CreatedAt)
-            VALUES (@ProcessName, @WindowTitle, @Category, @StartTime, @EndTime, @Duration, @IsIdle, @CreatedAt);
+            INSERT INTO Activities (ProcessName, WindowTitle, Category, StartTime, EndTime, StartTimeUtc, EndTimeUtc, Duration, IsIdle, CreatedAt)
+            VALUES (@ProcessName, @WindowTitle, @Category, @StartTime, @EndTime, @StartTimeUtc, @EndTimeUtc, @Duration, @IsIdle, @CreatedAt);
             SELECT last_insert_rowid();";
 
         using var conn = DbAccess.Open();
@@ -44,6 +45,9 @@ public static class ActivityRepository
         // 时间统一用 yyyy-MM-dd HH:mm:ss.fff 格式存储，精确到毫秒
         cmd.Parameters.AddWithValue("@StartTime", activity.StartTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
         cmd.Parameters.AddWithValue("@EndTime", activity.EndTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+        // UTC 列：ISO8601 带 Z 后缀，由本地值换算而来
+        cmd.Parameters.AddWithValue("@StartTimeUtc", activity.StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"));
+        cmd.Parameters.AddWithValue("@EndTimeUtc", activity.EndTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"));
         cmd.Parameters.AddWithValue("@Duration", activity.Duration);
         // IsIdle 存为 0/1，SQLite 没有布尔类型
         cmd.Parameters.AddWithValue("@IsIdle", activity.IsIdle ? 1 : 0);
@@ -66,7 +70,7 @@ public static class ActivityRepository
         const string sql = @"
             SELECT Id, ProcessName, WindowTitle, Category, StartTime, EndTime, Duration, IsIdle
             FROM Activities
-            WHERE date(StartTime) = @DateStr
+            WHERE date(StartTimeUtc,'localtime') = @DateStr
             ORDER BY StartTime";
 
         using var conn = DbAccess.Open();
@@ -103,16 +107,17 @@ public static class ActivityRepository
         EnsureInit();
         var result = new List<ActivityRecord>();
         // StartTime >= start AND StartTime < end，左闭右开区间
+        // 2026-08-23：改用 UTC 列做范围比较（入参为本地时间，内部换算），抗时区/改钟
         const string sql = @"
             SELECT Id, ProcessName, WindowTitle, Category, StartTime, EndTime, Duration, IsIdle
             FROM Activities
-            WHERE StartTime >= @Start AND StartTime < @End
-            ORDER BY StartTime";
+            WHERE StartTimeUtc >= @Start AND StartTimeUtc < @End
+            ORDER BY StartTimeUtc";
 
         using var conn = DbAccess.Open();
         using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@Start", start.ToString("yyyy-MM-dd HH:mm:ss.fff"));
-        cmd.Parameters.AddWithValue("@End", end.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+        cmd.Parameters.AddWithValue("@Start", start.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"));
+        cmd.Parameters.AddWithValue("@End", end.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"));
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -147,7 +152,7 @@ public static class ActivityRepository
         const string sql = @"
             SELECT Category, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE date(StartTime) = @DateStr AND IsIdle = 0
+            WHERE date(StartTimeUtc,'localtime') = @DateStr AND IsIdle = 0
             GROUP BY Category
             ORDER BY TotalSeconds DESC";
 
@@ -175,7 +180,7 @@ public static class ActivityRepository
         const string sql = @"
             SELECT ProcessName, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE date(StartTime) = @DateStr AND IsIdle = 0
+            WHERE date(StartTimeUtc,'localtime') = @DateStr AND IsIdle = 0
             GROUP BY ProcessName
             ORDER BY TotalSeconds DESC";
 
@@ -215,7 +220,7 @@ public static class ActivityRepository
         string sql = $@"
             SELECT Category, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE date(StartTime) >= @Start AND date(StartTime) <= @End{idleFilter}
+            WHERE date(StartTimeUtc,'localtime') >= @Start AND date(StartTimeUtc,'localtime') <= @End{idleFilter}
             GROUP BY Category
             ORDER BY TotalSeconds DESC";
 
@@ -255,7 +260,7 @@ public static class ActivityRepository
         string sql = $@"
             SELECT ProcessName, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE date(StartTime) >= @Start AND date(StartTime) <= @End{idleFilter}
+            WHERE date(StartTimeUtc,'localtime') >= @Start AND date(StartTimeUtc,'localtime') <= @End{idleFilter}
             GROUP BY ProcessName
             ORDER BY TotalSeconds DESC";
 
@@ -293,9 +298,9 @@ public static class ActivityRepository
         string idleFilter = includeIdle ? "" : " AND IsIdle = 0";
         // 按日期分组汇总，GROUP BY date(StartTime)，用于趋势图展示
         string sql = $@"
-            SELECT date(StartTime) AS Date, SUM(Duration) AS TotalSeconds
+            SELECT date(StartTimeUtc,'localtime') AS Date, SUM(Duration) AS TotalSeconds
             FROM Activities
-            WHERE date(StartTime) >= @Start AND date(StartTime) <= @End{idleFilter}
+            WHERE date(StartTimeUtc,'localtime') >= @Start AND date(StartTimeUtc,'localtime') <= @End{idleFilter}
             GROUP BY Date
             ORDER BY Date";
 

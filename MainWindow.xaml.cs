@@ -92,8 +92,7 @@ public partial class MainWindow : Window
     private double _dragStartX = 0;
     private double _dragStartViewStart = 0;
 
-    // 托盘图标
-    private TrayIcon? _trayIcon;
+    // 托盘图标已上移到 TrayHost（2026-08-23 方案A）；窗口只保留强制退出标志
     private bool _forceClose = false; // true=真正退出，false=最小化到托盘
 
     // === 使用占比高亮 ===
@@ -106,16 +105,15 @@ public partial class MainWindow : Window
     private HashSet<string> ActiveCategoryHighlights => _checkedCategories;
 
     /// <summary>
-    /// 构造函数：初始化所有子系统（数据库、分类器、追踪引擎、截图服务、
-    /// 渲染器、托盘、自动刷新等），加载设置并启动追踪。
+    /// 构造函数：初始化界面侧子系统（渲染器/颜色/统计页/托盘事件订阅等）。
+    /// 2026-08-23 方案A：后台服务（引擎/分类器/截图/调度器）已上移到 AppServices，
+    /// 此处仅取引用并接线，不再负责建库与启动追踪 —— 因此窗口可以延迟创建。
     /// </summary>
     public MainWindow()
     {
         InitializeComponent(); // 加载 XAML，创建全部控件
 
-        // 初始化数据库
-        DatabaseHelper.Initialize(); // 建库/迁移/种子数据（幂等）
-        LoadCategoryColors();        // 预载分类颜色缓存供图例与渲染使用
+        LoadCategoryColors(); // 预载分类颜色缓存供图例与渲染使用
 
         // 初始化渲染器，设置颜色查找回调
         _timelineRenderer = new TimelineRenderer(_colorHelper);
@@ -123,28 +121,11 @@ public partial class MainWindow : Window
         _overviewRenderer = new OverviewRenderer(_colorHelper);
         _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat); // 概览条同款取色
 
-        // 初始化分类器和追踪引擎
-        _classifier = new ActivityClassifier();      // 从库中加载分类规则
-        _engine = new TrackingEngine(_classifier);   // 轮询采样引擎
-        _screenshotService = new ScreenshotService();// 截图服务（默认不启动）
-
-        // 启动时重新分类历史数据（规则可能已更新）
-        try
-        {
-            DatabaseHelper.ReclassifyAll(_classifier.Classify); // 全量按最新规则重算
-            // 底层数据已变，使近期自动总结失效，待下方 _summaryScheduler.Start() 补算时刷新
-            AISummaryRepository.InvalidateRecent();
-        }
-        catch (Exception ex)
-        {
-            Logger.Error("启动重新分类失败", ex); // 失败不阻断启动
-        }
-
-        // 从设置读取采样间隔和空闲阈值
-        if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
-            _engine.PollIntervalSeconds = Math.Clamp(poll, 1, 3600);   // 限制在 1秒~1小时
-        if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
-            _engine.IdleThresholdSeconds = Math.Clamp(idle, 10, 86400); // 限制在 10秒~1天
+        // 后台服务取自 AppServices（App 启动时已创建并按配置运行）
+        _classifier = AppServices.Classifier;
+        _engine = AppServices.Engine;
+        _screenshotService = AppServices.Screenshots;
+        _summaryScheduler = AppServices.Scheduler;
 
         // 订阅追踪引擎的事件
         _engine.OnActivityRecorded += OnActivityRecorded; // 每条活动完成 → 更新列表
@@ -232,8 +213,7 @@ public partial class MainWindow : Window
         };
         _autoRefreshTimer.Start(); // 启动 30 秒周期自动刷新
 
-        // 启动 AI 总结定时调度（每天 0:00 自动生成 日/周/月 总结；启动时也会补算错过的任务）
-        _summaryScheduler.Start();
+        // （调度器/自动开始追踪已上移 AppServices：窗口未创建时也要持续追踪与总结）
 
         // 启动时执行数据保留清理（按设置的天数删旧数据）
         PerformDataRetention();
@@ -241,62 +221,49 @@ public partial class MainWindow : Window
         // 启动时检查是否需要补生成上周/上月的自动总结
         _ = CheckAutoSummaryAsync();
 
-        // 如果设置了自动开始追踪，则启动引擎和截图服务
-        if (SettingsRepository.Get("AutoStartTracking", "true") == "true")
-        {
-            _engine.Start(); // 自动开始采样
-            if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
-                _screenshotService.Start(); // 截图开关打开才启动
-            BtnStart.IsEnabled = false;     // 按钮状态与运行中保持一致
-            BtnStop.IsEnabled = true;
-            StatusText.Text = "追踪中...";
-        }
-
-        // 初始化托盘需等窗口句柄就绪
-        this.SourceInitialized += (s, e) => InitTray();
-
-        // 设置窗口保存后重启截图服务
+        // 设置窗口保存后刷新界面侧（服务侧处理在 AppServices.HookSettingsSaved）
         SettingsWindow.SettingsSaved += OnSettingsSaved;
 
-        // 切换应用时截屏（仿 ManicTime）
-        _engine.OnAppSwitched += () => _screenshotService.OnAppSwitched();
+        // 按钮初始状态与服务实际状态对齐（引擎可能早已随启动运行）
+        RefreshTrackingButtons();
+    }
 
-        // --minimized 启动时直接隐藏到托盘
-        var args = Environment.GetCommandLineArgs();
-        if (args.Contains("--minimized", StringComparer.OrdinalIgnoreCase)) // 命令行带 --minimized 参数
-        {
-            this.SourceInitialized += (s, e) => Hide(); // 句柄就绪后立即隐藏窗口
-        }
+    /// <summary>按引擎当前运行状态同步 开始/停止按钮 与 状态文字。</summary>
+    public void RefreshTrackingButtons()
+    {
+        bool running = _engine.IsRunning;
+        BtnStart.IsEnabled = !running;
+        BtnStop.IsEnabled = running;
+        StatusText.Text = running ? "追踪中..." : "已停止";
+    }
+
+    /// <summary>托盘"退出"调用：置强制退出标志后正常走关闭流程。</summary>
+    public void ForceClose()
+    {
+        _forceClose = true;
+        Close();
     }
 
     /// <summary>
-    /// 设置窗口保存后回调：重启截图服务、重读追踪参数、重载规则并重新分类、刷新颜色和图表
+    /// 窗口关闭（非隐藏）时解除对全局服务的订阅并停掉窗口定时器，
+    /// 防止旧窗口实例泄漏或重复刷新（方案A 下主窗口可能被多次创建/关闭）。
+    /// </summary>
+    public void DetachFromServices()
+    {
+        _engine.OnActivityRecorded -= OnActivityRecorded;
+        _engine.OnStatusChanged -= OnStatusChanged;
+        SettingsWindow.SettingsSaved -= OnSettingsSaved;
+        _autoRefreshTimer?.Stop();
+        _debounceTimer?.Stop();
+        Logger.Info("主窗口已关闭：解除服务事件订阅");
+    }
+
+    /// <summary>
+    /// 设置窗口保存后的"界面侧"刷新：颜色缓存、图例、时间轴、统计列表与报表页。
+    /// 服务侧（截图启停/参数重读/规则变化重算）由 AppServices 统一处理，勿在此重复。
     /// </summary>
     private void OnSettingsSaved()
     {
-        // 截图服务：如果在跑就先停，然后按新设置决定是否启动
-        if (_screenshotService.IsRunning)
-            _screenshotService.Stop();
-        if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
-            _screenshotService.Start();
-
-        // 追踪引擎重读采样间隔和空闲阈值
-        if (int.TryParse(SettingsRepository.Get("PollIntervalSeconds", "3"), out int poll))
-            _engine.PollIntervalSeconds = Math.Clamp(poll, 1, 3600);
-        if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idle))
-            _engine.IdleThresholdSeconds = Math.Clamp(idle, 10, 86400);
-
-        // 分类器重载规则 + 重新分类历史数据
-        _classifier.ReloadRules();
-        try
-        {
-            DatabaseHelper.ReclassifyAll(_classifier.Classify);
-            // 底层数据已变，使近期自动总结失效并立即补算刷新
-            AISummaryRepository.InvalidateRecent();
-            _summaryScheduler.RegenerateNow();
-        }
-        catch (Exception ex) { Logger.Error("OnSettingsSaved 重新分类失败", ex); }
-
         // 重新从数据库加载缓存，否则时间轴和统计列表读到的还是旧分类
         _cachedActivities = ActivityRepository.GetByDate(_currentDate);
         // 同步更新 _items 里的分类

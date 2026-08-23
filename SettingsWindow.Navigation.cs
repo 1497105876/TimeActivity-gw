@@ -122,16 +122,27 @@ public partial class SettingsWindow
         // 数据设置
         SetComboByTagOrText(CbxDataRetention, SettingsRepository.Get("DataRetentionDays", "90"), "天");
 
-        // AI 设置
+        // AI 设置（2026-08-23 重做：服务商预设 + OpenAI 兼容统一接口）
         ChkEnableAI.IsChecked = SettingsRepository.Get("EnableAI", "true") == "true";
-        string aiMode = SettingsRepository.Get("AIMode", "lan");
-        foreach (ComboBoxItem item in CbxAIMode.Items)
+        // 兼容迁移：老版本只有 AIMode(lan/custom)，首次装载时映射为 AIProvider 并回写
+        string provider = SettingsRepository.Get("AIProvider", "");
+        if (string.IsNullOrEmpty(provider))
         {
-            if (item.Tag?.ToString() == aiMode) { CbxAIMode.SelectedItem = item; break; }
+            provider = SettingsRepository.Get("AIMode", "custom") == "lan" ? "ollama" : "custom";
+            SettingsRepository.Set("AIProvider", provider);
+        }
+        foreach (ComboBoxItem item in CbxAIProvider.Items)
+        {
+            if (item.Tag?.ToString() == provider) { CbxAIProvider.SelectedItem = item; break; }
         }
         TxtApiUrl.Text = SettingsRepository.Get("AIApiUrl", "");
         TxtApiKey.Password = SettingsRepository.Get("AIApiKey", "");
-        TxtAIModel.Text = SettingsRepository.Get("AIModel", "");
+        CbxAIModel.Text = SettingsRepository.Get("AIModel", "");
+
+        // AI 高级参数（留空=用服务商默认值）
+        TxtAITemperature.Text = SettingsRepository.Get("AITemperature", "");
+        TxtAIMaxTokens.Text = SettingsRepository.Get("AIMaxTokens", "");
+        TxtAITimeout.Text = SettingsRepository.Get("AITimeoutSeconds", "");
 
         // AI 总结文件保存设置
         TxtAISummaryPath.Text = SettingsRepository.Get("AISummaryPath", "");
@@ -217,26 +228,9 @@ public partial class SettingsWindow
         }
     }
 
-    /// <summary>
-    /// "清空数据"按钮：删除所有活动记录、截图与统计数据。
-    /// 需要经过两次确认对话框，防止误操作（不可恢复）。
-    /// </summary>
-    private void BtnClearData_Click(object sender, RoutedEventArgs e)
-    {
-        var result = MessageBox.Show(
-            "确定要清空所有活动记录、截图和统计数据吗?\n此操作不可恢复!",
-            "警告", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (result != MessageBoxResult.Yes) return; // 第一次确认
-
-        var result2 = MessageBox.Show(
-            "再次确认:真的要删除所有数据吗?",
-            "再次确认", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (result2 != MessageBoxResult.Yes) return; // 第二次确认
-
-        DatabaseHelper.ClearAllData(); // 执行清空
-        UpdateDiskUsage();             // 刷新磁盘占用显示
-        MessageBox.Show("所有数据已清空", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
-    }
+    // 「清空所有数据」入口已按需求移除（2026-08-23）：
+    // 数据安全仍由「按保留天数自动清理(CleanOldData)」与「手动备份(BackupTo)」保障。
+    // 历史实现 BtnClearData_Click 见版本库。
 
     /// <summary>
     /// "导出设置"按钮：把全部设置项序列化为缩进 JSON 保存到用户指定文件。

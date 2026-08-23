@@ -26,9 +26,9 @@ public static class DailySummaryRepository
         // 找出 Activities 里有但 DailyTotal 里没有的日期——即缺失汇总的日期
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            SELECT DISTINCT date(StartTime) as D 
+            SELECT DISTINCT date(StartTimeUtc,'localtime') as D 
             FROM Activities 
-            WHERE date(StartTime) NOT IN (SELECT Date FROM DailyTotal)
+            WHERE date(StartTimeUtc,'localtime') NOT IN (SELECT Date FROM DailyTotal)
             ORDER BY D";
         var missingDates = new List<string>(); // 缺失日期列表
         using var reader = cmd.ExecuteReader();
@@ -69,7 +69,7 @@ public static class DailySummaryRepository
         using var totalCmd = conn.CreateCommand();
         if (transaction != null) totalCmd.Transaction = transaction;
         // COALESCE 防 NULL，第二个 SUM 用 CASE WHEN 过滤空闲时长
-        totalCmd.CommandText = "SELECT COALESCE(SUM(Duration),0), COALESCE(SUM(CASE WHEN IsIdle=0 THEN Duration ELSE 0 END),0) FROM Activities WHERE date(StartTime)=@date";
+        totalCmd.CommandText = "SELECT COALESCE(SUM(Duration),0), COALESCE(SUM(CASE WHEN IsIdle=0 THEN Duration ELSE 0 END),0) FROM Activities WHERE date(StartTimeUtc,'localtime')=@date";
         totalCmd.Parameters.AddWithValue("@date", date);
         using var totalReader = totalCmd.ExecuteReader();
         long totalSeconds = 0, totalActive = 0; // 总时长 / 活跃时长
@@ -102,7 +102,7 @@ public static class DailySummaryRepository
         if (transaction != null) catCmd.Transaction = transaction;
         // 按分类汇总时长，只统计非空闲记录
         catCmd.CommandText = @"SELECT Category, SUM(Duration) as Total FROM Activities 
-            WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY Category";
+            WHERE date(StartTimeUtc,'localtime')=@date AND IsIdle=0 GROUP BY Category";
         catCmd.Parameters.AddWithValue("@date", date);
         // 先读到内存，再批量写入（避免 reader 打开时执行命令导致 SQLite 报错）
         var catRows = new List<(string cat, long sec)>();
@@ -133,7 +133,7 @@ public static class DailySummaryRepository
         if (transaction != null) procCmd.Transaction = transaction;
         // 按进程名+分类汇总，一个进程可能出现多个分类，取时长最长的那个
         procCmd.CommandText = @"SELECT ProcessName, Category, SUM(Duration) as Total FROM Activities 
-            WHERE date(StartTime)=@date AND IsIdle=0 GROUP BY ProcessName, Category
+            WHERE date(StartTimeUtc,'localtime')=@date AND IsIdle=0 GROUP BY ProcessName, Category
             ORDER BY ProcessName, Total DESC";
         procCmd.Parameters.AddWithValue("@date", date);
         // 同样先读到内存，同进程取时长最长的类别（主键是 Date+ProcessName）
