@@ -79,11 +79,12 @@ public partial class SettingsWindow
 
     // ==================== AI 设置（2026-08-23 重做）====================
 
-    // 服务商预设表：Tag → (名称, 默认 Base URL, 模型名提示)
+    // 服务商预设表：Tag → (默认 Base URL, 模型名提示)
     private static readonly Dictionary<string, (string Base, string ModelHint)> AiPresets = new()
     {
         ["custom"]      = ("", ""),
         ["ollama"]      = ("http://localhost:11434/v1", "qwen2.5:7b"),
+        ["ollama-cloud"]= ("https://ollama.com/v1", ""),
         ["lmstudio"]    = ("http://localhost:1234/v1", ""),
         ["deepseek"]    = ("https://api.deepseek.com/v1", "deepseek-chat"),
         ["moonshot"]    = ("https://api.moonshot.cn/v1", "moonshot-v1-8k"),
@@ -91,6 +92,11 @@ public partial class SettingsWindow
         ["minimax"]     = ("https://api.minimaxi.com/v1", "MiniMax-Text-01"),
         ["siliconflow"] = ("https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-7B-Instruct"),
     };
+
+    // 各服务商的输入记忆（应用会话内有效）：切走时暂存、切回时还原，
+    // 避免来回切换互相覆盖；选"自定义"且无记忆时清空，不残留上次内容。
+    private static readonly Dictionary<string, (string Url, string Model, string Key)> AiProviderMemory = new();
+    private static string? _currentAiProviderTag;
 
     /// <summary>读取当前 Key 输入框内容（明文/密文两种状态之一）。</summary>
     private string GetKeyInput() =>
@@ -104,20 +110,43 @@ public partial class SettingsWindow
     }
 
     /// <summary>
-    /// 服务商预设切换：自动填入该服务商的 Base URL 与常用模型提示。
-    /// 选"自定义"时不清空用户已填内容。
+    /// 服务商预设切换（2026-08-23 二轮改进）：
+    /// 1) 切走前把当前 地址/模型/Key 暂存到该服务商的记忆槽；
+    /// 2) 切入时优先还原记忆，无记忆则：自定义=清空（不残留上次内容），其余=填预设默认值；
+    /// 3) _currentAiProviderTag 由 LoadSettings 装载后初始化，装载期不触发本逻辑。
     /// </summary>
     private void AIProvider_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (_loading || CbxAIProvider == null) return; // 装载期不联动
-        var tag = (CbxAIProvider.SelectedItem as ComboBoxItem)?.Tag?.ToString();
-        if (tag != null && AiPresets.TryGetValue(tag, out var p) && !string.IsNullOrEmpty(p.Base))
+        var newTag = (CbxAIProvider.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        if (string.IsNullOrEmpty(newTag)) return;
+
+        // 1) 暂存切走的服务商当前输入
+        if (!string.IsNullOrEmpty(_currentAiProviderTag))
+            AiProviderMemory[_currentAiProviderTag] = (TxtApiUrl.Text, CbxAIModel.Text, GetKeyInput());
+
+        // 2) 还原或填默认
+        if (AiProviderMemory.TryGetValue(newTag, out var memo))
         {
-            TxtApiUrl.Text = p.Base;          // 填接口地址示例
-            if (!string.IsNullOrEmpty(p.ModelHint))
-                CbxAIModel.Text = p.ModelHint; // 填模型提示（仍可手改）
-            SetKeyInput("");                  // 切换预设时清空旧 Key，避免串用
+            TxtApiUrl.Text = memo.Url;
+            CbxAIModel.Text = memo.Model;
+            SetKeyInput(memo.Key);
         }
+        else if (newTag == "custom")
+        {
+            // 自定义且从未输入过 → 清空，不残留其他服务商的内容
+            TxtApiUrl.Text = "";
+            CbxAIModel.Text = "";
+            SetKeyInput("");
+        }
+        else if (AiPresets.TryGetValue(newTag, out var p))
+        {
+            TxtApiUrl.Text = p.Base;
+            CbxAIModel.Text = p.ModelHint;
+            SetKeyInput("");
+        }
+
+        _currentAiProviderTag = newTag;
         MarkChanged();
     }
 
@@ -318,14 +347,29 @@ public partial class SettingsWindow
     }
 
     /// <summary>
-    /// 统计截图目录的实际磁盘占用（递归遍历 jpg/png/jpeg 文件求和）。
-    /// 目录不存在或异常时显示友好提示。
+    /// 统计截图目录的实际磁盘占用。
+    /// 2026-08-23 二轮：目录递归扫描可能涉及数千文件，改为后台线程执行，
+    /// 结束后回填 UI —— 修复"设置窗口打开后卡一下/很慢"的问题。
     /// </summary>
     private void UpdateDiskUsage()
     {
+        string dir = TxtScreenshotPath.Text;   // 先取当前路径快照
+        TxtDiskUsage.Text = "统计中...";        // 立即给出反馈
+        _ = Task.Run(async () =>
+        {
+            string result = ComputeDiskUsageText(dir); // 重活放后台
+            await Dispatcher.BeginInvoke(new Action(() =>
+            {
+                TxtDiskUsage.Text = result;        // 回 UI 线程填结果
+            }));
+        });
+    }
+
+    /// <summary>纯计算：给定目录 → 占用描述文本（无 UI 访问，可在线程池执行）。</summary>
+    private static string ComputeDiskUsageText(string dir)
+    {
         try
         {
-            string dir = TxtScreenshotPath.Text;
             if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
             {
                 long totalBytes = 0;
@@ -342,19 +386,16 @@ public partial class SettingsWindow
                     }
                 }
                 double mb = totalBytes / (1024.0 * 1024.0); // 换算 MB
-                TxtDiskUsage.Text = mb >= 1024
+                return mb >= 1024
                     ? $"{mb / 1024.0:F1} GB ({fileCount} 张)"
                     : $"{mb:F0} MB ({fileCount} 张)";
             }
-            else
-            {
-                TxtDiskUsage.Text = "文件夹不存在";
-            }
+            return "文件夹不存在";
         }
         catch (Exception ex)
         {
             Logger.Error("截图磁盘占用计算失败", ex);
-            TxtDiskUsage.Text = "-"; // 计算失败显示占位符
+            return "-"; // 计算失败显示占位符
         }
     }
 

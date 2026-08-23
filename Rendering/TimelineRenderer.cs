@@ -138,14 +138,11 @@ public class TimelineRenderer
             }
         }
 
-        // 遍历活动记录，画可见范围内的色块
-        // 2026-08-23 性能优化：相邻且同色(含同样高亮状态)的段合并为一个矩形，
-        // 整天数据时元素数从数千降到几十，重绘成本大幅下降。
-        int z = 50; // 彩色块统一压在灰条之上
-        Rectangle? run = null;      // 当前正在累积的同色段矩形
-        double runX = 0, runW = 0;  // 累积段的位置与宽度
-        Color runColor = default;   // 累积段颜色
-        bool runDim = false;        // 累积段是否处于淡化状态
+        // 遍历活动记录，把可见段按 (颜色, 是否淡化) 分组累积进 StreamGeometry。
+        // 2026-08-23 三轮优化：此前逐段建 Rectangle（数千个 UIElement，缩放每帧全量重建），
+        // 现在每种颜色只生成一个 Path —— 元素数从 O(活动数) 降到 O(颜色数)，缩放全程流畅。
+        int z = 50;
+        var groups = new Dictionary<(Color C, bool Dim), StreamGeometry>();
 
         foreach (var act in activities)
         {
@@ -154,69 +151,56 @@ public class TimelineRenderer
             // 把活动时间转成秒数
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double endSec = act.EndTime.TimeOfDay.TotalSeconds;
-            // 跨午夜活动（如 23:50→00:10），endSec 会小于 startSec，加一天秒数
-            if (endSec < startSec) endSec += 86400;
+            if (endSec < startSec) endSec += 86400;      // 跨午夜修正
 
             // 不在可见范围内就跳过
             if (endSec <= viewStart || startSec >= viewStart + visibleSeconds)
                 continue;
 
-            // 裁剪到可见范围边界
             double clipStart = Math.Max(startSec, viewStart);
             double clipEnd = Math.Min(endSec, viewStart + visibleSeconds);
-            double durSec = clipEnd - clipStart;
 
-            // 秒数 → 像素坐标
             double x = ((clipStart - viewStart) / visibleSeconds) * width;
-            double w = Math.Max((durSec / visibleSeconds) * width, 2);
+            double w = Math.Max((clipEnd - clipStart) / visibleSeconds * width, 1.5);
 
             var color = GetColorFunc(act.ProcessName, act.Category);
-
-            // 高亮逻辑：hasHighlight 已在灰条阶段计算；未选中的色块淡化（透明度 0.2）
-            bool isHighlighted = false;
+            bool dim = false;
             if (hasHighlight)
             {
-                isHighlighted = (highlightedApps != null && highlightedApps.Contains(act.ProcessName)) ||
-                                (highlightedCategories != null && highlightedCategories.Contains(act.Category));
+                bool sel = (highlightedApps != null && highlightedApps.Contains(act.ProcessName)) ||
+                           (highlightedCategories != null && highlightedCategories.Contains(act.Category));
+                dim = hasHighlight && !sel;
             }
-            bool dim = hasHighlight && !isHighlighted;
 
-            // 判断能否并入当前累积段：颜色相同、淡化状态相同、且与上一段首尾相接（容差 0.75px）
-            if (run != null && runColor == color && runDim == dim &&
-                Math.Abs((runX + runW) - x) <= 0.75)
+            var key = (color, dim);
+            if (!groups.TryGetValue(key, out var geo))
             {
-                double rightEnd = x + w;
-                runW = Math.Max(runW, rightEnd - runX); // 扩展宽度
-                continue;
+                geo = new StreamGeometry { FillRule = FillRule.Nonzero };
+                groups[key] = geo;
             }
 
-            // 无法并入 → 先把已累积的段落盘
-            if (run != null)
+            // 追加一个矩形轮廓（四点闭合）
+            using (var ctx = geo.Open())
             {
-                run.Width = runW;
-                Panel.SetZIndex(run, z++);
-                Canvas.SetLeft(run, runX);
-                Canvas.SetTop(run, 0);
-                canvas.Children.Add(run);
+                ctx.BeginFigure(new Point(x, 0), true, true);
+                ctx.LineTo(new Point(x + w, 0), true, false);
+                ctx.LineTo(new Point(x + w, height), true, false);
+                ctx.LineTo(new Point(x, height), true, false);
             }
-
-            // 开启新的累积段
-            run = new Rectangle { Height = height, Fill = new SolidColorBrush(color), RadiusX = 1, RadiusY = 1 };
-            run.Opacity = dim ? 0.2 : 1.0;
-            runX = x;
-            runW = w;
-            runColor = color;
-            runDim = dim;
         }
 
-        // 收尾：把最后一段累积落盘
-        if (run != null)
+        // 每组几何 → 单个 Path 元素
+        foreach (var kv in groups)
         {
-            run.Width = runW;
-            Panel.SetZIndex(run, z++);
-            Canvas.SetLeft(run, runX);
-            Canvas.SetTop(run, 0);
-            canvas.Children.Add(run);
+            var path = new Path
+            {
+                Data = kv.Value,
+                Fill = new SolidColorBrush(kv.Key.C),
+                Opacity = kv.Key.Dim ? 0.2 : 1.0,
+                StrokeThickness = 0
+            };
+            Panel.SetZIndex(path, z++);
+            canvas.Children.Add(path);
         }
     }
 

@@ -70,27 +70,43 @@ public class OverviewRenderer
         canvas.Children.Add(bg);
 
         // 画每个活动的缩略色块（跳过空闲）
+        // 2026-08-23 三轮优化：按颜色分组进 StreamGeometry，每种颜色一个 Path，
+        // 整天大数据量下不再创建数千个 Rectangle。
+        var groups = new Dictionary<Color, StreamGeometry>();
         foreach (var act in activities)
         {
             if (act.IsIdle) continue;
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double durSec = act.Duration;
-            // 跨午夜活动：startSec 在 23:00 但持续时间跨到次日，色块会超出画布右边界
-            // 裁剪：色块不超出 width
             double x = (startSec / totalSeconds) * width;
             double w = Math.Max(Math.Min((durSec / totalSeconds) * width, width - x), 1);
 
             var color = GetColorFunc(act.ProcessName, act.Category);
-            var block = new Rectangle
+            if (!groups.TryGetValue(color, out var geo))
             {
-                Width = w,
-                Height = height,
-                Fill = new SolidColorBrush(color),
-                Opacity = 0.7
+                geo = new StreamGeometry { FillRule = FillRule.Nonzero };
+                groups[color] = geo;
+            }
+            using (var ctx = geo.Open())
+            {
+                ctx.BeginFigure(new Point(x, 0), true, true);
+                ctx.LineTo(new Point(x + w, 0), true, false);
+                ctx.LineTo(new Point(x + w, height), true, false);
+                ctx.LineTo(new Point(x, height), true, false);
+            }
+        }
+        foreach (var kv in groups)
+        {
+            var path = new Path
+            {
+                Data = kv.Value,
+                Fill = new SolidColorBrush(kv.Key),
+                Opacity = 0.7,
+                StrokeThickness = 0
             };
-            Canvas.SetLeft(block, x);
-            Canvas.SetTop(block, 0);
-            canvas.Children.Add(block);
+            Canvas.SetLeft(path, 0);
+            Canvas.SetTop(path, 0);
+            canvas.Children.Add(path);
         }
 
         // 画视口指示框（蓝色半透明框，表示当前时间轴看到的是哪一段）

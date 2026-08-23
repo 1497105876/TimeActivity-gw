@@ -135,6 +135,7 @@ public partial class SettingsWindow
         {
             if (item.Tag?.ToString() == provider) { CbxAIProvider.SelectedItem = item; break; }
         }
+        _currentAiProviderTag = provider; // 记忆切换的初始锚点（装载期不触发联动）
         TxtApiUrl.Text = SettingsRepository.Get("AIApiUrl", "");
         TxtApiKey.Password = SettingsRepository.Get("AIApiKey", "");
         CbxAIModel.Text = SettingsRepository.Get("AIModel", "");

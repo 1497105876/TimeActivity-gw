@@ -374,6 +374,7 @@ SettingsWindow.xaml — 设置窗口布局
                                     <ComboBox x:Name="CbxAIProvider" Grid.Column="1" Width="220" HorizontalAlignment="Left" SelectionChanged="AIProvider_Changed">
                                         <ComboBoxItem Content="自定义 (OpenAI 兼容)" Tag="custom"/>
                                         <ComboBoxItem Content="Ollama (本机)" Tag="ollama"/>
+                                        <ComboBoxItem Content="Ollama Cloud (云端)" Tag="ollama-cloud"/>
                                         <ComboBoxItem Content="LM Studio (本机)" Tag="lmstudio"/>
                                         <ComboBoxItem Content="DeepSeek" Tag="deepseek"/>
                                         <ComboBoxItem Content="月之暗面 Kimi" Tag="moonshot"/>
@@ -393,28 +394,33 @@ SettingsWindow.xaml — 设置窗口布局
                                         <Button x:Name="BtnTestAI" Content="测试连接" Width="75" Height="26" Margin="8,0,0,0" FontSize="11" Click="BtnTestAI_Click"/>
                                     </StackPanel>
                                 </Grid>
-                                <!-- API Key：PasswordBox + 明文切换；本机服务可留空 -->
+                                <!-- API Key：密码框+显示切换，控件紧跟标签列排布（与整页风格一致） -->
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="API Key" VerticalAlignment="Center"/>
-                                    <PasswordBox x:Name="TxtApiKey" Grid.Column="1" Width="240" HorizontalAlignment="Left" Margin="0,0,8,0"/>
-                                    <ToggleButton x:Name="TglShowKey" Grid.Column="2" Content="显示" Width="52" Height="24" FontSize="11" Checked="TglShowKey_Changed" Unchecked="TglShowKey_Changed"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <PasswordBox x:Name="TxtApiKey" Width="240" HorizontalAlignment="Left" Margin="0,0,8,0"/>
+                                        <TextBox x:Name="TxtApiKeyPlain" Visibility="Collapsed" Width="240" HorizontalAlignment="Left" Margin="0,0,8,0"
+                                                 TextChanged="TxtApiKeyPlain_TextChanged"/>
+                                        <ToggleButton x:Name="TglShowKey" Content="显示" Width="52" Height="26" FontSize="11"
+                                                      VerticalAlignment="Center" Margin="0,0,0,0"
+                                                      Checked="TglShowKey_Changed" Unchecked="TglShowKey_Changed"/>
+                                    </StackPanel>
                                 </Grid>
-                                <TextBox x:Name="TxtApiKeyPlain" Visibility="Collapsed" Width="240" HorizontalAlignment="Left" Margin="200,0,0,12" Height="24" TextChanged="TxtApiKeyPlain_TextChanged"/>
                                 <!-- 模型：可手输，也可一键拉取模型列表（GET {base}/models，仅状态码不耗 token） -->
                                 <Grid Margin="0,0,0,12">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="模型名称" VerticalAlignment="Center"/>
-                                    <ComboBox x:Name="CbxAIModel" Grid.Column="1" Width="240" HorizontalAlignment="Left" IsEditable="True" Margin="0,0,8,0"/>
-                                    <Button x:Name="BtnFetchModels" Grid.Column="2" Content="获取模型列表" Width="90" Height="26" FontSize="11" Click="BtnFetchModels_Click"/>
+                                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                                        <ComboBox x:Name="CbxAIModel" Width="240" HorizontalAlignment="Left" IsEditable="True" Margin="0,0,8,0"/>
+                                        <Button x:Name="BtnFetchModels" Content="获取模型列表" Width="90" Height="26" FontSize="11" Click="BtnFetchModels_Click"/>
+                                    </StackPanel>
                                 </Grid>
                                 <!-- 测试结果输出（状态码/耗时/模型存在性） -->
                                 <TextBlock x:Name="TxtAITestResult" FontSize="11" Foreground="#666" Margin="200,0,12,12" TextWrapping="Wrap"/>
