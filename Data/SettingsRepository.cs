@@ -128,11 +128,11 @@ public static class SettingsRepository
         // 数据相关
         ["DataRetentionDays"] = "90",               // 数据保留天数
         // AI 相关
-        ["EnableAI"] = "true",                      // 是否启用 AI 总结
-        ["AIMode"] = "lan",                         // AI 模式：lan=局域网，cloud=云端
-        ["AIApiUrl"] = "http://localhost:11434",    // AI API 地址（默认本地 Ollama）
-        ["AIApiKey"] = "",                          // AI API Key
-        ["AIModel"] = "qwen2.5:7b",                 // AI 模型名称
+["EnableAI"] = "true",                      // 是否启用 AI 总结
+["AIProvider"] = "custom",                  // 服务商预设：默认"自定义"（不预填任何本地服务）
+["AIApiUrl"] = "",                          // AI API 地址（由用户按所选服务商填写）
+["AIApiKey"] = "",                          // AI API Key
+["AIModel"] = "",                           // AI 模型名称
         ["AISummaryPath"] = "",                    // AI 总结保存路径
         ["AISummaryMaxCount"] = "30",              // AI 总结最大保留条数
         ["AISummaryMaxSizeMB"] = "50",             // AI 总结最大占用空间（MB）
@@ -156,7 +156,7 @@ public static class SettingsRepository
             "ScreenshotFormat", "ScreenshotPath", "ScreenshotQuality",
             "EnableMaxSize", "MaxScreenshotSizeMB", "EnableMaxAge", "MaxScreenshotAgeDays"),
         4 => FilterDefaults("DataRetentionDays"),
-        5 => FilterDefaults("EnableAI", "AIMode", "AIApiUrl", "AIApiKey", "AIModel",
+        5 => FilterDefaults("EnableAI", "AIProvider", "AIApiUrl", "AIApiKey", "AIModel",
             "AISummaryPath", "AISummaryMaxCount", "AISummaryMaxSizeMB",
             "AutoDailySummary", "AutoWeeklySummary", "AutoMonthlySummary"),
         6 => FilterDefaults("AutoStartWithWindows", "MinimizeToTray"),

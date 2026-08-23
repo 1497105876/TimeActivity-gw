@@ -124,11 +124,16 @@ public partial class SettingsWindow
 
         // AI 设置（2026-08-23 重做：服务商预设 + OpenAI 兼容统一接口）
         ChkEnableAI.IsChecked = SettingsRepository.Get("EnableAI", "true") == "true";
-        // 兼容迁移：老版本只有 AIMode(lan/custom)，首次装载时映射为 AIProvider 并回写
+        // 兼容迁移：老版本只有 AIMode(lan/custom)。判定顺序：
+        //   ① 已有 AIProvider → 直接用；
+        //   ② 有旧 AIMode     → 映射(lan→ollama / custom→custom)并回写；
+        //   ③ 全新安装        → 默认 custom（2026-08-23：不再预置本地 Ollama 与模型名）。
         string provider = SettingsRepository.Get("AIProvider", "");
         if (string.IsNullOrEmpty(provider))
         {
-            provider = SettingsRepository.Get("AIMode", "custom") == "lan" ? "ollama" : "custom";
+            var legacyMode = SettingsRepository.Get("AIMode", "");
+            provider = legacyMode == "" ? "custom"
+                     : (legacyMode == "lan" ? "ollama" : "custom");
             SettingsRepository.Set("AIProvider", provider);
         }
         foreach (ComboBoxItem item in CbxAIProvider.Items)
