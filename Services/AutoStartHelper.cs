@@ -15,6 +15,7 @@ namespace TimeActivity.Services;
 public static class AutoStartHelper
 {
     // 快捷方式文件名
+    // 固定文件名：重复 Enable 会覆盖旧快捷方式（WScript Save 覆盖语义）
     private const string ShortcutName = "TimeActivity.lnk";
 
     /// <summary>
@@ -22,11 +23,14 @@ public static class AutoStartHelper
     /// </summary>
     public static void Enable()
     {
+        // 全流程包 try：自启失败只记日志，绝不能阻断设置界面操作
         try
         {
+            // 当前用户的启动文件夹（%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup）
             string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
             string shortcutPath = Path.Combine(startupFolder, ShortcutName);
             // 获取当前 exe 的完整路径
+            // MainModule 对普通桌面程序可靠；null 时用 ! 断言，若真为 null 会抛 NRE 被 catch 捕获
             string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule!.FileName;
             CreateShortcut(shortcutPath, exePath, "--minimized");
         }
@@ -42,6 +46,7 @@ public static class AutoStartHelper
         {
             string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
             string shortcutPath = Path.Combine(startupFolder, ShortcutName);
+            // 先判存在再删；不存在时静默跳过（幂等）
             if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
         }
         catch (Exception ex) { Logger.Error("禁用开机自启失败", ex); }
@@ -71,13 +76,17 @@ public static class AutoStartHelper
     private static void CreateShortcut(string shortcutPath, string targetPath, string arguments)
     {
         // 通过 COM 调用 WScript.Shell 创建快捷方式
+        // GetTypeFromProgID 返回 COM 类型的 Runtime 类型；! 断言非 null
         var shellType = Type.GetTypeFromProgID("WScript.Shell")!;
+        // Activator.CreateInstance 实例化 COM 对象（RCW 包装），dynamic 走后期绑定调用
         dynamic shell = Activator.CreateInstance(shellType)!;
+        // CreateShortcut 只是在内存里建对象，必须最后 Save() 才真正落盘 .lnk 文件
         dynamic shortcut = shell.CreateShortcut(shortcutPath);
         shortcut.TargetPath = targetPath;       // 目标程序路径
         shortcut.Arguments = arguments;          // 启动参数
         shortcut.WorkingDirectory = Path.GetDirectoryName(targetPath);  // 工作目录
         shortcut.WindowStyle = 1;                // 1 = 正常窗口
+        // 落盘；此后 shell/shortcut 两个 RCW 交给 GC 终结器释放 COM 引用
         shortcut.Save();
     }
 }

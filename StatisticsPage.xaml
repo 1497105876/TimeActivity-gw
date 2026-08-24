@@ -12,7 +12,9 @@ StatisticsPage.xaml — 统计报表页布局
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:mdxaml="clr-namespace:MdXaml;assembly=MdXaml"
       Title="统计报表">
+    <!-- 根布局 Grid：上下两行，第 0 行工具栏自适应高度，第 1 行内容区占满剩余空间 -->
     <Grid Margin="8">
+        <!-- 行高定义集合 -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- 顶部工具栏 -->
             <RowDefinition Height="*"/>    <!-- 统计内容区 -->
@@ -20,30 +22,43 @@ StatisticsPage.xaml — 统计报表页布局
 
         <!-- 顶部：日/周/月切换 + 日期范围导航 + 分类筛选 + 空闲过滤 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <!-- 「日」单选钮：Tag=day 作为周期标识传给 RbPeriod_Checked 处理器 -->
             <RadioButton x:Name="RbDay" Content="日" Width="48" Height="28" VerticalAlignment="Center" Margin="0,0,4,0"
                          Checked="RbPeriod_Checked" Tag="day"/>
+            <!-- 「周」单选钮：Tag=week -->
             <RadioButton x:Name="RbWeek" Content="周" Width="48" Height="28" VerticalAlignment="Center" Margin="0,0,4,0"
                          Checked="RbPeriod_Checked" Tag="week"/>
+            <!-- 「月」单选钮：Tag=month，右侧加大间距与前组按钮分隔 -->
             <RadioButton x:Name="RbMonth" Content="月" Width="48" Height="28" VerticalAlignment="Center" Margin="0,0,16,0"
                          Checked="RbPeriod_Checked" Tag="month"/>
 
+            <!-- ◀ 按钮：向前翻一个周期（上一天/上周/上月） -->
             <Button x:Name="BtnPrev" Content="◀" Width="32" Height="28" Click="BtnPrev_Click"/>
+            <!-- 当前周期的日期范围文字（固定宽度保证居中稳定） -->
             <TextBlock x:Name="RangeText" Text="" VerticalAlignment="Center" HorizontalAlignment="Center" Width="240" TextAlignment="Center" FontSize="13"/>
+            <!-- ▶ 按钮：向后翻一个周期（不能越过当前期） -->
             <Button x:Name="BtnNext" Content="▶" Width="32" Height="28" Click="BtnNext_Click"/>
+            <!-- 本期按钮：快速回到今天/本周/本月 -->
             <Button x:Name="BtnThis" Content="本期" Width="56" Height="28" Margin="8,0,0,0" Click="BtnThis_Click" FontSize="12"/>
 
+            <!-- 筛选提示文字（灰色小号字体） -->
             <TextBlock Text="筛选:" VerticalAlignment="Center" Margin="16,0,4,0" FontSize="12" Foreground="#888"/>
+            <!-- 分类筛选下拉框：选项由后台 LoadCategoryFilter() 动态填充 -->
             <ComboBox x:Name="CategoryFilter" Width="120" Height="28" FontSize="12" SelectionChanged="CategoryFilter_SelectionChanged"/>
+            <!-- 跳过空闲时段复选框：勾选状态变化触发 ChkSkipIdle_Changed 重算数据 -->
             <CheckBox x:Name="ChkSkipIdle" Content="跳过空闲时段" IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="12" Checked="ChkSkipIdle_Changed" Unchecked="ChkSkipIdle_Changed"/>
         </StackPanel>
 
         <!-- 统计内容区（可滚动） -->
         <ScrollViewer x:Name="MainScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <!-- 各统计卡片自上而下依次排列 -->
             <StackPanel>
                 <!-- 总览：总活跃时长 + 日均等补充信息 -->
                 <Border Background="#F8F8F8" CornerRadius="6" Padding="16,10" Margin="0,0,0,12">
                     <StackPanel Orientation="Horizontal">
+                        <!-- 总活跃时长文本：后台计算后写入 -->
                         <TextBlock x:Name="TotalText" Text="总活跃时长：0h0m" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <!-- 补充信息文本：如日均时长，日模式下留空 -->
                         <TextBlock x:Name="DetailText" Text="" FontSize="13" Foreground="#666" Margin="24,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -52,6 +67,7 @@ StatisticsPage.xaml — 统计报表页布局
                 <Border x:Name="CategorySection" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="类别占比" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
+                        <!-- 占比条容器：由 ChartRenderer.DrawCategoryBars() 运行时填充 -->
                         <StackPanel x:Name="CategoryBarsPanel"/>
                     </StackPanel>
                 </Border>
@@ -60,6 +76,7 @@ StatisticsPage.xaml — 统计报表页布局
                 <Border x:Name="TrendSection" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="每日活跃趋势" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
+                        <!-- 趋势图画布：尺寸变化时经 TrendCanvas_SizeChanged 重绘；ClipToBounds 防止图形溢出 -->
                         <Canvas x:Name="TrendCanvas" Height="120" ClipToBounds="True" SizeChanged="TrendCanvas_SizeChanged"/>
                     </StackPanel>
                 </Border>
@@ -68,6 +85,7 @@ StatisticsPage.xaml — 统计报表页布局
                 <Border BorderBrush="#DDD" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="Top 应用" FontWeight="Bold" FontSize="14" Margin="0,0,0,8"/>
+                        <!-- Top 应用列表容器：运行时按时长降序动态填充 -->
                         <StackPanel x:Name="TopAppsPanel"/>
                     </StackPanel>
                 </Border>
@@ -75,11 +93,16 @@ StatisticsPage.xaml — 统计报表页布局
                 <!-- AI 总结区域：Markdown 渲染 + 手动生成按钮 -->
                 <Border BorderBrush="#4A90D9" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
                     <StackPanel>
+                        <!-- 标题行：AI 标题 + 生成时间标签 + 手动生成按钮 -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <!-- AI 总结标题：随日/周/月模式切换文案 -->
                             <TextBlock x:Name="AITitle" Text="AI 每日总结" FontWeight="Bold" FontSize="14" Foreground="#4A90D9"/>
+                            <!-- 总结生成时间标签 -->
                             <TextBlock x:Name="AISummaryTime" Text="" FontSize="12" Foreground="#999" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            <!-- 手动生成按钮：查看历史周期时会被隐藏 -->
                             <Button x:Name="BtnGenerateAI" Content="生成总结" Width="80" Height="26" FontSize="11" Margin="12,0,0,0" Background="#4A90D9" Foreground="White" Click="BtnGenerateAI_Click"/>
                         </StackPanel>
+                        <!-- Markdown 渲染区：滚轮事件转发给外层 MainScroll 统一滚动 -->
                         <mdxaml:MarkdownScrollViewer x:Name="AISummaryText" Markdown="点击「生成总结」获取 AI 分析..." FontSize="13" Foreground="#555" VerticalScrollBarVisibility="Disabled" PreviewMouseWheel="AISummaryText_PreviewMouseWheel"/>
                     </StackPanel>
                 </Border>

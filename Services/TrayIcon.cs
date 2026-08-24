@@ -18,22 +18,28 @@ public class TrayIcon : IDisposable
 {
     // Win32 API：操作系统托盘图标（添加/修改/删除）
     // dwMessage 指定操作类型（NIM_ADD/NIM_MODIFY/NIM_DELETE），pnid 是托盘图标数据
+    // 返回 false 表示失败（如 NIM_ADD 时托盘尚未就绪/参数非法），本类未检查该返回值
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern bool Shell_NotifyIconW(int dwMessage, ref NOTIFYICONDATAW pnid);
 
     // 加载系统预定义图标（如 IDI_APPLICATION）
+    // hInstance=NULL + lpIconName=资源编号 → 加载系统共享图标；共享图标不可 DestroyIcon
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr LoadIconW(IntPtr hInstance, IntPtr lpIconName);
 
     // 创建弹出菜单（右键菜单）
+    // 返回菜单句柄，用完必须 DestroyMenu，否则内核对象泄漏
     [DllImport("user32.dll")]
     private static extern IntPtr CreatePopupMenu();
 
     // 往菜单追加菜单项（文字项或分隔符）
+    // uFlags 决定 uIDNewItem/lpNewItem 的解释方式（MF_STRING/MF_SEPARATOR）
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern bool AppendMenuW(IntPtr hMenu, uint uFlags, uint uIDNewItem, string lpNewItem);
 
     // 在指定位置显示弹出菜单，返回用户选择的菜单项 ID
+    // 同步阻塞直至用户选择/取消；TPM_RETURNCMD 使返回值为所选项 ID（取消为 0），
+    // 否则返回值是布尔。经典要求：调用前需 SetForegroundWindow(宿主)，否则点击别处菜单不消失
     [DllImport("user32.dll")]
     private static extern int TrackPopupMenu(IntPtr hMenu, uint uFlags, int x, int y, int nReserved, IntPtr hWnd, IntPtr prcRect);
 
@@ -42,6 +48,7 @@ public class TrayIcon : IDisposable
     private static extern bool DestroyMenu(IntPtr hMenu);
 
     // 从文件或资源加载图片（图标/光标/位图），这里用来加载系统图标资源
+    // uType: 1=IMAGE_ICON；fuLoad 为 LR_* 标志组合
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr LoadImageW(IntPtr hInst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
 
@@ -51,6 +58,7 @@ public class TrayIcon : IDisposable
     private const int NIM_DELETE = 0x00000002; // 从托盘删除图标
 
     // 托盘数据标志位：通知消息+图标+提示文字
+    // uFlags 声明 NOTIFYICONDATAW 中哪些字段有效
     private const int NIF_MESSAGE = 0x00000001;
     private const int NIF_ICON = 0x00000002;
     private const int NIF_TIP = 0x00000004;
@@ -66,12 +74,15 @@ public class TrayIcon : IDisposable
     private const uint TPM_RETURNCMD = 0x0100;     // 让 TrackPopupMenu 返回选中的菜单项 ID
 
     // 自定义窗口消息基址，托盘回调消息用 WM_APP+1
+    // 用 WM_APP 区间避免与系统消息/框架内部消息冲突
     private const int WM_APP = 0x8000;
     public const int WM_TRAYICON = WM_APP + 1;     // 托盘图标回调消息
     private const int WM_LBUTTONDBLCLK = 0x0203;   // 左键双击
     private const int WM_RBUTTONUP = 0x0205;        // 右键抬起
 
     // 托盘图标数据结构（Win32 NOTIFYICONDATAW）
+    // 此处仅声明到 szTip 的"旧版"布局：未用的 VISTA+ 扩展字段省略可减小封送体积，
+    // 但 cbSize 必须与声明一致（Marshal.SizeOf 自动匹配）
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NOTIFYICONDATAW
     {
@@ -95,17 +106,21 @@ public class TrayIcon : IDisposable
     private readonly uint _uID = 1;
 
     // 用户交互回调（双击托盘图标、右键菜单触发时调用）
+    // 公有字段式回调：由宿主（TrayHost）在 InitTray 中赋值
     public Action? OnDoubleClick;
     public Action? OnShowMenu;
 
     // Win32 API：获取鼠标当前位置
+    // 屏幕物理坐标；弹出菜单需要用它定位到光标处
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
 
     // 释放图标句柄，防止 GDI 泄漏
+    // 注意：对 LoadIcon 得到的"共享图标"调用是多余但无害的（返回 false）
     [DllImport("user32.dll")]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
+    // Win32 POINT 结构体（屏幕坐标 x/y）
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int X; public int Y; }
 
@@ -117,6 +132,7 @@ public class TrayIcon : IDisposable
     public TrayIcon(IntPtr hWnd, string tooltip = "TimeActivity")
     {
         _hWnd = hWnd;
+        // 先拿到图标句柄再注册（NIM_ADD 需要 hIcon）
         _hIcon = LoadDefaultIcon();
 
         // 构建托盘数据并添加到系统托盘
@@ -137,10 +153,15 @@ public class TrayIcon : IDisposable
     /// <summary>
     /// 处理托盘消息，返回 true 表示已处理
     /// </summary>
+    /// <param name="wParam">WPF WndProc 原样转发的 wParam（低 32 位为图标 ID）</param>
+    /// <param name="lParam">鼠标消息码（低 16 位）</param>
+    /// <returns>是否为本类的托盘消息并已分发</returns>
     public bool HandleMessage(IntPtr wParam, IntPtr lParam)
     {
+        // wParam 校验图标 ID：一个窗口挂多个托盘图标时可区分来源
         if ((int)wParam != _uID) return false;
 
+        // lParam 低 16 位才是实际鼠标消息（高位含坐标等附加信息）
         int msg = (int)lParam & 0xFFFF;
         switch (msg)
         {
@@ -151,14 +172,17 @@ public class TrayIcon : IDisposable
                 OnShowMenu?.Invoke();
                 return true;
         }
+        // 其余鼠标消息（单击移动等）不消费，交回默认处理
         return false;
     }
 
     /// <summary>
     /// 在鼠标当前位置显示右键菜单
     /// </summary>
+    /// <param name="isRunning">当前是否正在追踪（决定菜单文案）</param>
     public void ShowContextMenuAtCursor(bool isRunning)
     {
+        // 先取光标屏幕坐标，再委托给指定坐标版本
         GetCursorPos(out POINT pt);
         ShowContextMenu(pt.X, pt.Y, isRunning);
     }
@@ -208,12 +232,14 @@ public class TrayIcon : IDisposable
     /// <param name="text">新的提示文字</param>
     public void UpdateTooltip(string text)
     {
+        // 未成功添加过就不发 MODIFY（避免对不存在的图标做无效操作）
         if (!_added) return;
         var data = new NOTIFYICONDATAW
         {
             cbSize = Marshal.SizeOf<NOTIFYICONDATAW>(),
             hWnd = _hWnd,
             uID = _uID,
+            // 只改提示文字，故只带 NIF_TIP；其余字段无需填充
             uFlags = NIF_TIP,
             szTip = text
         };
@@ -241,6 +267,7 @@ public class TrayIcon : IDisposable
         if (_added)
         {
             // 从托盘删除图标
+            // DELETE 只需要 cbSize/hWnd/uID 三个字段
             var data = new NOTIFYICONDATAW
             {
                 cbSize = Marshal.SizeOf<NOTIFYICONDATAW>(),
@@ -255,6 +282,7 @@ public class TrayIcon : IDisposable
         if (_hIcon != IntPtr.Zero)
         {
             DestroyIcon(_hIcon);
+            // 置零防止二次释放
             _hIcon = IntPtr.Zero;
         }
     }

@@ -60,6 +60,11 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>
+    /// 自动补生成"上周/上月"AI 总结：每天首次自动刷新时各检查一次，
+    /// 有活动数据才调用 AI 生成；无数据写入占位文案，避免报表页一直显示"进行中"。
+    /// 失败只记日志，不影响主流程。
+    /// </summary>
     private async Task CheckAutoSummaryAsync()
     {
         // 同一天只执行一次，避免 30 秒刷新重复查库
@@ -81,7 +86,7 @@ public partial class MainWindow
             var aiService = new AISummaryService();
             DateTime today = DateTime.Today;
 
-            // 检查上周总结
+            // 检查上周总结：今天回退 7 天后取其所在周的周一
             DateTime lastWeekStart = DateHelper.GetWeekStart(today.AddDays(-7));
             Logger.Info($"检查上周总结：lastWeekStart={lastWeekStart:yyyy-MM-dd}, HasAuto={AISummaryRepository.HasAuto(lastWeekStart, "weekly")}");
             if (!AISummaryRepository.HasAuto(lastWeekStart, "weekly"))
@@ -91,6 +96,7 @@ public partial class MainWindow
                 if (weekSeconds > 0) // 有活动数据才值得调用 AI 生成总结
                 {
                     Logger.Info($"补生成上周总结：{lastWeekStart:yyyy-MM-dd}");
+                    // 调用 AI 服务异步生成周报正文
                     string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
                     Logger.Info($"上周总结生成结果：{(result != null ? "成功" : "null")}");
                     if (result != null)
@@ -113,6 +119,7 @@ public partial class MainWindow
                 if (monthSeconds > 0) // 上月有数据才生成，否则写占位文案
                 {
                     Logger.Info($"补生成上月总结：{lastMonthStart:yyyy-MM-dd}");
+                    // 调用 AI 服务异步生成月报正文
                     string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
                     Logger.Info($"上月总结生成结果：{(result != null ? "成功" : "null")}");
                     if (result != null)
@@ -144,6 +151,7 @@ public partial class MainWindow
             StatusBar.Text = "";   // 清空状态栏文本
             timer.Stop();          // 停止并释放计时器
         };
+        // 启动计时器，到期清空状态栏文字
         timer.Start();
     }
 

@@ -1,3 +1,4 @@
+// 引用的命名空间（与各部分类文件保持一致的 using 集）
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -50,6 +51,7 @@ public partial class SettingsWindow
         }
         catch (Exception ex) { Logger.Error("LoadCategories 失败", ex); } // 失败时保持空列表
 
+        // 包装为可观察集合：网格内的新增行能即时生效并参与后续保存
         CategoriesGrid.ItemsSource = new ObservableCollection<CategoryItem>(_categories); // 绑定可编辑网格
 
         // 更新分类名列表供规则下拉用
@@ -121,10 +123,10 @@ public partial class SettingsWindow
         };
 
         // 内容:应用列表
-        var itemsPanel = new StackPanel();
+        var itemsPanel = new StackPanel(); // 组内容容器：纵向堆叠应用行
         foreach (var rule in rules)
         {
-            var row = CreateAppRow(rule);
+            var row = CreateAppRow(rule); // 逐条构建应用行
             itemsPanel.Children.Add(row);
         }
         expander.Content = itemsPanel;
@@ -158,6 +160,7 @@ public partial class SettingsWindow
         };
         header.Children.Add(name);
 
+        // 尾部数量小字（灰色）
         var countText = new TextBlock
         {
             Text = count.ToString(),
@@ -180,6 +183,7 @@ public partial class SettingsWindow
         var displayName = AppDisplayName.Get(rule.ProcessName); // 进程名 → 友好名
         var icon = IconExtractor.GetIcon(rule.ProcessName);     // 取进程图标（带缓存）
 
+        // 行容器：底边细线分隔，Tag 携带进程名
         var row = new Border
         {
             Padding = new Thickness(4, 3, 4, 3),
@@ -189,6 +193,7 @@ public partial class SettingsWindow
             Tag = rule.ProcessName, // 存进程名供拖拽和选择用
         };
 
+        // 行内横向排布：勾选框 + 图标 + 名称
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
 
         // CheckBox
@@ -239,7 +244,7 @@ public partial class SettingsWindow
         };
         panel.Children.Add(nameText);
 
-        row.Child = panel;
+        row.Child = panel; // 装配行内容
 
         // 拖拽支持
         row.MouseMove += AppRow_MouseMove;             // 按住左键移动 → 发起拖拽
@@ -282,7 +287,7 @@ public partial class SettingsWindow
         {
             // 如果有选中项,拖拽选中的;否则拖拽当前项
             var toDrag = _selectedProcessNames.Count > 0 ? _selectedProcessNames.ToList() : new List<string> { procName };
-            var data = new DataObject();
+            var data = new DataObject(); // 自定义数据对象承载 "ProcessNames" 列表
             data.SetData("ProcessNames", toDrag);            // 打包进程名列表
             DragDrop.DoDragDrop(border, data, DragDropEffects.Move); // 开始拖放循环（阻塞至松开）
         }
@@ -291,7 +296,7 @@ public partial class SettingsWindow
     /// <summary>根据是否有选中项显示/隐藏"退出选择"按钮。</summary>
     private void UpdateSelectionMode()
     {
-        bool hasSelection = _selectedProcessNames.Count > 0;
+        bool hasSelection = _selectedProcessNames.Count > 0; // 是否存在勾选项
         BtnExitSelect.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -371,6 +376,7 @@ public partial class SettingsWindow
             dep = VisualTreeHelper.GetParent(dep);
         hoveredItem = dep as ListBoxItem;
 
+        // 遍历各行容器：命中悬停行则高亮，其余复位
         foreach (var item in CategorySidebar.Items)
         {
             if (CategorySidebar.ItemContainerGenerator.ContainerFromItem(item) is ListBoxItem lbi)
@@ -427,7 +433,7 @@ public partial class SettingsWindow
         }
 
         if (!e.Data.GetDataPresent("ProcessNames")) return; // 格式不符直接返回
-        var procNames = e.Data.GetData("ProcessNames") as List<string>;
+        var procNames = e.Data.GetData("ProcessNames") as List<string>; // 取出拖拽携带的进程名集合
         if (procNames == null || procNames.Count == 0) return;
 
         // 找到目标分类:从 Drop 位置取 ListBoxItem
@@ -443,7 +449,7 @@ public partial class SettingsWindow
         if (targetCat == null) return; // 无法确定目标分类
 
         // 改分类
-        int changed = 0;
+        int changed = 0; // 实际发生分类变更的条数
         foreach (var procName in procNames)
         {
             var rule = _allRules.FirstOrDefault(r => r.ProcessName.Equals(procName, StringComparison.OrdinalIgnoreCase)); // 找对应规则
@@ -464,6 +470,7 @@ public partial class SettingsWindow
         }
     }
 
+    // 注意：当前 XAML 中没有任何按钮绑定 BtnDeleteCategory_Click，疑似遗留死代码入口
     /// <summary>
     /// 删除分类按钮：预置分类(Id ≤ MaxPresetCategoryId)禁止删除；
     /// 自定义分类只从网格集合移除，点"保存"才真正写库。

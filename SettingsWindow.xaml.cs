@@ -1,4 +1,5 @@
-﻿using System;
+﻿// 引用的命名空间（与各部分类文件保持一致的 using 集）
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -30,6 +31,10 @@ namespace TimeActivity;
 //   Navigation(导航/装载/备份/导入导出)、Appearance(AI/截图/颜色)、
 //   Categories(分类管理/规则面板)、Rules(规则加载保存)、Save(保存/恢复默认)。
 // ============================================================================
+/// <summary>
+/// 设置窗口（partial 汇总入口）：本文件持有跨页面共享状态与构造流程；
+/// 功能实现拆分至 Navigation/Appearance/Categories/Rules/Save 各分部文件。
+/// </summary>
 public partial class SettingsWindow : Window
 {
     // 装载标志：true 表示正在程序化回填控件，此时抑制一切联动事件
@@ -66,7 +71,7 @@ public partial class SettingsWindow : Window
         }
         _hasChanges = false;   // 初始无更改
         SaveSnapshot(); // 记录初始快照,BtnApply 才能正常启用
-        // 耗时操作异步执行
+        // 低优先级派发耗时估算：等首帧渲染完成后再执行，避免拖慢窗口打开
         Dispatcher.BeginInvoke(new Action(() =>
         {
             UpdateEstimates();
@@ -96,13 +101,13 @@ public partial class SettingsWindow : Window
         }
     }
 
-    // ========== 侧边栏导航 ==========
+    // ========== 侧边栏导航（实现见 SettingsWindow.Navigation.cs → NavList_SelectionChanged） ==========
 
 
-    // ========== 加载设置 ==========
+    // ========== 加载设置（实现见 SettingsWindow.Navigation.cs → LoadSettings） ==========
 
 
-    // ========== 分类管理 ==========
+    // ========== 分类管理（实现见 SettingsWindow.Categories.cs） ==========
 
 
 
@@ -125,32 +130,32 @@ public partial class SettingsWindow : Window
 
 
 
-    // ========== 多选逻辑 ==========
+    // ========== 多选逻辑（实现见 SettingsWindow.Categories.cs → AppCheckbox_Changed/UpdateSelectionMode） ==========
 
 
 
 
 
 
-    // ========== 搜索 ==========
+    // ========== 搜索（实现见 SettingsWindow.Categories.cs → TxtRuleSearch_TextChanged/SearchDebounce_Tick） ==========
 
     // 搜索防抖定时器
     private DispatcherTimer? _searchDebounceTimer;
 
 
 
-    // ========== 左侧分类列表交互 ==========
+    // ========== 左侧分类列表交互（实现见 SettingsWindow.Categories.cs → CategorySidebar_SelectionChanged） ==========
 
 
-    // ========== 拖拽到左侧分类 ==========
-
-
-
+    // ========== 拖拽到左侧分类（实现见 SettingsWindow.Categories.cs → CategorySidebar_DragOver/DragEnter/DragLeave/Drop） ==========
 
 
 
 
-    // ========== 保存设置 ==========
+
+
+
+    // ========== 保存设置（实现见 SettingsWindow.Save.cs；此处声明跨窗口保存通知事件） ==========
 
     /// <summary>设置保存后的事件通知(主窗口订阅后重启服务、重载规则等)。
     /// 静态事件：即使窗口关闭重建，订阅关系依然有效。</summary>
@@ -159,7 +164,7 @@ public partial class SettingsWindow : Window
 
 
 
-    // ========== 删行按钮 + 颜色选择器 ==========
+    // ========== 删行按钮 + 颜色选择器（选色实现见 SettingsWindow.Appearance.cs → BtnPickColor_Click） ==========
 
     // BtnDeleteRule_Click 已移除(新方案无删除按钮,改分类用拖拽)
 
@@ -173,45 +178,45 @@ public partial class SettingsWindow : Window
 
 
 
-    // ========== AI 总结路径浏览 ==========
+    // ========== AI 总结路径浏览（实现见 SettingsWindow.Navigation.cs → BtnBrowseAISummaryPath_Click） ==========
 
 
-    // ========== AI 测试连接 ==========
+    // ========== AI 测试连接（实现见 SettingsWindow.Appearance.cs → BtnTestAI_Click/BtnFetchModels_Click） ==========
 
 
-    // ========== 预估占用大小 ==========
-
-
-
-
-
-    // ========== AI 模式切换 ==========
-
-
-    // ========== 事件 ==========
+    // ========== 预估占用大小（实现见 SettingsWindow.Appearance.cs → UpdateEstimates/UpdateDiskUsage） ==========
 
 
 
 
 
-
-    // ========== 未保存提示 ==========
-
-
-    // ========== 备份数据库 ==========
+    // ========== AI 模式切换（原 AIMode_Changed 已移除，现由 SettingsWindow.Appearance.cs → AIProvider_Changed 承担） ==========
 
 
-    // ========== 清空数据 ==========
-
-
-    // ========== 恢复此页默认 ==========
-
-
-    // ========== 导入导出 ==========
+    // ========== 事件（SettingsSaved 已在本文件上方声明） ==========
 
 
 
-    // ========== 辅助方法 ==========
+
+
+
+    // ========== 未保存提示（实现见 SettingsWindow.Save.cs → CheckHasChanges） ==========
+
+
+    // ========== 备份数据库（实现见 SettingsWindow.Navigation.cs → BtnBackupDb_Click） ==========
+
+
+    // ========== 清空数据（入口已按需求移除，说明见 SettingsWindow.Navigation.cs） ==========
+
+
+    // ========== 恢复此页默认（实现见 SettingsWindow.Save.cs → BtnRestoreDefault_Click） ==========
+
+
+    // ========== 导入导出（实现见 SettingsWindow.Navigation.cs → BtnExport_Click/BtnImport_Click） ==========
+
+
+
+    // ========== 辅助方法（见 Navigation.cs → GetComboTag/SetComboByTagOrText、Appearance.cs → GetKeyInput/SetKeyInput） ==========
 
 
 }

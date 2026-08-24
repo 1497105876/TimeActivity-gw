@@ -160,7 +160,9 @@ public partial class MainWindow
                         Owner = this,
                         ResizeMode = ResizeMode.NoResize
                     };
+                    // 竖排面板：每个候选分类生成一个按钮
                     var panel = new StackPanel { Margin = new Thickness(12) };
+                    // 排除「空闲」分类（不允许手动把应用归为空闲）
                     foreach (var cat in cats.Where(c => c.Name != "空闲"))
                     {
                         var btn = new Button
@@ -171,6 +173,7 @@ public partial class MainWindow
                             Padding = new Thickness(12, 6, 12, 6),
                             HorizontalAlignment = HorizontalAlignment.Stretch
                         };
+                        // 点击按钮：执行改分类全链路（规则→全量重分类→总结失效→界面刷新）
                         btn.Click += (s2, e2) =>
                         {
                             var selected = (Category)((Button)s2).Tag;      // 取出按钮携带的分类对象
@@ -228,6 +231,7 @@ public partial class MainWindow
             string? categoryName = GetTagFromStatsRow(item); // 行 Tag 中存的是分类名
             if (string.IsNullOrEmpty(categoryName)) return;  // 无有效分类名则忽略
 
+            // 动态构建右键菜单（颜色 / 查看类别 两项）
             var menu = new ContextMenu();
 
             var miColor = new MenuItem { Header = "颜色" };

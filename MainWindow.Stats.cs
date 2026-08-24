@@ -16,6 +16,14 @@ using TimeActivity.Services;
 
 namespace TimeActivity;
 
+// ============================================================================
+// MainWindow.Stats.cs — 主窗口的"统计列表与显示模型"部分类
+// 职责：
+//   1) ActivityRecord → ActivityDisplayItem 的显示模型包装；
+//   2) "使用占比"两个列表（应用/类别）的聚合计算与行 UI 构建；
+//   3) 统计行复选框勾选 → 时间轴高亮集合维护；
+//   4) 顶部当日活跃总时长的更新。
+// ============================================================================
 public partial class MainWindow
 {
     /// <summary>
@@ -181,10 +189,13 @@ public partial class MainWindow
         barCanvas.Children.Add(barBorder);
 
         // 有色部分（按百分比填充）
+        // 填充宽 = 条宽 × 百分比
         double fillWidth = BarWidth * pct / 100.0;
+        // 行颜色字符串解析为 Color
         var fillColor = CategoryColorHelper.ParseHex(barColor);
         var fillBorder = new Border { Background = new SolidColorBrush(fillColor), Height = BarHeight - 2, CornerRadius = new CornerRadius(2, 0, 0, 2) };
         Canvas.SetLeft(fillBorder, 1); Canvas.SetTop(fillBorder, 1);
+        // 内缩 1px 避免盖住边框；Math.Max 下限保护
         fillBorder.Width = Math.Max(0, fillWidth - 1);
         barCanvas.Children.Add(fillBorder);
 
@@ -206,6 +217,7 @@ public partial class MainWindow
             pctTb.Foreground = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33));
             Canvas.SetLeft(pctTb, fillWidth + 2);
         }
+        // 垂直居中于占比条
         Canvas.SetTop(pctTb, (BarHeight - pctTb.DesiredSize.Height) / 2);
         barCanvas.Children.Add(pctTb);
 
@@ -217,6 +229,7 @@ public partial class MainWindow
         Grid.SetColumn(durTb, col++);
         grid.Children.Add(durTb);
 
+        // 将整行 Grid 挂入边框容器并返回
         row.Child = grid;
         return row;
     }
@@ -258,8 +271,10 @@ public partial class MainWindow
     {
         var summary = ActivityRepository.GetCategorySummaryByDate(_currentDate); // 按分类汇总当日时长
         int totalSeconds = summary.Values.Sum();                                 // 各分类求和得总活跃秒数
+        // 秒数转 TimeSpan 以便取小时/分钟部分
         TimeSpan ts = TimeSpan.FromSeconds(totalSeconds);
         string label = _currentDate == DateTime.Today ? "今日活跃" : $"{_currentDate:MM-dd} 活跃"; // 浏览历史日时显示具体日期
+        // 写入顶部文本（浏览历史日时前缀带具体日期）
         TodayTotalText.Text = $"{label}：{ts.Hours}h{ts.Minutes}m";
     }
 

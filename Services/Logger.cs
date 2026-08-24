@@ -16,21 +16,25 @@ public static class Logger
 {
     // 日志写入锁，防止多线程同时写文件
     private static readonly object _lock = new();
-    // 日志目录路径
+    // 日志目录路径（静态构造中初始化；拿不到时为空串 = 日志功能失效但不崩溃）
     private static string _logDir = "";
 
     // 静态构造：初始化日志目录，程序目录下 logs/ 文件夹
+    // 静态构造由 CLR 保证线程安全且只执行一次
     static Logger()
     {
         try
         {
+            // BaseDirectory = exe 所在目录（对单实例桌面程序即安装目录）
             _logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            // 目录不存在才创建；已存在时 Exists 为 true 跳过
             if (!Directory.Exists(_logDir))
                 Directory.CreateDirectory(_logDir);
         }
         catch (Exception)
         {
             // 日志目录创建失败时用系统临时目录兜底
+            // （常见原因：安装在无写权限目录，如 Program Files）
             try { _logDir = Path.GetTempPath(); }
             catch { _logDir = ""; } // 临时目录都拿不到，日志功能失效但不崩溃
         }
@@ -66,12 +70,14 @@ public static class Logger
         sb.Append(message);
         if (ex != null)
         {
+            // 用 " | " 分隔描述与异常摘要，便于日志检索/切分
             sb.Append(" | ");
             sb.Append(ex.GetType().Name);
             sb.Append(": ");
             sb.Append(ex.Message);
             if (ex.StackTrace != null)
             {
+                // 堆栈含换行 → 该条日志占多行（按行解析日志时需注意）
                 sb.Append("\n");
                 sb.Append(ex.StackTrace);
             }
@@ -88,6 +94,8 @@ public static class Logger
     {
         try
         {
+            // 整个写流程包在 try 里：任何 IO 失败都不能向上抛，
+            // 否则"记录错误"这个动作本身会引发次生异常
             // 文件名按天命名
             var fileName = $"log_{DateTime.Now:yyyy-MM-dd}.txt";
             var filePath = Path.Combine(_logDir, fileName);
@@ -96,6 +104,8 @@ public static class Logger
             // 加锁保证多线程写入不会交错
             lock (_lock)
             {
+                // 每条日志独立打开-追加-关闭：简单可靠、崩溃不丢缓冲，
+                // 但高频调用时有 IO 开销（当前采样频率下可接受）
                 File.AppendAllText(filePath, line, Encoding.UTF8);
             }
         }

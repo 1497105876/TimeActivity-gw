@@ -1,16 +1,32 @@
-﻿using System;
+﻿// ============================================================================
+// using 指令区
+// ============================================================================
+// .NET 基础类型与核心功能（DateTime、Math、String 等）
+using System;
+// 泛型集合容器（Dictionary<TKey,TValue> 等）
 using System.Collections.Generic;
+// 区域文化设置（InvariantCulture 用于解析数据库中的时间字符串）
 using System.Globalization;
+// LINQ 查询扩展（Where / Sum / GroupBy / ToDictionary 等）
 using System.Linq;
+// WPF 基础类型（Visibility、RoutedEventArgs、SizeChangedEventArgs 等）
 using System.Windows;
+// WPF 控件库（Page、RadioButton、ComboBoxItem 等）
 using System.Windows.Controls;
+// 画刷与颜色类型（Brushes/Color，图表配色辅助）
 using System.Windows.Media;
+// Shape 图元（Polyline/Ellipse 等，ChartRenderer 绘制折线所依赖）
 using System.Windows.Shapes;
+// 项目内：数据仓储层（活动记录 / 每日汇总 / 分类 / AI 总结）
 using TimeActivity.Data;
+// 项目内：服务层（AI 总结生成与文件保存）
 using TimeActivity.Services;
+// 项目内：辅助层（分类颜色加载、周起始日计算）
 using TimeActivity.Helpers;
+// 项目内：渲染层（趋势折线 / 占比条 / Top 应用绘制器）
 using TimeActivity.Rendering;
 
+// 文件级命名空间声明（C# 10+ 单行写法，全文件共用一个命名空间）
 namespace TimeActivity;
 
 /// <summary>
@@ -68,9 +84,13 @@ public partial class StatisticsPage : Page
     {
         // 重建颜色助手确保不残留旧缓存
         _colorHelper = new CategoryColorHelper();
+        // 重新从磁盘加载最新的分类颜色映射表
         _categoryColors = _colorHelper.Load();
+        // 把新的颜色助手注入渲染器，后续绘制使用新配色
         _chartRenderer.SetColorHelper(_colorHelper);
+        // 用户可能在设置页增删了分类，重建筛选下拉框选项
         LoadCategoryFilter();
+        // 按当前周期重新聚合并重绘所有图表
         LoadData();
     }
 
@@ -86,7 +106,9 @@ public partial class StatisticsPage : Page
         if (tag == _period) return;                  // 与当前模式相同则不处理
         _period = tag;                // 切换模式
         _periodStart = DateTime.Today; // 参考日期重置为今天（新周期从当前开始浏览）
+        // 按新模式刷新日期范围文字并加载对应 AI 总结
         UpdateRange();
+        // 加载新模式的统计数据与图表
         LoadData();
     }
 
@@ -99,13 +121,18 @@ public partial class StatisticsPage : Page
         switch (_period)
         {
             case "week": // 周一~周日：由 DayOfWeek 反推本周一与下周一-1
+                // DayOfWeek 枚举中周日=0、周一=1……周六=6，先归一成「周一=1~周日=7」
                 int delta = (int)_periodStart.DayOfWeek;
                 if (delta == 0) delta = 7; // 周日归到本周末
+                // 本周一 = 参考日前移 (delta-1) 天；本周日 = 参考日后移 (7-delta) 天
                 return (_periodStart.AddDays(-(delta - 1)), _periodStart.AddDays(7 - delta));
             case "month": // 本月 1 日 ~ 月末
+                // 先构造参考日期所在月的 1 号
                 var first = new DateTime(_periodStart.Year, _periodStart.Month, 1);
+                // 下月 1 号的前一天即本月最后一天（自动适配大小月与闰年）
                 return (first, first.AddMonths(1).AddDays(-1));
             default: // 日模式：起止相同
+                // 起止都取参考日期本身
                 return (_periodStart, _periodStart);
         }
     }
@@ -120,6 +147,7 @@ public partial class StatisticsPage : Page
         if (_period == "day")
         {
             RangeText.Text = s.ToString("MM-dd") + (s == DateTime.Today ? "（今天）" : ""); // 今天加后缀
+            // 标题同步切换为「每日」
             AITitle.Text = "AI 每日总结";
             // 日模式不需要趋势图
             TrendSection.Visibility = Visibility.Collapsed;
@@ -127,12 +155,14 @@ public partial class StatisticsPage : Page
         else if (_period == "week")
         {
             RangeText.Text = $"{s:MM-dd} ~ {e:MM-dd}"; // 周显示区间
+            // 标题同步切换为「每周」
             AITitle.Text = "AI 每周总结";
             TrendSection.Visibility = Visibility.Visible; // 周/月显示每日趋势
         }
         else
         {
             RangeText.Text = s.ToString("yyyy-MM"); // 月显示年-月
+            // 标题同步切换为「每月」
             AITitle.Text = "AI 每月总结";
             TrendSection.Visibility = Visibility.Visible;
         }
@@ -178,37 +208,46 @@ public partial class StatisticsPage : Page
         // 因为 _periodStart 在周模式下可能是周中某天，但 AI 总结是按周一（周起始日）存的
         var (rangeStart, _) = GetRange();
 
+        // ---------------- 日总结分支：只查 manual 类型 ----------------
         if (_period == "day")
         {
             // 日总结：查 manual
             var (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "manual");
+            // 库中已有该日的手动总结则直接展示
             if (text != null)
             {
+                // 正文 Markdown 渲染 + 生成时间标签，同时缓存到 _currentAISummary
                 AISummaryText.Markdown = text;
                 AISummaryTime.Text = FormatSummaryTime(createdAt);
                 _currentAISummary = text;
             }
+                // 没有记录时显示引导文案，等待用户手动生成
             else
             {
                 AISummaryText.Markdown = "点击「生成总结」获取 AI 分析...";
                 AISummaryTime.Text = "";
                 _currentAISummary = null;
             }
+            // 日总结始终开放手动生成入口
             BtnGenerateAI.Visibility = Visibility.Visible;
         }
         else
         {
             // 周/月总结
+            // 当前周期（本周/本月）走 manual 分支并提供生成按钮
             if (IsCurrentPeriod())
             {
                 // 本周/月：查 manual，显示生成按钮
                 var (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "manual");
+                    // 已有总结则直接展示
                 if (text != null)
                 {
+                    // 正文 Markdown 渲染 + 生成时间标签，同时缓存到 _currentAISummary
                     AISummaryText.Markdown = text;
                     AISummaryTime.Text = FormatSummaryTime(createdAt);
                     _currentAISummary = text;
                 }
+                    // 尚无总结时同样显示引导文案
                 else
                 {
                     AISummaryText.Markdown = "点击「生成总结」获取 AI 分析...";
@@ -221,6 +260,7 @@ public partial class StatisticsPage : Page
             {
                 // 非本周/月：查 auto，隐藏生成按钮
                 var (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "auto");
+                    // 历史周期的自动总结存在则展示
                 if (text != null)
                 {
                     AISummaryText.Markdown = text;
@@ -249,48 +289,75 @@ public partial class StatisticsPage : Page
         try
         {
             // CreatedAt 格式：yyyy-MM-dd HH:mm:ss.fff
+            // 用 InvariantCulture 解析，失败会抛异常进入下方 catch 记日志
             var dt = DateTime.Parse(createdAt, CultureInfo.InvariantCulture);
+            // 输出形如「8/3 20:30 总结」的简短时间戳
             return $"{dt:M/d} {dt:HH:mm} 总结";
         }
         catch (Exception ex) { Logger.Error("格式化总结时间失败", ex); return ""; }
     }
 
+    /// <summary>
+    /// 「◀」按钮点击：回退到上一个日/周/月周期
+    /// </summary>
     private void BtnPrev_Click(object sender, RoutedEventArgs e)
     {
         // 按周期回退一个单位（周-7天 / 月-1月 / 日-1天）
         switch (_period)
         {
+            // 周模式：整体前移 7 天
             case "week": _periodStart = _periodStart.AddDays(-7); break;
+            // 月模式：前移一个自然月
             case "month": _periodStart = _periodStart.AddMonths(-1); break;
+            // 日模式：前移一天
             default: _periodStart = _periodStart.AddDays(-1); break;
         }
+        // 刷新范围显示文字并加载该周期的 AI 总结
         UpdateRange();
+        // 按新范围重新聚合并绘制图表
         LoadData();
     }
 
+    /// <summary>
+    /// 「▶」按钮点击：前进到下一个日/周/月周期（禁止越过当前期）
+    /// </summary>
     private void BtnNext_Click(object sender, RoutedEventArgs e)
     {
+        // 取当前周期的结束日期用于「是否已到最新」的判断
         var (s, end) = GetRange();
         // 禁止翻到包含未来的周期（今天/本周/本月之后不可再前进）
+        // 日模式：参考日已是今天就无法再前进
         if (_period == "day" && _periodStart >= DateTime.Today) return;
+        // 周模式：结束日不早于今日说明已处于最新一周
         if (_period == "week" && end >= DateTime.Today) return;
+        // 月模式：同理以月末判断是否已到本月
         if (_period == "month" && end >= DateTime.Today) return;
 
         // 按周期前进一个单位
         switch (_period)
         {
+            // 周模式：整体后移 7 天
             case "week": _periodStart = _periodStart.AddDays(7); break;
+            // 月模式：后移一个自然月
             case "month": _periodStart = _periodStart.AddMonths(1); break;
+            // 日模式：后移一天
             default: _periodStart = _periodStart.AddDays(1); break;
         }
+        // 刷新范围显示文字并加载 AI 总结
         UpdateRange();
+        // 按新范围重新聚合并绘制图表
         LoadData();
     }
 
+    /// <summary>
+    /// 「本期」按钮点击：一键跳回今天/本周/本月
+    /// </summary>
     private void BtnThis_Click(object sender, RoutedEventArgs e)
     {
         _periodStart = DateTime.Today; // 跳回当前周期
+        // 重算日期范围并加载 AI 总结
         UpdateRange();
+        // 按新范围重新聚合并绘制图表
         LoadData();
     }
 
@@ -312,6 +379,7 @@ public partial class StatisticsPage : Page
                 CategoryFilter.Items.Add(new ComboBoxItem { Content = cat.Name, Tag = cat.Name });
             }
         }
+        // 分类列表读取失败只记日志，保证页面其余功能可用
         catch (Exception ex) { Logger.Error("加载分类筛选列表失败", ex); }
         CategoryFilter.SelectedIndex = 0; // 默认选中"全部分类"
     }
@@ -323,6 +391,7 @@ public partial class StatisticsPage : Page
     /// </summary>
     private void TrendCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
     {
+        // 仅当缓存过趋势数据时才重绘（首次布局时避免画空图）
         if (_cachedDailyData.Count > 0 || _cachedRangeStart != default)
             _chartRenderer.DrawTrendChart(TrendCanvas, _cachedDailyData, _cachedRangeStart, _cachedRangeEnd);
     }
@@ -332,16 +401,19 @@ public partial class StatisticsPage : Page
     /// </summary>
     private void LoadData()
     {
+        // 取当前周期的起止日期
         var (start, end) = GetRange();
 
         // 是否包含空闲时段、是否筛选了某个分类
         bool includeIdle = ChkSkipIdle.IsChecked != true;
         string filterCategory = GetSelectedFilterCategory();
 
+        // 三份聚合结果：分类占比 / 进程(Top应用)排行 / 按日总量
         Dictionary<string, int> catData;
         Dictionary<string, int> procData;
         Dictionary<string, int> dailyData;
 
+        // ---------- 日模式：直查原始活动明细表 ----------
         if (_period == "day")
         {
             // 日模式直接查原始活动表（数据量小，需要明细）
@@ -357,6 +429,7 @@ public partial class StatisticsPage : Page
                 procData = FilterProcessByCategory(start, end, filterCategory); // 进程按分类重新聚合
             }
         }
+        // ---------- 周/月模式：改读每日汇总表（扫描量小、速度更快） ----------
         else
         {
             // 周/月模式读每日汇总表（大幅减少扫描行数，性能好）
@@ -377,6 +450,7 @@ public partial class StatisticsPage : Page
 
         // 计算总时长并显示
         int totalSeconds = catData.Values.Sum();      // 各分类之和即总活跃秒数
+        // 把总秒数转成 TimeSpan 便于拆解小时与分钟
         TimeSpan ts = TimeSpan.FromSeconds(totalSeconds);
 
         TotalText.Text = $"总活跃时长：{ts.Hours + ts.Days * 24}h{ts.Minutes}m"; // 跨天折算小时
@@ -422,6 +496,7 @@ public partial class StatisticsPage : Page
     private void CategoryFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (CategoryBarsPanel == null) return; // 控件未就绪（初始装载触发）忽略
+        // 按新筛选条件重载全部统计与图表
         LoadData();
     }
 
@@ -429,6 +504,7 @@ public partial class StatisticsPage : Page
     private void ChkSkipIdle_Changed(object sender, RoutedEventArgs e)
     {
         if (CategoryBarsPanel == null) return;
+        // 按新的空闲过滤开关重载统计与图表
         LoadData();
     }
 
@@ -439,7 +515,9 @@ public partial class StatisticsPage : Page
     {
         // 日模式 start==end，查询需要 end+1 天
         DateTime queryEnd = start.Date == end.Date ? end.AddDays(1) : end;
+        // 拉取区间内的原始活动明细记录
         var activities = ActivityRepository.GetByRange(start, queryEnd);
+        // LINQ 管道：过滤指定分类 → 按进程分组 → 组内时长求和 → 时长降序 → 转字典
         return activities
             .Where(a => a.Category == category)
             .GroupBy(a => a.ProcessName)

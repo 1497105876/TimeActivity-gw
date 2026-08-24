@@ -18,8 +18,13 @@ public partial class App : Application
     /// <summary>托盘宿主引用（供主窗口刷新托盘提示等）。</summary>
     public TrayHost? Host { get; private set; }
 
+    /// <summary>
+    /// 启动入口重写：初始化后台服务 → 创建托盘宿主 → 按命令行参数决定是否立即显示主窗口。
+    /// </summary>
+    /// <param name="e">启动参数（可含 --minimized 表示开机自启静默驻留）</param>
     protected override void OnStartup(StartupEventArgs e)
     {
+        // 先执行 WPF 默认启动流程（触发 Startup 事件等）
         base.OnStartup(e);
 
         // 后台服务先行：无论是否显示界面都要开始追踪
@@ -34,15 +39,21 @@ public partial class App : Application
                          Array.Exists(args, a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
         if (!minimized)
         {
+            // 正常双击启动：由托盘宿主负责创建并显示主窗口
             Host.ShowMainFromStartup();
         }
 
+        // 记录启动完成日志（注明本次是隐藏到托盘还是显示主窗口）
         Logger.Info($"应用启动完成（{(minimized ? "隐藏到托盘" : "显示主窗口")}）");
     }
 
+    /// <summary>
+    /// 退出重写：统一停止全部后台服务（引擎/截图/调度器），确保数据完整落库。
+    /// </summary>
     protected override void OnExit(ExitEventArgs e)
     {
         AppServices.ShutdownAll(); // 统一停引擎/截图/调度器
+        // 继续默认退出流程
         base.OnExit(e);
     }
 }

@@ -11,12 +11,18 @@
 //   DailyTotal / DailyCategorySummary / DailyProcessSummary 每日预聚合
 //   AISummaries AI 总结 | Settings 键值设置 | AppColors 应用专属颜色
 // ============================================================================
+// 基础类型（AppDomain、Exception、Dictionary）
 using System;
+// 文件路径操作（Path/File）
 using System.IO;
+// SQLite ADO.NET 提供程序（SqliteConnection/SqliteCommand 等）
 using Microsoft.Data.Sqlite;
+// 日志服务（Logger.Info/Error）
 using TimeActivity.Services;
+// 帮助扩展（ToDateKey 等）
 using TimeActivity.Helpers;
 
+// 数据访问层命名空间
 namespace TimeActivity.Data;
 
 /// <summary>
@@ -27,14 +33,18 @@ namespace TimeActivity.Data;
 public static partial class DatabaseHelper
 {
     // 数据库文件路径，放在程序目录下
+    // BaseDirectory=exe 所在目录，便携式设计（库文件随程序目录走）
     private static readonly string DbPath = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "timeactivity.db");
 
     // SQLite 连接字符串，直接指向数据库文件
+    // 全项目唯一权威定义：各仓储一律引用本属性，禁止自行拼接
     public static string ConnectionString => $"Data Source={DbPath}";
 
     // 防止重复初始化的标记（配合 _initLock 保证并发首调安全）
+    // 非 volatile：正确性由下方 lock 的进入/退出屏障保证
     private static bool _initialized = false;
+    // 初始化专用锁对象：并发首次调用时串行化整个初始化流程
     private static readonly object _initLock = new();
 
     /// <summary>
@@ -48,14 +58,21 @@ public static partial class DatabaseHelper
         lock (_initLock)               // 慢路径：加锁后再次确认
         {
             if (_initialized) return;
+            // 二次确认通过，开始执行初始化（全程持有 _initLock）
+            // 整个初始化流程包在 try 中：任何一步失败都记日志并向上抛出
             try
             {
+            // 连接对象由 using 托管，异常路径同样能释放
             using var conn = new SqliteConnection(ConnectionString); // 创建连接（打开时才真正建立文件）
+            // 真正打开连接：首次 Open 时若库文件不存在会自动创建空库
             conn.Open();
 
             // 开启 WAL 模式提升并发读写性能，NORMAL 同步级别兼顾安全和速度
+            // WAL：写入先进 -wal 日志，读不阻塞写，适合采集器高频写入场景
             using var pragmaCmd = conn.CreateCommand();
+            // 两条 PRAGMA 合并为一条命令执行；journal_mode=WAL 是持久化属性
             pragmaCmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;";
+            // 执行设置
             pragmaCmd.ExecuteNonQuery();
 
             Logger.Info("数据库初始化：WAL 已开启");
@@ -161,6 +178,7 @@ public static partial class DatabaseHelper
             CREATE INDEX IF NOT EXISTS IX_DailyProcessSummary_Date ON DailyProcessSummary(Date);
         ";
 
+            // 单条命令执行整段 DDL 脚本（SQLite 支持一次执行多条语句）
             using var createCmd = new SqliteCommand(sql, conn);
             createCmd.ExecuteNonQuery(); // 执行建表脚本（幂等）
 
@@ -169,6 +187,7 @@ public static partial class DatabaseHelper
             {
                 using var checkCol = new SqliteCommand("PRAGMA table_info(AISummaries)", conn); // 读取表结构
                 using var reader = checkCol.ExecuteReader();
+                // 标记：表内是否已存在 AutoType 列
                 bool hasAutoType = false;
                 while (reader.Read()) // 逐列检查是否已存在 AutoType
                 {
@@ -192,6 +211,7 @@ public static partial class DatabaseHelper
             try
             {
                 using var idxCmd = new SqliteCommand("CREATE UNIQUE INDEX IF NOT EXISTS UX_AISummaries_Type ON AISummaries(Date, SummaryType, AutoType)", conn);
+                // 老库若已有脏重复数据，建唯一索引会失败——仅记日志，不阻断启动
                 idxCmd.ExecuteNonQuery();
             }
             catch (Exception ex) { Logger.Error("AISummaries 唯一索引创建失败", ex); }
@@ -207,6 +227,7 @@ public static partial class DatabaseHelper
                 {
                     while (infoReader.Read())
                     {
+                        // 第1列为列名
                         var colName = infoReader.GetString(1);
                         if (colName == "StartTimeUtc") hasStartUtc = true;
                         else if (colName == "EndTimeUtc") hasEndUtc = true;
@@ -226,6 +247,7 @@ public static partial class DatabaseHelper
                         EndTimeUtc   = strftime('%Y-%m-%dT%H:%M:%SZ', EndTime,  'utc')
                     WHERE StartTimeUtc IS NULL OR EndTimeUtc IS NULL", conn))
                 {
+                    // WHERE 限定只回填 NULL 行，重复执行无副作用
                     int rows = backfill.ExecuteNonQuery();
                     if (rows > 0) Logger.Info($"UTC 双列迁移：已回填 {rows} 行活动记录");
                 }
@@ -335,6 +357,7 @@ public static partial class DatabaseHelper
     /// <returns>连接成功返回 true，否则 false</returns>
     public static bool TestConnection()
     {
+        // 初始化成功即视为连接可用（真实走一遍建表/迁移路径）
         try
         {
             Initialize(); // 内部幂等，失败抛异常

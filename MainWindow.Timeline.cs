@@ -43,10 +43,14 @@ public partial class MainWindow
         CompositionTarget.Rendering += RenderFrame; // 下一渲染帧回调一次即摘除
     }
 
+    /// <summary>渲染帧回调（每帧最多触发一次）：先摘除自身再执行真正的重绘。</summary>
     private void RenderFrame(object? sender, EventArgs e)
     {
+        // 先解除订阅：保证一次排队只画一帧
         CompositionTarget.Rendering -= RenderFrame;
+        // 复位排队标志，允许后续再次请求合帧重绘
         _renderQueued = false;
+        // 执行合并后的实际绘制
         DrawAll();
     }
 
@@ -94,7 +98,7 @@ public partial class MainWindow
         double width = GetContainerWidth();
         if (width <= 0) return;
 
-        // 鼠标 X 坐标对应的时间（秒）
+        // 鼠标 X 坐标对应的时间（秒）：视口起点 + 相对比例 × 可见时长
         double mouseTime = _viewStartSeconds + (mouseX / width) * _visibleSeconds;
 
         // 滚轮上滚放大（×0.8），下滚缩小（×1.25）
@@ -104,7 +108,7 @@ public partial class MainWindow
 
         _visibleSeconds = newVisible; // 应用新的可视窗口大小
 
-        // 调整起始位置使鼠标处的时间保持不变
+        // 调整起始位置使鼠标处的时间保持不变（锚点缩放）
         _viewStartSeconds = mouseTime - (mouseX / width) * _visibleSeconds;
         _viewStartSeconds = Math.Clamp(_viewStartSeconds, 0, MaxVisibleSeconds - _visibleSeconds); // 起点不能越界
 
@@ -139,7 +143,9 @@ public partial class MainWindow
     /// <summary>概览条松开鼠标：结束拖拽并释放鼠标捕获。</summary>
     private void OverviewCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
+        // 退出拖拽状态
         _overviewDragging = false;
+        // 释放鼠标捕获，恢复常规事件路由
         OverviewCanvas.ReleaseMouseCapture();
     }
 
@@ -239,7 +245,7 @@ public partial class MainWindow
         }
         else
         {
-            // 没命中活动时只显示时间1
+            // 未命中任何活动：浮窗只显示当前时刻
             TimeSpan ts = TimeSpan.FromSeconds(mouseTime);
             PopupColor.Visibility = Visibility.Collapsed;
             PopupCategory.Visibility = Visibility.Collapsed;

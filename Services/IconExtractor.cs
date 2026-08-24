@@ -22,6 +22,7 @@ public static class IconExtractor
 {
     // 进程名→(图标, 记录时间)。成功图标长期缓存；失败的(含字母头像标记)带时间戳，超时可重试
     private static readonly Dictionary<string, (ImageSource? Icon, DateTime At)> _cache = new();
+    // 保护 _cache 的锁（Dictionary 并发读写会损坏内部结构，读也必须锁）
     private static readonly object _lock = new();
 
     // 负结果重试间隔：拿不到图标的进程每 10 分钟允许再试一次（环境可能变化，如提权后）
@@ -29,7 +30,9 @@ public static class IconExtractor
 
     // 进程名→exe路径 的全量快照缓存：避免每次取图标都遍历进程
     private static Dictionary<string, string>? _pathMap;
+    // 快照构建时间，配合 30 秒过期判定
     private static DateTime _pathMapAt = DateTime.MinValue;
+    // 保护快照的独立锁：与 _lock 分开，避免枚举进程期间阻塞图标缓存查询
     private static readonly object _mapLock = new();
 
     // Win32 API：通过进程句柄拿 exe 完整路径（比 MainModule 更可靠，UWP/系统进程也能拿）
@@ -63,6 +66,7 @@ public static class IconExtractor
         {
             if (_cache.TryGetValue(processName, out var cached))
             {
+                // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
                 bool fresh = cached.Icon != null ||
                              DateTime.Now - cached.At < NegativeTtl;
                 if (fresh) return cached.Icon;
@@ -74,6 +78,7 @@ public static class IconExtractor
 
         lock (_lock)
         {
+            // 无论成败都写入缓存（带时间戳），供下次快速返回或到期重试
             _cache[processName] = (icon, DateTime.Now);
         }
         return icon;
@@ -99,6 +104,7 @@ public static class IconExtractor
                 return null;
 
             // 用 .NET 内置方法从 exe 文件提取关联图标
+            // using 确保 HICON/HBITMAP 等 GDI 资源及时释放
             using var icon = Icon.ExtractAssociatedIcon(exePath);
             if (icon == null) return null;
 
@@ -118,6 +124,7 @@ public static class IconExtractor
         }
         catch
         {
+            // exe 无图标/被占用/格式异常等 → 返回 null 走字母头像兜底
             return null;
         }
     }
@@ -141,16 +148,20 @@ public static class IconExtractor
     {
         lock (_mapLock)
         {
+            // 快照未过期直接复用，避免频繁全量枚举进程（开销大）
             if (_pathMap != null && DateTime.Now - _pathMapAt < TimeSpan.FromSeconds(30))
                 return _pathMap;
 
+            // 构建新快照（先建局部变量再赋值字段：失败时旧快照仍可用）
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var proc in Process.GetProcesses())
             {
+                // OpenProcess 失败（权限/已退出）→ 返回零句柄，跳过该进程
                 IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)proc.Id);
                 if (h == IntPtr.Zero) { proc.Dispose(); continue; }
                 try
                 {
+                    // 缓冲区取 520 字符以容纳多数长路径
                     var sb = new System.Text.StringBuilder(520);
                     uint size = (uint)sb.Capacity;
                     if (QueryFullProcessImageNameW(h, 0, sb, ref size))
@@ -172,6 +183,8 @@ public static class IconExtractor
     /// <summary>
     /// 兜底头像：以分类色系(按名称哈希取柔和色相)画圆角块 + 白色首字母，
     /// 保证任何进程都有可辨识的视觉占位。
+    /// 注意：DrawingVisual/RenderTargetBitmap 要求 STA 线程；
+    /// 非 STA 线程调用会抛异常并被下方 catch 吞掉。
     /// </summary>
     private static ImageSource? CreateLetterAvatar(string processName)
     {
@@ -181,14 +194,17 @@ public static class IconExtractor
             int hash = 0;
             foreach (var ch in processName) hash = hash * 31 + ch;
             var hue = (byte)(hash % 360);
+            // 饱和度/明度取中低值，保证白色文字可读且不刺眼
             var fill = ColorFromHsv(hue, 0.45, 0.78);
 
             const int size = 16;
             var visual = new DrawingVisual();
             using (var dc = visual.RenderOpen())
             {
+                // 画圆角矩形底色
                 var rect = new Rect(0, 0, size, size);
                 dc.DrawRoundedRectangle(new SolidColorBrush(fill), null, rect, 3, 3);
+                // 首字母大写、粗体白字，居中绘制
                 var text = new FormattedText(
                     processName.Substring(0, 1).ToUpperInvariant(),
                     System.Globalization.CultureInfo.InvariantCulture,
@@ -197,6 +213,7 @@ public static class IconExtractor
                     10, System.Windows.Media.Brushes.White, 1.25);
                 dc.DrawText(text, new System.Windows.Point((size - text.Width) / 2, (size - text.Height) / 2));
             }
+            // 离屏渲染为 16x16 位图（96 DPI）
             var bmp = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
             bmp.Render(visual);
             bmp.Freeze(); // 冻结后可跨线程使用
@@ -209,11 +226,16 @@ public static class IconExtractor
     }
 
     /// <summary>HSV → WPF Color（用于按哈希色相生成头像底色）。</summary>
+    /// <param name="hue360">色相，0~360 度</param>
+    /// <param name="s">饱和度 0~1</param>
+    /// <param name="v">明度 0~1</param>
     private static System.Windows.Media.Color ColorFromHsv(double hue360, double s, double v)
     {
+        // 标准 HSV→RGB 公式：c=色度，x=第二分量，m=使最大值对齐 v 的偏移
         double c = v * s;
         double x = c * (1 - Math.Abs((hue360 / 60) % 2 - 1));
         double m = v - c;
+        // 按色相所在 60° 扇区选择 (r,g,b) 的排列组合
         (double r, double g, double b) = ((int)(hue360 / 60)) switch
         {
             0 => (c, x, 0.0),
@@ -248,6 +270,7 @@ public static class IconExtractor
         // 逐个搜索路径尝试
         foreach (string searchPath in searchPaths)
         {
+            // GetFolderPath 可能返回空串（目录不存在于此系统），跳过
             if (string.IsNullOrEmpty(searchPath)) continue;
             foreach (string ext in extensions)
             {

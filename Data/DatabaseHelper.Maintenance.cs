@@ -7,12 +7,18 @@
 //   4) CleanOldData：按保留天数清理过期数据（含物理截图文件）。
 // 设计要点：批量写操作一律使用事务，失败回滚保证一致性。
 // ============================================================================
+// 基础类型（Exception、AppDomain、Func）
 using System;
+// 文件操作（Path/File）
 using System.IO;
+// SQLite ADO.NET 提供程序
 using Microsoft.Data.Sqlite;
+// 日志服务
 using TimeActivity.Services;
+// 帮助扩展（ToDateKey）
 using TimeActivity.Helpers;
 
+// 数据访问层命名空间（与 DatabaseHelper.cs 同属一个 partial 类）
 namespace TimeActivity.Data;
 
 /// <summary>
@@ -29,10 +35,15 @@ public static partial class DatabaseHelper
     {
         // VACUUM INTO 相当于在线导出一个干净的副本，不需要停数据库
         using var conn = new SqliteConnection(ConnectionString);
+        // 打开连接后执行在线备份
         conn.Open();
+        // 创建备份命令
         using var cmd = conn.CreateCommand();
+        // 目标路径单引号翻倍转义，防 SQL 引号截断；注意 VACUUM INTO 要求目标文件不存在，否则报错
         cmd.CommandText = $"VACUUM INTO '{targetPath.Replace("'", "''")}'";
+        // 执行备份（期间业务读写可不中断，WAL 模式下生成一致性快照）
         cmd.ExecuteNonQuery();
+        // 记录备份成功日志
         Logger.Info($"数据库备份到 {targetPath}");
     }
 
@@ -42,7 +53,9 @@ public static partial class DatabaseHelper
     public static void ClearAllData()
     {
         Initialize(); // 确保库/表存在（空库也能安全执行）
+        // 创建连接
         using var conn = new SqliteConnection(ConnectionString);
+        // 打开连接
         conn.Open();
 
         // 用事务包住所有 DELETE，中途失败不会丢部分数据
@@ -50,14 +63,20 @@ public static partial class DatabaseHelper
         try
         {
             // 按表逐个清空，不删 Categories/Settings/AppColors/Rules
+            // 顺序无依赖（无外键级联），任意顺序等价
             string[] tables = { "Activities", "Screenshots", "DailyTotal", "DailyCategorySummary", "DailyProcessSummary", "AISummaries" };
+            // 逐表执行整表 DELETE
             foreach (var table in tables)
             {
+                // 表名来自上方固定白名单数组，非用户输入，拼接安全
                 using var cmd = new SqliteCommand($"DELETE FROM {table}", conn, transaction);
+                // 执行删除并挂到事务
                 cmd.ExecuteNonQuery();
             }
+            // 全部成功后一次性提交
             transaction.Commit();
         }
+        // 任一删除失败：回滚到清空前的完整状态再向上抛
         catch
         {
             transaction.Rollback();
@@ -74,7 +93,9 @@ public static partial class DatabaseHelper
     {
         Initialize(); // 确保库/表存在
         int updated = 0; // 更新计数
+        // 创建连接
         using var conn = new SqliteConnection(ConnectionString);
+        // 打开连接
         conn.Open();
 
         // 用事务包裹整个操作，失败时回滚保证数据一致性
@@ -85,8 +106,10 @@ public static partial class DatabaseHelper
             // 取所有非空闲活动记录，读到内存里再批量更新（避免 reader 打开时执行命令）
             using var selCmd = new SqliteCommand(
                 "SELECT Id, ProcessName, WindowTitle FROM Activities WHERE IsIdle=0", conn, transaction);
+            // 执行查询（游标保持打开直至读完）
             using var reader = selCmd.ExecuteReader();
 
+            // 待更新集合：(主键, 新分类名) 二元组列表
             var updates = new List<(long id, string category)>(); // 待更新集合
             while (reader.Read()) // 逐条读取并在内存中重算分类
             {

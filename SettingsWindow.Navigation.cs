@@ -1,3 +1,4 @@
+// 引用的命名空间（与各部分类文件保持一致的 using 集）
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -88,12 +89,12 @@ public partial class SettingsWindow
             if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idleSec))
                 CbxIdleThreshold.Text = (idleSec / 60).ToString();
         }
-        ChkAutoStartTracking.IsChecked = SettingsRepository.Get("AutoStartTracking", "true") == "true";
+        ChkAutoStartTracking.IsChecked = SettingsRepository.Get("AutoStartTracking", "true") == "true"; // 字符串比较解析布尔
 
         // 截图设置
         ChkEnableScreenshot.IsChecked = SettingsRepository.Get("EnableScreenshot", "false") == "true";
         ScreenshotOptionsPanel.IsEnabled = ChkEnableScreenshot.IsChecked == true; // 选项面板可用性跟随开关
-        ChkScreenshotOnSwitch.IsChecked = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true";
+        ChkScreenshotOnSwitch.IsChecked = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true"; // 切换截屏默认开
 
         string intervalStr = SettingsRepository.Get("ScreenshotIntervalMinutes", "5");
         SetComboByTagOrText(CbxScreenshotInterval, intervalStr, "分钟");
@@ -102,8 +103,9 @@ public partial class SettingsWindow
         string fmt = SettingsRepository.Get("ScreenshotFormat", "jpg");
         foreach (ComboBoxItem item in CbxScreenshotFormat.Items)
         {
-            if (item.Tag?.ToString() == fmt) { CbxScreenshotFormat.SelectedItem = item; break; }
+            if (item.Tag?.ToString() == fmt) { CbxScreenshotFormat.SelectedItem = item; break; } // 按 Tag 定位格式项
         }
+        // 二次兜底：无论上面是否命中都按 fmt 强制定位，杜绝残留脏状态
         CbxScreenshotFormat.SelectedIndex = fmt == "png" ? 1 : 0;
 
         // PNG 格式时隐藏质量选项(PNG 无损,不涉及压缩质量)
@@ -113,7 +115,7 @@ public partial class SettingsWindow
         TxtScreenshotPath.Text = SettingsRepository.Get("ScreenshotPath",
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots"));
 
-        // 存储限制
+        // 存储限制：容量与天数两道闸
         ChkMaxSize.IsChecked = SettingsRepository.Get("EnableMaxSize", "true") == "true";
         TxtMaxSize.Text = SettingsRepository.Get("MaxScreenshotSizeMB", "5120");
         ChkMaxAge.IsChecked = SettingsRepository.Get("EnableMaxAge", "true") == "true";
@@ -123,7 +125,7 @@ public partial class SettingsWindow
         SetComboByTagOrText(CbxDataRetention, SettingsRepository.Get("DataRetentionDays", "90"), "天");
 
         // AI 设置（2026-08-23 重做：服务商预设 + OpenAI 兼容统一接口）
-        ChkEnableAI.IsChecked = SettingsRepository.Get("EnableAI", "true") == "true";
+        ChkEnableAI.IsChecked = SettingsRepository.Get("EnableAI", "true") == "true"; // AI 总开关
         // 兼容迁移：老版本只有 AIMode(lan/custom)。判定顺序：
         //   ① 已有 AIProvider → 直接用；
         //   ② 有旧 AIMode     → 映射(lan→ollama / custom→custom)并回写；
@@ -134,8 +136,10 @@ public partial class SettingsWindow
             var legacyMode = SettingsRepository.Get("AIMode", "");
             provider = legacyMode == "" ? "custom"
                      : (legacyMode == "lan" ? "ollama" : "custom");
+            // 迁移判定结果立即回写，避免下次启动重复判定
             SettingsRepository.Set("AIProvider", provider);
         }
+        // 按 Tag 选中服务商下拉项
         foreach (ComboBoxItem item in CbxAIProvider.Items)
         {
             if (item.Tag?.ToString() == provider) { CbxAIProvider.SelectedItem = item; break; }

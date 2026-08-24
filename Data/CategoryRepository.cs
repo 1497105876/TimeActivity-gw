@@ -4,14 +4,20 @@
 //       权威定义、恢复默认(ResetToDefault)、UpdateOrInsert 供设置页整体保存。
 // 预置分类 Id ≤ MaxPresetCategoryId 不可删除（UI 与保存逻辑共同遵守）。
 // ============================================================================
+// 泛型集合（List）
 using System.Collections.Generic;
+// SQLite ADO.NET 提供程序
 using Microsoft.Data.Sqlite;
+// 数据模型（Category）
 using TimeActivity.Models;
 
+// 数据访问层命名空间
 namespace TimeActivity.Data;
 
 /// <summary>
-/// 分类仓储 — 负责 Categories 表的增删改查
+/// 分类仓储 — 负责 Categories 表的增删改查。
+/// 预置分类的权威定义在本类内（PresetCategories），
+/// Activities.Category 存的是分类“名称”字符串快照，删除/改名不会自动回填历史记录。
 /// </summary>
 public static class CategoryRepository
 {
@@ -27,22 +33,35 @@ public static class CategoryRepository
     /// </summary>
     public static readonly IReadOnlyList<(string Name, string Color, string Icon, int SortOrder)> PresetCategories = new[]
     {
+        // Id=1 开发工具：蓝色系
         ("开发工具", "#4A90D9", "code", 1),
+        // Id=2 社交通讯：橙色系
         ("社交通讯", "#E67E22", "chat", 2),
+        // Id=3 游戏：红色系
         ("游戏", "#E74C3C", "gamepad", 3),
+        // Id=4 办公学习：绿色系
         ("办公学习", "#2ECC71", "book", 4),
+        // Id=5 浏览器：紫色系
         ("浏览器", "#9B59B6", "globe", 5),
+        // Id=6 视频娱乐：珊瑚红
         ("视频娱乐", "#FF6B6B", "video", 6),
+        // Id=7 音乐：紫红系
         ("音乐", "#AB47BC", "music", 7),
+        // Id=8 设计创作：橙黄系
         ("设计创作", "#FFA726", "palette", 8),
+        // Id=9 实用工具：青色系
         ("实用工具", "#26C6DA", "wrench", 9),
+        // Id=10 AI助手：玫红系
         ("AI助手", "#EC407A", "robot", 10),
+        // Id=11 系统组件：浅蓝系
         ("系统组件", "#7CB9E8", "desktop", 11),
+        // Id=12 空闲：灰蓝占位色
         ("空闲", "#CFD8DC", "coffee", 12),
+        // Id=13 未分类：灰色兜底色
         ("未分类", "#90A4AE", "question", 13),
     };
 
-    // 确保数据库已初始化
+    // 确保数据库已初始化（首次调用触发建表与预置分类播种）
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
     /// <summary>
@@ -51,24 +70,36 @@ public static class CategoryRepository
     /// <returns>分类列表，按排序字段升序</returns>
     public static List<Category> GetAll()
     {
+        // 初始化检查：保证 Categories 表已存在
         EnsureInit();
+        // 结果容器
         var list = new List<Category>();
+        // 创建连接（指向统一权威连接字符串）
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
+        // 打开连接
         conn.Open();
         // 按 SortOrder 排序，SortOrder 相同的按 Id 排
         using var cmd = new SqliteCommand("SELECT Id, Name, Color, Icon, SortOrder FROM Categories ORDER BY SortOrder, Id", conn);
+        // 执行查询得到游标
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
+            // 按列序映射到实体
             list.Add(new Category
             {
+                // 自增主键
                 Id = reader.GetInt32(0),
+                // 分类名称
                 Name = reader.GetString(1),
+                // 十六进制颜色
                 Color = reader.GetString(2),
+                // 图标名，NULL 防御为空串
                 Icon = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                // 排序序号
                 SortOrder = reader.GetInt32(4)
             });
         }
+        // 返回全部分类
         return list;
     }
 
@@ -79,29 +110,43 @@ public static class CategoryRepository
     /// <param name="name">分类名称</param>
     /// <param name="color">十六进制颜色值</param>
     /// <param name="sortOrder">排序序号</param>
+    /// <returns>更新时返回原 Id；插入时返回新生成的自增 Id</returns>
     public static int UpdateOrInsert(int id, string name, string color, int sortOrder)
     {
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
         if (id > 0)
         {
             // 更新已有分类
+            // 注意：Icon 不在更新范围内（设置页不编辑图标）
             using var cmd = new SqliteCommand(
                 "UPDATE Categories SET Name=@Name, Color=@Color, SortOrder=@Sort WHERE Id=@Id", conn);
+            // 新名称
             cmd.Parameters.AddWithValue("@Name", name);
+            // 新颜色
             cmd.Parameters.AddWithValue("@Color", color);
+            // 新排序号
             cmd.Parameters.AddWithValue("@Sort", sortOrder);
+            // 主键定位
             cmd.Parameters.AddWithValue("@Id", id);
+            // 执行更新；行不存在时静默无效果（受影响 0 行）
             cmd.ExecuteNonQuery();
+            // 更新路径原样返回传入 Id
             return id;
         }
         else
         {
             // 插入新分类，Icon 默认空字符串
+            // 批语句：INSERT 后取 last_insert_rowid() 返回新主键
             using var cmd = new SqliteCommand(
                 "INSERT INTO Categories (Name, Color, Icon, SortOrder) VALUES (@Name, @Color, '', @Sort); SELECT last_insert_rowid();", conn);
+            // 名称参数
             cmd.Parameters.AddWithValue("@Name", name);
+            // 颜色参数
             cmd.Parameters.AddWithValue("@Color", color);
+            // 排序号参数
             cmd.Parameters.AddWithValue("@Sort", sortOrder);
+            // 标量结果为新自增 Id（long → int 收窄）
             return (int)(long)cmd.ExecuteScalar();
         }
     }
@@ -109,13 +154,20 @@ public static class CategoryRepository
     /// <summary>
     /// 只更新分类颜色（右键快捷改色用）
     /// </summary>
+    /// <param name="name">分类名称</param>
+    /// <param name="color">十六进制颜色值</param>
     public static void UpdateColor(string name, string color)
     {
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
+        // 按名称定位只改 Color 一列（名称是业务上的自然键）
         using var cmd = new SqliteCommand(
             "UPDATE Categories SET Color=@Color WHERE Name=@Name", conn);
+        // 绑定新颜色
         cmd.Parameters.AddWithValue("@Color", color);
+        // 绑定分类名
         cmd.Parameters.AddWithValue("@Name", name);
+        // 执行更新；同名不存在时无效果
         cmd.ExecuteNonQuery();
     }
 
@@ -128,9 +180,14 @@ public static class CategoryRepository
     {
         // 预置分类 Id 1-13 受保护，不允许删除
         if (id <= MaxPresetCategoryId) return false;
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
+        // 按主键删除
         using var cmd = new SqliteCommand("DELETE FROM Categories WHERE Id=@Id", conn);
+        // 绑定主键参数
         cmd.Parameters.AddWithValue("@Id", id);
+        // 受影响行数 > 0 视为删除成功
+        // 注意：Rules.CategoryId 与 Activities.Category 的历史引用不会被级联清理
         return cmd.ExecuteNonQuery() > 0;
     }
 
@@ -139,9 +196,11 @@ public static class CategoryRepository
     /// </summary>
     public static void ResetToDefault()
     {
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
 
         // 删除自定义分类
+        // Id 为常量整数拼接，无注入风险
         using (var delCmd = new SqliteCommand("DELETE FROM Categories WHERE Id > " + MaxPresetCategoryId, conn))
             delCmd.ExecuteNonQuery();
 
@@ -149,12 +208,18 @@ public static class CategoryRepository
         // 既避免重复硬编码，也把图标一并还原（旧实现只还原颜色与排序，会丢掉图标）。
         foreach (var (name, color, icon, order) in PresetCategories)
         {
+            // 按名称逐个还原三列属性
             using var updCmd = new SqliteCommand(
                 "UPDATE Categories SET Color=@Color, Icon=@Icon, SortOrder=@SortOrder WHERE Name=@Name", conn);
+            // 还原颜色
             updCmd.Parameters.AddWithValue("@Color", color);
+            // 还原图标
             updCmd.Parameters.AddWithValue("@Icon", icon);
+            // 还原排序号
             updCmd.Parameters.AddWithValue("@SortOrder", order);
+            // 名称定位条件
             updCmd.Parameters.AddWithValue("@Name", name);
+            // 执行还原（若该预置分类被改名过则匹配不到，静默跳过）
             updCmd.ExecuteNonQuery();
         }
     }

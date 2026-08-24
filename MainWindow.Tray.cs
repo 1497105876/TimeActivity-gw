@@ -22,12 +22,15 @@ public partial class MainWindow
         Activate();                      // 激活窗口并将其带到前台
     }
 
+    /// <summary>关闭拦截：点 X 默认最小化到托盘；强制退出时按依赖顺序停止后台服务。</summary>
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         // 关闭按钮 → 最小化到托盘（除非是强制退出）
         if (!_forceClose && Data.SettingsRepository.Get("MinimizeToTray", "true") == "true")
         {
+            // 取消真实关闭，仅隐藏窗口驻留托盘
             e.Cancel = true;
+            // 隐藏窗口（任务栏消失，托盘图标仍在）
             Hide();
             return;
         }

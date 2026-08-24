@@ -1,3 +1,4 @@
+// 引用的命名空间（与各部分类文件保持一致的 using 集）
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -47,6 +48,7 @@ public partial class SettingsWindow
         {
             // 当前颜色设进去
             var current = (Color)ColorConverter.ConvertFromString(item.Color ?? "#808080");
+            // WPF Color → GDI Color 转换后传入对话框（ColorDialog 走 ARGB）
             dlg.Color = System.Drawing.Color.FromArgb(current.R, current.G, current.B);
         }
         catch (Exception ex) { Logger.Error($"颜色解析失败: {item.Color}", ex); } // 旧值非法则保持对话框默认色
@@ -60,7 +62,7 @@ public partial class SettingsWindow
                 var idx = cats.IndexOf(item);
                 if (idx >= 0) // 替换成新对象以触发 DataGrid 刷新（CategoryItem 未实现 INPC）
                 {
-                    var tmp = cats[idx];
+                    var tmp = cats[idx]; // 先取旧对象以保留 Id/Name 等其余字段
                     cats[idx] = new CategoryItem { Id = tmp.Id, Name = tmp.Name, Color = item.Color, SortOrder = tmp.SortOrder };
                 }
             }
@@ -82,14 +84,23 @@ public partial class SettingsWindow
     // 服务商预设表：Tag → (默认 Base URL, 模型名提示)
     private static readonly Dictionary<string, (string Base, string ModelHint)> AiPresets = new()
     {
+        // 自定义：不预填任何内容，全部由用户输入
         ["custom"]      = ("", ""),
+        // 本机 Ollama：默认端口 11434，附常用 7B 模型占位提示
         ["ollama"]      = ("http://localhost:11434/v1", "qwen2.5:7b"),
+        // Ollama 官方云端接口
         ["ollama-cloud"]= ("https://ollama.com/v1", ""),
+        // 本机 LM Studio：默认端口 1234
         ["lmstudio"]    = ("http://localhost:1234/v1", ""),
+        // DeepSeek 官方 API
         ["deepseek"]    = ("https://api.deepseek.com/v1", "deepseek-chat"),
+        // 月之暗面 Kimi：8K 上下文档位
         ["moonshot"]    = ("https://api.moonshot.cn/v1", "moonshot-v1-8k"),
+        // 通义千问：DashScope 的 OpenAI 兼容模式端点
         ["qwen"]        = ("https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus"),
+        // MiniMax 官方 API
         ["minimax"]     = ("https://api.minimaxi.com/v1", "MiniMax-Text-01"),
+        // 硅基流动：模型名需带组织前缀
         ["siliconflow"] = ("https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-7B-Instruct"),
     };
 
@@ -174,6 +185,7 @@ public partial class SettingsWindow
     private void TxtApiKeyPlain_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (_loading || TxtApiKey == null) return;
+        // 仅当明文框处于可见态才回写密文框，避免两个输入源互相覆盖
         if (TxtApiKeyPlain.Visibility == Visibility.Visible)
             TxtApiKey.Password = TxtApiKeyPlain.Text;
     }
@@ -184,24 +196,27 @@ public partial class SettingsWindow
     private async void BtnFetchModels_Click(object sender, RoutedEventArgs e)
     {
         string apiUrl = TxtApiUrl.Text.Trim();
-        if (string.IsNullOrEmpty(apiUrl)) { MessageBox.Show("请先填写接口地址", "提示"); return; }
+        if (string.IsNullOrEmpty(apiUrl)) { MessageBox.Show("请先填写接口地址", "提示"); return; } // 地址必填
 
+        // 进入忙碌态：禁用按钮防重复点击
         BtnFetchModels.IsEnabled = false;
         var old = BtnFetchModels.Content;
         BtnFetchModels.Content = "获取中...";
         try
         {
+            // 调服务层探测 /models 端点（带 Key）
             var (ok, status, models, err) = await AISummaryService.TryFetchModelsAsync(apiUrl, GetKeyInput());
-            if (!ok)
+            if (!ok) // 失败分支：区分网络异常与 HTTP 错误
             {
                 TxtAITestResult.Text = $"获取失败：{(status == null ? "网络错误：" + err : "HTTP " + status)}";
                 return;
             }
             CbxAIModel.Items.Clear();               // 重填下拉
+            // 模型名排序后逐项加入下拉
             foreach (var m in models.OrderBy(x => x))
                 CbxAIModel.Items.Add(new ComboBoxItem { Content = m });
             TxtAITestResult.Text = $"HTTP {status} · 获取到 {models.Count} 个模型";
-            if (models.Count == 0)
+            if (models.Count == 0) // 空列表：提示可手输
                 TxtAITestResult.Text += "（列表为空，可手输模型名）";
         }
         finally
@@ -230,10 +245,12 @@ public partial class SettingsWindow
         BtnTestAI.Content = "测试中..."; // 忙碌态
         BtnTestAI.IsEnabled = false;
         TxtAITestResult.Text = "测试中...";
+        // 计时器：结果里展示连接耗时
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
+            // 发起状态码探测（GET /models）
             var (ok, status, models, err) = await AISummaryService.TryFetchModelsAsync(apiUrl, apiKey);
             sw.Stop();
 
@@ -244,6 +261,7 @@ public partial class SettingsWindow
             }
             if (!ok) // HTTP 非 2xx
             {
+                // 按状态码给出针对性提示
                 string hint = status switch
                 {
                     401 or 403 => "（Key 无效或无权限）",
@@ -254,7 +272,7 @@ public partial class SettingsWindow
                 return;
             }
 
-            // 2xx：连接正常；进一步校验模型名是否存在
+            // 2xx：连接正常；进一步校验模型名是否存在（区分大小写精确比对）
             string result = $"✅ HTTP {status} · {sw.ElapsedMilliseconds}ms · 模型 {models.Count} 个";
             if (!string.IsNullOrEmpty(model) && models.Count > 0 && !models.Contains(model))
                 result += $"\n⚠️ 所填模型「{model}」不在列表中，请核对拼写或点\"获取模型列表\"选择";
@@ -314,6 +332,7 @@ public partial class SettingsWindow
     private void UpdateEstimates()
     {
         int perShotKB = GetActualScreenKB();                       // 单张实际估算
+        // 回填单张大小文本（MB 一位小数 + KB 原值）
         TxtEstSize.Text = $"约 {perShotKB / 1024.0:F1} MB ({perShotKB} KB)";
 
         string intervalText = CbxScreenshotInterval.Text.Replace("分钟", "").Trim(); // 从下拉文字解析间隔分钟数
@@ -343,6 +362,7 @@ public partial class SettingsWindow
             dailyStr += $" → {maxAge}天 约需 {totalStr}";
         }
 
+        // 回填每日占用提示（含限额换算结果）
         TxtEstDaily.Text = dailyStr;
     }
 
@@ -355,6 +375,7 @@ public partial class SettingsWindow
     {
         string dir = TxtScreenshotPath.Text;   // 先取当前路径快照
         TxtDiskUsage.Text = "统计中...";        // 立即给出反馈
+        // 丢弃返回值的后台任务：统计完成后经 Dispatcher 回填 UI
         _ = Task.Run(async () =>
         {
             string result = ComputeDiskUsageText(dir); // 重活放后台
@@ -370,10 +391,10 @@ public partial class SettingsWindow
     {
         try
         {
-            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) // 目录存在才统计
             {
                 long totalBytes = 0;
-                int fileCount = 0;
+                int fileCount = 0; // 字节累计与图片计数
                 foreach (var f in Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories)) // 递归所有子目录
                 {
                     // 只统计图片扩展名
@@ -386,6 +407,7 @@ public partial class SettingsWindow
                     }
                 }
                 double mb = totalBytes / (1024.0 * 1024.0); // 换算 MB
+                // 按 GB/MB 自适应格式化输出
                 return mb >= 1024
                     ? $"{mb / 1024.0:F1} GB ({fileCount} 张)"
                     : $"{mb:F0} MB ({fileCount} 张)";

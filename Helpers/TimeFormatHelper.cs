@@ -24,10 +24,11 @@ public static class TimeFormatHelper
     /// <returns>格式化后的时长，如 65s / 2m5s / 1h2m5s / 1h30m</returns>
     public static string Format(long totalSeconds)
     {
+        // 注意：负数输入会原样输出（如 "-5s"），调用方应保证传入非负秒数
         // 不足 1 分钟直接显示秒
         if (totalSeconds < 60) return $"{totalSeconds}s";
 
-        // 拆分成时分秒
+        // 拆分成时分秒：整除 3600 得小时，余数再整除 60 得分钟，其余为秒
         long h = totalSeconds / 3600;
         long m = totalSeconds % 3600 / 60;
         long s = totalSeconds % 60;
@@ -40,6 +41,7 @@ public static class TimeFormatHelper
         }
         // 没有小时：秒为 0 省略秒
         if (s == 0) return $"{m}m";
+        // 分钟+秒组合输出（如 2m5s）
         return $"{m}m{s}s";
     }
 }

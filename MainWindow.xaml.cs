@@ -122,8 +122,11 @@ public partial class MainWindow : Window
         _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat); // 概览条同款取色
 
         // 后台服务取自 AppServices（App 启动时已创建并按配置运行）
+        // 分类器：把 进程名/窗口标题 规则匹配为分类（单例引用）
         _classifier = AppServices.Classifier;
+        // 追踪引擎：轮询前台窗口产生活动记录（单例引用）
         _engine = AppServices.Engine;
+        // 截图服务与总结调度器同样取自 AppServices 单例
         _screenshotService = AppServices.Screenshots;
         _summaryScheduler = AppServices.Scheduler;
 
@@ -193,7 +196,9 @@ public partial class MainWindow : Window
                 {
                     var last = activities[activities.Count - 1];
                     var item = _items[0];
+                    // 注意：EndTime 属性未实现变更通知，此处在界面上可能不会立即刷新（见 ActivityDisplayItem）
                     item.EndTime = last.EndTime;
+                    // DurationText 有变更通知，ListView 会立即刷新时长列
                     item.DurationText = TimeFormatHelper.Format(last.Duration);
                 }
 
@@ -231,9 +236,12 @@ public partial class MainWindow : Window
     /// <summary>按引擎当前运行状态同步 开始/停止按钮 与 状态文字。</summary>
     public void RefreshTrackingButtons()
     {
+        // 读引擎真实运行状态作为唯一依据
         bool running = _engine.IsRunning;
+        // 开始/停止按钮互斥启用
         BtnStart.IsEnabled = !running;
         BtnStop.IsEnabled = running;
+        // 顶部状态文字同步
         StatusText.Text = running ? "追踪中..." : "已停止";
     }
 
@@ -250,9 +258,12 @@ public partial class MainWindow : Window
     /// </summary>
     public void DetachFromServices()
     {
+        // 解除引擎两个事件的订阅，避免旧实例继续收到回调
         _engine.OnActivityRecorded -= OnActivityRecorded;
         _engine.OnStatusChanged -= OnStatusChanged;
+        // 解除设置保存事件订阅
         SettingsWindow.SettingsSaved -= OnSettingsSaved;
+        // 停掉窗口内的两个定时器（自动刷新与防抖）
         _autoRefreshTimer?.Stop();
         _debounceTimer?.Stop();
         Logger.Info("主窗口已关闭：解除服务事件订阅");
@@ -269,6 +280,8 @@ public partial class MainWindow : Window
         // 同步更新 _items 里的分类
         foreach (var item in _items)
         {
+            // 取同进程任一条记录的分类回填显示项（Category 属性有变更通知会刷新 UI；
+            // 若当日中途改过规则，可能与多数记录不一致——仅影响列表展示）
             var match = _cachedActivities.FirstOrDefault(a => a.ProcessName == item.ProcessName);
             if (match != null) item.Category = match.Category;
         }
@@ -298,13 +311,13 @@ public partial class MainWindow : Window
 
 
 
-    // ========== 右键菜单：应用统计右键（改颜色/改分类） ==========
+    // ========== 应用统计右键菜单（实现已迁移至 MainWindow.Settings.cs） ==========
 
 
-    // ========== 右键菜单：类别统计右键（改颜色/查看规则） ==========
+    // ========== 类别统计右键菜单（实现已迁移至 MainWindow.Settings.cs） ==========
 
 
-    // ========== 右键菜单辅助方法 ==========
+    // ========== 右键菜单辅助方法（FindChild 见文件末尾） =====
 
 
 

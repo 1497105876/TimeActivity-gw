@@ -3,7 +3,9 @@
 // 职责：取前台窗口句柄、由句柄取进程名/窗口标题、取最后一次输入的空闲秒数。
 // 全部为无状态静态调用，供 TrackingEngine 每轮采样使用。
 // ============================================================================
+// 基础类型（IntPtr 等）
 using System;
+// DllImport / StructLayout / Marshal 等互操作设施
 using System.Runtime.InteropServices;
 
 namespace TimeActivity.Services;
@@ -13,19 +15,30 @@ namespace TimeActivity.Services;
 /// </summary>
 public static class Win32Api
 {
+    // ======================================================================
+    // P/Invoke 声明区
+    // 注意：Win32 函数失败时不抛托管异常，仅返回 0/false，需自行判错；
+    //       SetLastError 未开启，故此处不做 Marshal.GetLastWin32Error 取错。
+    // ======================================================================
     // Win32 API：获取当前前台窗口句柄（用户正在操作的窗口）
+    // 返回：前台窗口句柄；可能为 IntPtr.Zero（锁屏/UAC 安全桌面/切换瞬间无前台窗口）
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
 
     // 获取窗口标题文字
+    // CharSet.Unicode → 绑定宽字符版 GetWindowTextW；text 为接收缓冲区，
+    // count 为可容纳的最大字符数（含结尾 \0）；返回实际复制字符数，失败返回 0
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);
 
     // 通过窗口句柄获取对应的进程 ID
+    // 返回值是创建该窗口的线程 ID（本处不使用）；processId 以 out 参数带回进程 PID，
+    // 句柄无效时 processId = 0
     [DllImport("user32.dll")]
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     // Win32 结构体：记录最后一次输入操作的时间
+    // LayoutKind.Sequential：按声明顺序平铺布局，字段顺序/类型必须与 Win32 定义严格一致
     [StructLayout(LayoutKind.Sequential)]
     public struct LASTINPUTINFO
     {
@@ -34,6 +47,7 @@ public static class Win32Api
     }
 
     // 获取系统最后一次输入信息（用来计算用户空闲了多久）
+    // 约定：调用方必须先填 plii.cbSize；返回 false 表示调用失败，此时 dwTime 内容不可信
     [DllImport("user32.dll")]
     public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
@@ -52,7 +66,9 @@ public static class Win32Api
     /// <returns>窗口标题字符串</returns>
     public static string GetWindowTitle(IntPtr hWnd)
     {
+        // 预分配 512 字符缓冲区；超长标题会被 Win32 截断而非报错
         var sb = new System.Text.StringBuilder(512);
+        // 句柄失效时返回 0 且 sb 保持空串，ToString() 自然得到 ""
         GetWindowText(hWnd, sb, 512);
         return sb.ToString();
     }
@@ -74,6 +90,7 @@ public static class Win32Api
         }
         catch
         {
+            // 典型场景：pid=0（无效句柄）或目标进程已退出 → GetProcessById 抛异常
             return "unknown";
         }
     }
@@ -85,6 +102,8 @@ public static class Win32Api
     /// <returns>空闲秒数</returns>
     public static int GetIdleSeconds()
     {
+        // 实例化结构体并填 cbSize —— Win32 约定：调用前必须先写结构体大小，
+        // 否则 GetLastInputInfo 可能直接失败或写坏内存
         var info = new LASTINPUTINFO();
         info.cbSize = (uint)Marshal.SizeOf(info);
         // 调用失败（如会话锁定/权限异常）时 info.dwTime 不会被填充，dwTime 保持 0，
@@ -100,6 +119,7 @@ public static class Win32Api
         // uint 减法：0x00000001 - 0xFFFFFFFF = 0x00000002（即 2ms，正确）
         uint now = GetTickCount();
         uint elapsed = now - info.dwTime;
+        // ms → 秒；elapsed 最大约 49.7 天，转 int 不会溢出
         return (int)(elapsed / 1000);
     }
 }

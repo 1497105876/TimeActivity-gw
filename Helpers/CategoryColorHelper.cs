@@ -20,14 +20,17 @@ public class CategoryColorHelper
     /// </summary>
     public Dictionary<string, string> Load()
     {
+        // 每次都重建缓存字典，避免残留已被删除分类的旧颜色
         _colors = new Dictionary<string, string>();
         try
         {
             using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
             conn.Open();
+            // 按 SortOrder 排序读取 Categories 表的 名称→颜色 两列
             using var cmd = new SqliteCommand(
                 "SELECT Name, Color FROM Categories ORDER BY SortOrder", conn);
             using var reader = cmd.ExecuteReader();
+            // 逐行填充缓存：key=分类名 value=颜色字符串（#RRGGBB）
             while (reader.Read())
                 _colors[reader.GetString(0)] = reader.GetString(1);
         }
@@ -49,10 +52,12 @@ public class CategoryColorHelper
     {
         try
         {
+            // ColorConverter 支持 #RRGGBB / #AARRGGBB 及命名颜色字符串
             return (Color)ColorConverter.ConvertFromString(hex);
         }
         catch
         {
+            // 非法格式或 null → 回退中性灰蓝色 #90A4AE
             return (Color)ColorConverter.ConvertFromString("#90A4AE");
         }
     }
@@ -67,6 +72,7 @@ public class CategoryColorHelper
         // 先从缓存字典查，查到就解析；查不到回退灰色
         if (_colors.TryGetValue(category, out var hex))
             return ParseHex(hex);
+        // 缓存未命中（未收录/新分类）也回退同一灰色，保证渲染不中断
         return ParseHex("#90A4AE");
     }
 

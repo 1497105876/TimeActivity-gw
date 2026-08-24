@@ -4,18 +4,24 @@
 //       GetDefaultsByPage 支持设置页"按页恢复默认"。
 // 所有值均以字符串存储，调用方自行解析与校验。
 // ============================================================================
+// 基础类型（IEnumerable 等）
 using System;
+// 泛型集合（Dictionary、KeyValuePair）
 using System.Collections.Generic;
+// SQLite ADO.NET 提供程序
 using Microsoft.Data.Sqlite;
 
+// 数据访问层命名空间
 namespace TimeActivity.Data;
 
 /// <summary>
-/// 设置仓储 — 负责 Settings 表的读写
+/// 设置仓储 — 负责 Settings 表的读写。
+/// Settings 为 Key UNIQUE 的键值表；所有值按字符串存取，
+/// 类型解析（int/bool）与合法性校验由调用方负责。
 /// </summary>
 public static class SettingsRepository
 {
-    // 确保数据库已初始化
+    // 确保数据库已初始化（首次调用触发建表与默认值播种）
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
     /// <summary>
@@ -26,14 +32,21 @@ public static class SettingsRepository
     /// <returns>设置值字符串，未找到则返回 defaultValue</returns>
     public static string? Get(string key, string? defaultValue = null)
     {
+        // 初始化检查：保证 Settings 表已存在
         EnsureInit();
+        // 按主键级唯一键 Key 精确查询 Value 单列（Key 上的 UNIQUE 约束自带索引）
         const string sql = "SELECT Value FROM Settings WHERE Key = @Key";
 
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
+        // 创建查询命令
         using var cmd = new SqliteCommand(sql, conn);
+        // 绑定键名参数
         cmd.Parameters.AddWithValue("@Key", key);
 
+        // 标量查询：命中返回 Value（可能为 DBNull），未命中返回 null
         var result = cmd.ExecuteScalar();
+        // 未命中或值为 NULL 都回退到 defaultValue；否则强转为字符串
         return result == null || result == DBNull.Value ? defaultValue : (string)result;
     }
 
@@ -44,16 +57,23 @@ public static class SettingsRepository
     /// <param name="value">设置值</param>
     public static void Set(string key, string value)
     {
+        // 初始化检查：保证 Settings 表已存在
         EnsureInit();
         // UPSERT：Key 是 UNIQUE 的，冲突时更新 Value
+        // 单语句原子完成“有则改、无则插”，避免先查后写的竞态
         const string sql = @"
             INSERT INTO Settings (Key, Value) VALUES (@Key, @Value)
             ON CONFLICT(Key) DO UPDATE SET Value = @Value";
 
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
+        // 创建写入命令
         using var cmd = new SqliteCommand(sql, conn);
+        // 绑定键名参数
         cmd.Parameters.AddWithValue("@Key", key);
+        // 绑定新值参数
         cmd.Parameters.AddWithValue("@Value", value);
+        // 执行 UPSERT 写入
         cmd.ExecuteNonQuery();
     }
 
@@ -62,24 +82,37 @@ public static class SettingsRepository
     /// 2026-08-23：设置页保存要写 20+ 个键，逐键 Set 会产生同等次数的连接/命令开销，
     /// 造成保存瞬间卡顿；合并为一次事务后显著加快。
     /// </summary>
+    /// <param name="items">要写入的键值对集合</param>
     public static void SetMany(IEnumerable<KeyValuePair<string, string>> items)
     {
+        // 初始化检查：保证 Settings 表已存在
         EnsureInit();
+        // 与 Set 相同的 UPSERT 语句，但命令只建一次、参数反复复用
         const string sql = @"
             INSERT INTO Settings (Key, Value) VALUES (@Key, @Value)
             ON CONFLICT(Key) DO UPDATE SET Value = @Value";
 
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
+        // 开启事务：全部键一次性提交，失败整体回滚
         using var tx = conn.BeginTransaction();
+        // 创建共享命令并挂到事务上
         using var cmd = new SqliteCommand(sql, conn, tx);
+        // 预先添加参数占位（循环内仅改 Value，避免每轮重建参数对象）
         var pKey = cmd.Parameters.Add("@Key", SqliteType.Text);
+        // 同上，Value 参数
         var pVal = cmd.Parameters.Add("@Value", SqliteType.Text);
+        // 遍历所有待写键值对
         foreach (var kv in items)
         {
+            // 仅替换参数值（不重新 Add），这是批量写入的标准优化
             pKey.Value = kv.Key;
+            // null 值归一为数据库 NULL
             pVal.Value = (object?)kv.Value ?? DBNull.Value;
+            // 执行当前键的 UPSERT
             cmd.ExecuteNonQuery();
         }
+        // 全部成功后一次性提交
         tx.Commit();
     }
 
@@ -89,16 +122,22 @@ public static class SettingsRepository
     /// <returns>字典：键 → 值</returns>
     public static Dictionary<string, string> GetAll()
     {
+        // 初始化检查：保证 Settings 表已存在
         EnsureInit();
+        // 结果字典：键 → 值
         var dict = new Dictionary<string, string>();
+        // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
         // 查全部设置项，不做过滤
         using var cmd = new SqliteCommand("SELECT Key, Value FROM Settings", conn);
+        // 执行全表扫描（Settings 行数有限，可接受）
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
+            // 第0列=键；第1列=值，NULL 归一为空串（注意与 Get 的 null 语义不同）
             dict[reader.GetString(0)] = reader.IsDBNull(1) ? "" : reader.GetString(1);
         }
+        // 返回完整设置快照
         return dict;
     }
 
@@ -151,15 +190,21 @@ public static class SettingsRepository
     /// <returns>该页对应的默认设置字典</returns>
     public static Dictionary<string, string> GetDefaultsByPage(int navIndex) => navIndex switch
     {
+        // 常规页：采集行为三项
         0 => FilterDefaults("PollIntervalSeconds", "IdleThresholdSeconds", "AutoStartTracking"),
+        // 截图页：开关/触发方式/间隔/格式/路径/质量 + 容量与过期清理上限
         1 => FilterDefaults("EnableScreenshot", "ScreenshotOnSwitch", "ScreenshotIntervalMinutes",
             "ScreenshotFormat", "ScreenshotPath", "ScreenshotQuality",
             "EnableMaxSize", "MaxScreenshotSizeMB", "EnableMaxAge", "MaxScreenshotAgeDays"),
+        // 数据页：保留天数
         4 => FilterDefaults("DataRetentionDays"),
+        // AI 页：启用/服务商/地址/密钥/模型 + 总结文件路径与容量上限 + 三种自动总结开关
         5 => FilterDefaults("EnableAI", "AIProvider", "AIApiUrl", "AIApiKey", "AIModel",
             "AISummaryPath", "AISummaryMaxCount", "AISummaryMaxSizeMB",
             "AutoDailySummary", "AutoWeeklySummary", "AutoMonthlySummary"),
+        // 系统页：自启与托盘行为
         6 => FilterDefaults("AutoStartWithWindows", "MinimizeToTray"),
+        // 其余页签（2/3 等）：无对应默认项，返回空字典
         _ => new()
     };
 
@@ -170,10 +215,14 @@ public static class SettingsRepository
     /// <returns>只包含指定键的字典</returns>
     private static Dictionary<string, string> FilterDefaults(params string[] keys)
     {
+        // 子字典容器
         var result = new Dictionary<string, string>();
+        // 遍历请求的键名
         foreach (var key in keys)
+            // 只收录 Defaults 中真实存在的键（防拼写错误导致 KeyError）
             if (Defaults.TryGetValue(key, out var val))
                 result[key] = val;
+        // 返回筛选后的子集
         return result;
     }
 }

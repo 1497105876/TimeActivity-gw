@@ -1,9 +1,15 @@
+// 基础类型（DateTime、Exception）
 using System;
+// 泛型集合（List、Dictionary）
 using System.Collections.Generic;
+// SQLite ADO.NET 提供程序
 using Microsoft.Data.Sqlite;
+// 日志服务
 using TimeActivity.Services;
+// 帮助扩展（ToDateKey）
 using TimeActivity.Helpers;
 
+// 数据访问层命名空间
 namespace TimeActivity.Data;
 
 /// <summary>
@@ -13,7 +19,7 @@ namespace TimeActivity.Data;
 /// </summary>
 public static class DailySummaryRepository
 {
-    // 确保数据库已初始化
+    // 确保数据库已初始化（首次调用触发建表，幂等）
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
     /// <summary>
@@ -24,6 +30,7 @@ public static class DailySummaryRepository
         using var conn = DbAccess.Open(); // 统一连接入口
 
         // 找出 Activities 里有但 DailyTotal 里没有的日期——即缺失汇总的日期
+        // 反连接查询：NOT IN 子查询排除已有汇总的日期；DISTINCT+ORDER BY 得到升序去重列表
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
             SELECT DISTINCT date(StartTimeUtc,'localtime') as D 
@@ -163,9 +170,9 @@ public static class DailySummaryRepository
 
     /// <summary>
     /// 查询日期范围内的每日总活跃时长（趋势图用）
-    /// </summary>
-    /// <summary>
-    /// 查询日期范围内的每日总活跃时长（趋势图用）
+    /// <param name="start">起始日期</param>
+    /// <param name="end">结束日期</param>
+    /// <param name="includeIdle">是否包含空闲时间：true 读 TotalSeconds 列，false 读 TotalActiveSeconds 列</param>
     /// </summary>
     public static Dictionary<string, int> GetDailyTotals(DateTime start, DateTime end, bool includeIdle = false)
     {
@@ -187,6 +194,9 @@ public static class DailySummaryRepository
     /// <summary>
     /// 查询日期范围内按类别汇总（类别占比用）
     /// </summary>
+    /// <param name="start">起始日期</param>
+    /// <param name="end">结束日期</param>
+    /// <returns>字典：分类名 → 总秒数，按时长降序</returns>
     public static Dictionary<string, int> GetCategorySummary(DateTime start, DateTime end)
     {
         EnsureInit();
@@ -207,6 +217,10 @@ public static class DailySummaryRepository
     /// <summary>
     /// 查询日期范围内按进程汇总（Top应用用）
     /// </summary>
+    /// <param name="start">起始日期</param>
+    /// <param name="end">结束日期</param>
+    /// <param name="categoryFilter">可选分类过滤；为空则统计全部分类</param>
+    /// <returns>字典：进程名 → 总秒数，按时长降序</returns>
     public static Dictionary<string, int> GetProcessSummary(DateTime start, DateTime end, string? categoryFilter = null)
     {
         EnsureInit();

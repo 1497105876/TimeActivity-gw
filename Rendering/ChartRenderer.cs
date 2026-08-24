@@ -4,6 +4,7 @@
 //       Top 应用排行列表(DrawTopApps) 的纯绘制逻辑。
 // 数据由 StatisticsPage 聚合后传入；颜色经 CategoryColorHelper 解析。
 // ============================================================================
+// —— 导入：基础类型/LINQ 聚合、WPF 控件·媒体·形状、本项目助手类 ——
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,9 +20,14 @@ namespace TimeActivity.Rendering;
 /// 统计图表渲染器 — 负责类别占比条形图、每日趋势图、Top 应用列表的绘制。
 /// 遵循单一职责原则：只管画图，不管数据加载和 UI 事件。
 /// </summary>
+/// <remarks>
+/// 所有 Draw* 方法均为"清空容器 → 全量重建子元素"的重绘模式；
+/// 传入的时长统一以秒（int）为单位，百分比基于调用方聚合出的总数计算。
+/// </remarks>
 public class ChartRenderer
 {
     // 分类颜色助手，根据分类名拿到对应颜色
+    /// <summary>分类颜色助手：按分类名查 WPF 颜色，供所有图表取色</summary>
     private CategoryColorHelper _colorHelper;
 
     /// <summary>
@@ -30,6 +36,7 @@ public class ChartRenderer
     /// <param name="colorHelper">分类颜色助手</param>
     public ChartRenderer(CategoryColorHelper colorHelper)
     {
+        // 只保存引用不拷贝对象；设置页改色后经 SetColorHelper 同步新实例
         _colorHelper = colorHelper;
     }
 
@@ -38,9 +45,13 @@ public class ChartRenderer
     /// </summary>
     public void SetColorHelper(CategoryColorHelper colorHelper)
     {
+        // 直接替换引用即可，下一次绘制立即使用新配色（无需通知机制）
         _colorHelper = colorHelper;
     }
 
+    // ======================================================================
+    // 类别占比条形图
+    // ======================================================================
     /// <summary>
     /// 绘制类别占比条形图：每个分类一行，左边名称、中间色条、右边时长和百分比
     /// </summary>
@@ -49,34 +60,42 @@ public class ChartRenderer
     /// <param name="totalSeconds">总活跃秒数，用于算百分比</param>
     public void DrawCategoryBars(Panel panel, Dictionary<string, int> data, int totalSeconds)
     {
+        // 全量重绘第一步：清空上一轮的所有行
         panel.Children.Clear();
 
         // 没数据时显示占位文字
         if (data.Count == 0)
         {
+            // 空态提示：灰色小字，避免面板留白让用户误以为出错
             panel.Children.Add(new TextBlock
             {
                 Text = "暂无数据",
                 Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
                 FontSize = 12
             });
+            // 空数据处理完毕，不再往下布局
             return;
         }
 
         // 遍历每个分类，画一行：名称 + 色条 + 时长 + 百分比
         foreach (var kvp in data)
         {
+            // 取该分类的主题色（未登记的分类由助手回退默认色）
             var color = _colorHelper.GetColor(kvp.Key);
+            // 占比 = 分类秒数 ÷ 总秒数；总秒数为 0 时防除零取 0
             double pct = totalSeconds > 0 ? (double)kvp.Value / totalSeconds : 0;
+            // 把秒数格式化成 "1h23m" 式的可读时长文本
             string durStr = TimeFormatHelper.Format(kvp.Value);
 
             // 一行用 Grid 布局，4 列：名称、色条、时长、百分比
             var row = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+            // 列宽方案：名称定宽 70px｜色条 Star 吃满剩余｜时长 80px｜百分比 56px
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56) });
 
+            // 第 0 列：分类名称，垂直居中
             var name = new TextBlock
             {
                 Text = kvp.Key, FontSize = 12, VerticalAlignment = VerticalAlignment.Center
@@ -84,6 +103,7 @@ public class ChartRenderer
             Grid.SetColumn(name, 0);
             row.Children.Add(name);
 
+            // 第 1 列：色条底轨——主题色加 alpha=30 的半透明背景当轨道
             var barBg = new Border
             {
                 Height = 18,
@@ -94,6 +114,7 @@ public class ChartRenderer
             };
             Grid.SetColumn(barBg, 1);
 
+            // 底轨内部左对齐的实心填充条，宽度随占比动态设置
             var barFill = new Border
             {
                 Height = 18,
@@ -103,10 +124,13 @@ public class ChartRenderer
             };
             // 按占比填充：star 列实际宽度确定后才准确，用 SizeChanged 随布局更新，
             // 避免原先"pct*100 当像素"在列宽≠100px 时条形失真
+            // 最少保底 2px，占比极小时也保持可见
             barBg.SizeChanged += (_, _) => barFill.Width = Math.Max(barBg.ActualWidth * pct, 2);
+            // 填充条嵌入底轨，形成同高双层圆角效果
             barBg.Child = barFill;
             row.Children.Add(barBg);
 
+            // 第 2 列：格式化后的时长文本
             var dur = new TextBlock
             {
                 Text = durStr, FontSize = 12, VerticalAlignment = VerticalAlignment.Center
@@ -114,6 +138,7 @@ public class ChartRenderer
             Grid.SetColumn(dur, 2);
             row.Children.Add(dur);
 
+            // 第 3 列：百分比文本（保留 1 位小数，灰色弱化显示）
             var pctText = new TextBlock
             {
                 Text = $"{pct * 100:F1}%", FontSize = 12,
@@ -123,10 +148,14 @@ public class ChartRenderer
             Grid.SetColumn(pctText, 3);
             row.Children.Add(pctText);
 
+            // 一行组装完毕，挂入容器继续下一分类
             panel.Children.Add(row);
         }
     }
 
+    // ======================================================================
+    // 每日趋势折线图
+    // ======================================================================
     /// <summary>
     /// 绘制每日趋势折线图：X 轴是日期，Y 轴是活跃时长
     /// </summary>
@@ -136,24 +165,31 @@ public class ChartRenderer
     /// <param name="end">范围结束日期</param>
     public void DrawTrendChart(Canvas canvas, Dictionary<string, int> dailyData, DateTime start, DateTime end)
     {
+        // 全量重绘：清掉上一轮的刻度线/标签/折线
         canvas.Children.Clear();
 
         // 画布还没布局完时给个默认宽度
         double w = canvas.ActualWidth;
+        // 首帧布局前 ActualWidth 为 0，退回 800px 保证能画
         if (w <= 0) w = 800;
         double h = canvas.Height;
+        // Height 未显式赋值时为 NaN，同样退回默认 400px
         if (double.IsNaN(h) || h <= 0) h = 400;
 
+        // 闭区间天数：start==end 也应算 1 天，故 +1
         int days = (end - start).Days + 1;
+        // 防御倒置区间(end<start)，至少按 1 天绘制
         if (days <= 1) days = 1;
 
         // 找最大值作为 Y 轴上限，默认 1 小时
         int maxSec = dailyData.Values.Count > 0 ? dailyData.Values.Max() : 3600;
+        // 数据全 0 时仍取 3600 兜底：避免除零，坐标也不致全部压在底线
         if (maxSec <= 0) maxSec = 3600;
 
         // 画 4 条水平刻度线 + Y 轴标签
         for (int i = 0; i <= 4; i++)
         {
+            // i=0 为底线、i=4 为顶线；绘图区上下各留 16px 内边距
             double y = h - 16 - (h - 32) * i / 4.0;
             var line = new Line
             {
@@ -163,28 +199,35 @@ public class ChartRenderer
             };
             canvas.Children.Add(line);
 
+            // 该刻度线对应的整小时数（最大秒数÷3600 向下取整）
             int hours = (int)(maxSec * i / 4.0 / 3600);
             var label = new TextBlock
             {
                 Text = $"{hours}h", FontSize = 9,
                 Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
             };
+            // 标签贴最左缘；上移 6px 让文字与刻度线视觉齐平
             Canvas.SetLeft(label, 2);
             Canvas.SetTop(label, y - 6);
             canvas.Children.Add(label);
         }
 
         // 计算每天的坐标点
+        // 每日槽位宽 = 总宽 − 左右留白合计 48px，均摊到每一天
         double barW = (w - 48) / days;
         var points = new List<Point>();
+        // 逐天扫描补齐：缺数据的日期按 0 秒处理，保证 X 轴连续不断档
         for (int i = 0; i < days; i++)
         {
             DateTime day = start.AddDays(i);
+            // 以 yyyy-MM-dd 为键查当天活跃秒数，缺失补 0
             string key = day.ToDateKey();
             int sec = dailyData.ContainsKey(key) ? dailyData[key] : 0;
 
             // 计算这天数据点的坐标
+            // X = 左边距 40 + 天序×槽宽 + 半槽宽（点落在槽位正中）
             double x = 40 + i * barW + barW / 2;
+            // Y = 底线位置 − 归一化高度；0 秒恰好压在底线上
             double y = h - 16 - (sec > 0 ? (h - 32) * ((double)sec / maxSec) : 0);
             points.Add(new Point(x, y));
 
@@ -197,6 +240,7 @@ public class ChartRenderer
                     FontSize = 9,
                     Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
                 };
+                // 标签中心近似对准数据点（左移 15px），贴住画布底部
                 Canvas.SetLeft(label, x - 15);
                 Canvas.SetTop(label, h - 14);
                 canvas.Children.Add(label);
@@ -204,8 +248,10 @@ public class ChartRenderer
         }
 
         // 画折线段
+        // 少于 2 个点无法连线（单点也不单独标记）
         if (points.Count > 1)
         {
+            // 相邻两点逐段连线，共 点数−1 段
             for (int i = 0; i < points.Count - 1; i++)
             {
                 var line = new Line
@@ -221,11 +267,13 @@ public class ChartRenderer
             // 画每个数据点的圆点
             foreach (var p in points)
             {
+                // 5×5 实心圆点，突出每个采样值的位置
                 var dot = new Ellipse
                 {
                     Width = 5, Height = 5,
                     Fill = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9))
                 };
+                // 圆心精确对准数据点（偏移半径 2.5）
                 Canvas.SetLeft(dot, p.X - 2.5);
                 Canvas.SetTop(dot, p.Y - 2.5);
                 canvas.Children.Add(dot);
@@ -233,6 +281,9 @@ public class ChartRenderer
         }
     }
 
+    // ======================================================================
+    // Top 应用排行列表
+    // ======================================================================
     /// <summary>
     /// 绘制 Top 应用排行榜：按时长降序排列，最多显示 topN 个
     /// </summary>
@@ -241,6 +292,7 @@ public class ChartRenderer
     /// <param name="topN">最多显示多少个</param>
     public void DrawTopApps(Panel panel, Dictionary<string, int> data, int topN = 15)
     {
+        // 全量重绘：清掉旧榜单
         panel.Children.Clear();
 
         // 没数据时显示占位文字
@@ -255,22 +307,28 @@ public class ChartRenderer
             return;
         }
 
-        // 第一个就是最大值，用于算相对占比
+        // 数据已按时长降序传入：榜首即最大值，用作相对占比基准
+        // 榜单项数封顶 topN，防止越界
         int top = Math.Min(data.Count, topN);
+        // 榜首应用的秒数，作为其余条目条形长度的归一化分母
         int maxSec = data.Values.Max();
 
+        // 名次计数器（显示为 1 起）
         int i = 0;
         foreach (var kvp in data.Take(top))
         {
+            // 相对榜首的占比（0~1），榜首自身恒为 100%
             double pct = maxSec > 0 ? (double)kvp.Value / maxSec : 0;
 
             // 一行：排名 + 名称 + 色条 + 时长
             var row = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+            // 列宽方案：排名 28px｜应用名 160px｜色条 Star｜时长 70px
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(160) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
 
+            // 第 0 列：名次数字，加粗灰显
             var rank = new TextBlock
             {
                 Text = $"{i + 1}", FontSize = 12, FontWeight = FontWeight.FromOpenTypeWeight(700),
@@ -280,6 +338,7 @@ public class ChartRenderer
             Grid.SetColumn(rank, 0);
             row.Children.Add(rank);
 
+            // 第 1 列：应用名，超宽时截断加省略号
             var name = new TextBlock
             {
                 Text = kvp.Key, FontSize = 12, VerticalAlignment = VerticalAlignment.Center,
@@ -288,6 +347,7 @@ public class ChartRenderer
             Grid.SetColumn(name, 1);
             row.Children.Add(name);
 
+            // 第 2 列：条形底轨——固定主题蓝 alpha=30 的半透明轨道
             var barBg = new Border
             {
                 Height = 14,
@@ -297,6 +357,7 @@ public class ChartRenderer
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(barBg, 2);
+            // 轨道内左对齐的实心蓝条，长度代表相对占比
             var barFill = new Border
             {
                 Height = 14,
@@ -305,10 +366,12 @@ public class ChartRenderer
                 HorizontalAlignment = HorizontalAlignment.Left
             };
             // 按占比填充：star 列实际宽度确定后才准确，用 SizeChanged 随布局更新
+            // 最少保底 2px，极短条目也保持可见
             barBg.SizeChanged += (_, _) => barFill.Width = Math.Max(barBg.ActualWidth * pct, 2);
             barBg.Child = barFill;
             row.Children.Add(barBg);
 
+            // 第 3 列：格式化时长文本
             var dur = new TextBlock
             {
                 Text = TimeFormatHelper.Format(kvp.Value), FontSize = 12, VerticalAlignment = VerticalAlignment.Center
@@ -316,6 +379,7 @@ public class ChartRenderer
             Grid.SetColumn(dur, 3);
             row.Children.Add(dur);
 
+            // 本行完成，名次递增继续下一条
             panel.Children.Add(row);
             i++;
         }
