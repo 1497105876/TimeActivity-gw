@@ -20,19 +20,19 @@ namespace TimeActivity.Services;
 /// </summary>
 public static class IconExtractor
 {
-    // 进程名→(图标, 记录时间)。成功图标长期缓存；失败的(含字母头像标记)带时间戳，超时可重试
-    private static readonly Dictionary<string, (ImageSource? Icon, DateTime At)> _cache = new();
-    // 保护 _cache 的锁（Dictionary 并发读写会损坏内部结构，读也必须锁）
+// 进程名→(图标, 记录时间、访问计数)。成功图标长期缓存；失败的(含字母头像标记)带时间戳，超时可重试
+    private static readonly Dictionary<string, (ImageSource? Icon, DateTime At, int Hits)> _cache = new();
     private static readonly object _lock = new();
+
+    // 正向缓存 LRU 上限：最多缓存 200 个图标，超出按 LRU 淘汰
+    private const int MaxCacheSize = 200;
 
     // 负结果重试间隔：拿不到图标的进程每 10 分钟允许再试一次（环境可能变化，如提权后）
     private static readonly TimeSpan NegativeTtl = TimeSpan.FromMinutes(10);
 
     // 进程名→exe路径 的全量快照缓存：避免每次取图标都遍历进程
     private static Dictionary<string, string>? _pathMap;
-    // 快照构建时间，配合 30 秒过期判定
     private static DateTime _pathMapAt = DateTime.MinValue;
-    // 保护快照的独立锁：与 _lock 分开，避免枚举进程期间阻塞图标缓存查询
     private static readonly object _mapLock = new();
 
     // Win32 API：通过进程句柄拿 exe 完整路径（比 MainModule 更可靠，UWP/系统进程也能拿）
@@ -69,7 +69,12 @@ public static class IconExtractor
                 // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
                 bool fresh = cached.Icon != null ||
                              DateTime.Now - cached.At < NegativeTtl;
-                if (fresh) return cached.Icon;
+                if (fresh)
+                {
+                    // 命中：更新访问时间和计数（用于 LRU）
+                    _cache[processName] = (cached.Icon, DateTime.Now, cached.Hits + 1);
+                    return cached.Icon;
+                }
             }
         }
 
@@ -78,8 +83,14 @@ public static class IconExtractor
 
         lock (_lock)
         {
-            // 无论成败都写入缓存（带时间戳），供下次快速返回或到期重试
-            _cache[processName] = (icon, DateTime.Now);
+            // LRU 淘汰：超出上限移除最久未访问（Hits 最小）的项
+            if (_cache.Count >= 200)
+            {
+                var lru = _cache.OrderBy(kv => kv.Value.Hits).First();
+                _cache.Remove(lru.Key);
+            }
+            // 无论成败都写入缓存（带时间戳、Hits=1），供下次快速返回或到期重试
+            _cache[processName] = (icon, DateTime.Now, 1);
         }
         return icon;
     }
