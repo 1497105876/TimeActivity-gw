@@ -28,7 +28,7 @@ public partial class App : Application
         base.OnStartup(e);
 
         // 后台服务先行：无论是否显示界面都要开始追踪
-        AppServices.Initialize();
+        AppServices.EnsureInitialized();
 
         // 托盘宿主：始终创建（承担托盘图标与消息泵）
         Host = new TrayHost();

@@ -163,10 +163,10 @@ public partial class MainWindow : Window
                 DrawAll();
         };
 
-        // 自动刷新定时器：每 30 秒轻量刷新（查库 + 重绘，不重建 ListView）
+        // 自动刷新定时器：每 60 秒轻量刷新（查库 + 重绘，不重建 ListView）
         _autoRefreshTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(30)
+            Interval = TimeSpan.FromSeconds(60)
         };
         _autoRefreshTimer.Tick += (s, e) =>
         {

@@ -140,28 +140,25 @@ public static class IconExtractor
     }
 
     /// <summary>
-    /// 构建并缓存"所有运行中进程 → exe 路径"映射（30 秒刷新一次）。
-    /// 对每个进程只用 OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)+QueryFullProcessImageNameW，
-    /// 普通用户权限即可，绝大多数进程都能拿到；个别仍失败的自动跳过。
+    /// 构建并缓存"所有运行中进程 → exe 路径"映射（按需懒加载，无定时刷新）。
+    /// 仅在缓存为空时构建，避免后台定时枚举进程。
     /// </summary>
     private static Dictionary<string, string> GetProcessPathMap()
     {
         lock (_mapLock)
         {
-            // 快照未过期直接复用，避免频繁全量枚举进程（开销大）
-            if (_pathMap != null && DateTime.Now - _pathMapAt < TimeSpan.FromSeconds(30))
+            // 缓存存在直接复用，只有 null 时才重新构建
+            if (_pathMap != null)
                 return _pathMap;
 
             // 构建新快照（先建局部变量再赋值字段：失败时旧快照仍可用）
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var proc in Process.GetProcesses())
             {
-                // OpenProcess 失败（权限/已退出）→ 返回零句柄，跳过该进程
                 IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)proc.Id);
                 if (h == IntPtr.Zero) { proc.Dispose(); continue; }
                 try
                 {
-                    // 缓冲区取 520 字符以容纳多数长路径
                     var sb = new System.Text.StringBuilder(520);
                     uint size = (uint)sb.Capacity;
                     if (QueryFullProcessImageNameW(h, 0, sb, ref size))

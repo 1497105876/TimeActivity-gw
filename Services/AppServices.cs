@@ -26,63 +26,63 @@ public static class AppServices
 
     // Initialize 幂等标志：防止重复初始化（App.OnStartup 只应调用一次）
     private static bool _initialized;
+    private static readonly object _initLock = new();
     // SettingsSaved 事件只允许订阅一次的防重入标志
     private static bool _settingsHooked;
+    private static readonly object _settingsHookLock = new();
 
     /// <summary>
-    /// 初始化全部后台服务（幂等）。在 App.OnStartup 最先调用；
-    /// 完成建库、按需重分类（规则指纹判定）、事件接线，并按配置启动追踪与调度器。
+    /// 惰性初始化全部后台服务（幂等、线程安全）。
+    /// 首次调用时：完成建库、按需重分类（规则指纹判定）、事件接线，并按配置启动追踪与调度器。
+    /// 后续调用直接返回。
     /// </summary>
-    public static void Initialize()
+    public static void EnsureInitialized()
     {
         if (_initialized) return;
-        _initialized = true;
-
-        // 数据库先行（各 Repository 内部也会 EnsureInit，这里显式初始化便于集中日志）
-        DatabaseHelper.Initialize();
-
-        // 规则指纹：仅当规则相对上次记录变化时才全量重分类+失效近期总结
-        // 包 try：重分类失败不应阻断追踪启动（数据可下次再补）
-        try
+        lock (_initLock)
         {
-            if (RuleRepository.HasChangedSinceStored())
+            if (_initialized) return;
+            _initialized = true;
+
+            // 数据库先行（各 Repository 内部也会 EnsureInit，这里显式初始化便于集中日志）
+            DatabaseHelper.Initialize();
+
+            // 规则指纹：仅当规则相对上次记录变化时才全量重分类+失效近期总结
+            try
             {
-                // 规则变了 → 历史数据按新规则全量重算
-                DatabaseHelper.ReclassifyAll(Classifier.Classify);
-                // 旧总结基于旧分类结果，已不可信 → 全部标记待重算
-                AISummaryRepository.InvalidateRecent();
-                // 记录新指纹，下次启动不再重复重分类
-                RuleRepository.StoreFingerprint();
-                Logger.Info("检测到分类规则变化：已全量重分类并使近期总结失效");
+                if (RuleRepository.HasChangedSinceStored())
+                {
+                    DatabaseHelper.ReclassifyAll(Classifier.Classify);
+                    AISummaryRepository.InvalidateRecent();
+                    RuleRepository.StoreFingerprint();
+                    Logger.Info("检测到分类规则变化：已全量重分类并使近期总结失效");
+                }
             }
+            catch (Exception ex)
+            {
+                Logger.Error("启动按需重分类失败", ex);
+            }
+
+            // 初始化引擎与采样参数
+            Engine = new TrackingEngine(Classifier);
+            ApplyTrackingSettings();
+
+            // 切换应用时截屏（仿 ManicTime）
+            Engine.OnAppSwitched += () => Screenshots.OnAppSwitched();
+
+            // 设置保存后的"服务侧"处理：重启截图服务/重读参数（UI 刷新由主窗口自己订阅处理）
+            HookSettingsSaved();
+
+            // 按配置自动开始追踪（无论是否创建主窗口都要追踪！）
+            if (SettingsRepository.Get("AutoStartTracking", "true") == "true")
+            {
+                StartTracking();
+                Logger.Info("已随启动自动开始追踪");
+            }
+
+            // AI 总结定时调度（每天 0:00 自动生成 日/周/月 总结；启动也会补算错过的日/周/月）
+            Scheduler.Start();
         }
-        catch (Exception ex)
-        {
-            Logger.Error("启动按需重分类失败", ex);
-        }
-
-        // 引擎与采样参数
-        Engine = new TrackingEngine(Classifier);
-        ApplyTrackingSettings();
-
-        // 切换应用时截屏（仿 ManicTime）
-        Engine.OnAppSwitched += () => Screenshots.OnAppSwitched();
-
-        // 设置保存后的"服务侧"处理：重启截图服务/重读参数（UI 刷新由窗口自己订阅处理）
-        HookSettingsSaved();
-
-        // 按配置自动开始追踪（无论是否创建主窗口都要追踪！）
-        if (SettingsRepository.Get("AutoStartTracking", "true") == "true")
-        {
-            Engine.Start();
-            // 截图开关独立于追踪开关，且默认关闭（隐私考量）
-            if (SettingsRepository.Get("EnableScreenshot", "false") == "true")
-                Screenshots.Start();
-            Logger.Info("已随启动自动开始追踪");
-        }
-
-        // AI 总结调度（每天 0:00；启动补算错过的日/周/月）
-        Scheduler.Start();
     }
 
     /// <summary>从设置读取采样间隔/空闲阈值并应用到引擎。</summary>
