@@ -289,6 +289,8 @@ public static partial class DatabaseHelper
                     insertSet.Parameters.AddWithValue("@Value", kv.Value);
                     insertSet.ExecuteNonQuery();
                 }
+                // 播种为直写库（绕过 Set），若缓存已存在则强制失效（防御性兜底）
+                SettingsRepository.InvalidateCache();
             }
 
             // Rules 表为空时插入预置分类规则（首次运行）

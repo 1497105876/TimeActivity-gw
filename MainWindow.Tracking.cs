@@ -218,6 +218,8 @@ public partial class MainWindow
         // Dispatcher.BeginInvoke: 切回 UI 线程更新界面
         Dispatcher.BeginInvoke(() =>
         {
+            // 隐藏到托盘期间已释放列表：不积累显示项（恢复时统一重载）
+            if (_uiReleased) return;
             if (_currentDate == DateTime.Today) // 只在浏览今天时做实时插入
             {
                 _items.Insert(0, CreateDisplayItem(activity)); // 新记录置顶

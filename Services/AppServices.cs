@@ -178,23 +178,20 @@ public static class AppServices
     }
 
     /// <summary>
-    /// 启动内存优化定时器：定期清理弱引用缓存、强制 GC
+    /// 启动内存优化定时器：定期清理弱引用缓存。
+    /// 2026-08-25 调整：移除周期性的强制 Gen2 GC —— WPF 桌面应用中周期性 Full GC
+    /// 会引发 UI 停顿且制造"内存下降"假象（真实内存由常驻对象与分配量决定），
+    /// 保留弱引用清理即可；内存回收交给 GC 硬限制与 P0 层的对象释放。
     /// </summary>
     private static void StartMemoryOptimizationTimer()
     {
-        // 每 5 分钟清理一次死弱引用，每 10 分钟强制一次 Gen2 GC
+        // 每 5 分钟清理一次死弱引用
         _memoryOptimizationTimer = new Timer(
             callback: _ =>
             {
                 try
                 {
                     IconExtractor.CleanupDeadReferences();
-                    // 每 2 次清理触发一次 Gen2 GC（约每 10 分钟）
-                    if (DateTime.Now.Minute % 10 == 0)
-                    {
-                        GC.Collect(2, GCCollectionMode.Optimized);
-                        GC.WaitForPendingFinalizers();
-                    }
                 }
                 catch (Exception ex)
                 {

@@ -26,6 +26,18 @@ namespace TimeActivity;
 // ============================================================================
 public partial class MainWindow
 {
+    // 统计行固定色（2026-08-25 内存优化）：冻结复用，避免每次构建行都新建画刷
+    private static readonly SolidColorBrush StatsCatTextBrush = CreateFrozenBrush(Color.FromRgb(0x88, 0x88, 0x88));
+    private static readonly SolidColorBrush StatsBarBorderBrush = CreateFrozenBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
+    private static readonly SolidColorBrush StatsBarTextBrush = CreateFrozenBrush(Color.FromRgb(0x33, 0x33, 0x33));
+
+    private static SolidColorBrush CreateFrozenBrush(Color c)
+    {
+        var b = new SolidColorBrush(c);
+        b.Freeze();
+        return b;
+    }
+
     /// <summary>
     /// 把一条活动记录包装成列表可绑定的显示模型（补齐图标/友好名/格式化时长）。
     /// </summary>
@@ -173,7 +185,7 @@ public partial class MainWindow
         // 类别（仅应用行有）
         if (!isCategory)
         {
-            var catTb = new TextBlock { Text = category, VerticalAlignment = VerticalAlignment.Center, Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)), FontSize = 11 };
+            var catTb = new TextBlock { Text = category, VerticalAlignment = VerticalAlignment.Center, Foreground = StatsCatTextBrush, FontSize = 11 };
             Grid.SetColumn(catTb, col++);
             grid.Children.Add(catTb);
         }
@@ -184,16 +196,15 @@ public partial class MainWindow
         var barCanvas = new Canvas { Width = BarWidth, Height = BarHeight, Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center };
 
         // 外框（灰色边框）
-        var barBorder = new Border { BorderBrush = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)), BorderThickness = new Thickness(1), Height = BarHeight, CornerRadius = new CornerRadius(2) };
+        var barBorder = new Border { BorderBrush = StatsBarBorderBrush, BorderThickness = new Thickness(1), Height = BarHeight, CornerRadius = new CornerRadius(2) };
         Canvas.SetLeft(barBorder, 0); Canvas.SetTop(barBorder, 0);
         barCanvas.Children.Add(barBorder);
 
         // 有色部分（按百分比填充）
         // 填充宽 = 条宽 × 百分比
         double fillWidth = BarWidth * pct / 100.0;
-        // 行颜色字符串解析为 Color
-        var fillColor = CategoryColorHelper.ParseHex(barColor);
-        var fillBorder = new Border { Background = new SolidColorBrush(fillColor), Height = BarHeight - 2, CornerRadius = new CornerRadius(2, 0, 0, 2) };
+        // 行颜色字符串解析为 Color；画刷走静态冻结缓存（2026-08-25）
+        var fillBorder = new Border { Background = CategoryColorHelper.GetHexBrush(barColor), Height = BarHeight - 2, CornerRadius = new CornerRadius(2, 0, 0, 2) };
         Canvas.SetLeft(fillBorder, 1); Canvas.SetTop(fillBorder, 1);
         // 内缩 1px 避免盖住边框；Math.Max 下限保护
         fillBorder.Width = Math.Max(0, fillWidth - 1);
@@ -214,7 +225,7 @@ public partial class MainWindow
         else
         {
             // 放在透明部分开头，黑色字
-            pctTb.Foreground = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33));
+            pctTb.Foreground = StatsBarTextBrush;
             Canvas.SetLeft(pctTb, fillWidth + 2);
         }
         // 垂直居中于占比条

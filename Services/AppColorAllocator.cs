@@ -23,6 +23,11 @@ public static class AppColorAllocator
     // 内存缓存：进程名 → 颜色十六进制字符串
     private static readonly Dictionary<string, string> _cache = new();
 
+    // 缓存上限（2026-08-25 内存优化）：防止字典无界增长。
+    // 颜色映射已持久化在 AppColors 表（权威源），缓存仅作内存镜像；
+    // 达到上限后新进程只写库、不再进缓存，重启或 LoadFromDb 后仍能恢复完整映射
+    private const int MaxCacheSize = 500;
+
     // 是否已从数据库加载过
     private static bool _loaded = false;
 
@@ -77,7 +82,10 @@ public static class AppColorAllocator
 
             // 自动分配
             var color = PickAvailableColor();
-            _cache[processName] = color;
+            // 有界写入（2026-08-25）：超限时仅持久化到库（权威源），不进内存镜像，
+            // 防止字典无界增长；重启或下次 LoadFromDb 时映射仍可完整恢复
+            if (_cache.Count < MaxCacheSize)
+                _cache[processName] = color;
             Data.AppColorRepository.Set(processName, color);
             return color;
         }
@@ -91,7 +99,10 @@ public static class AppColorAllocator
         lock (_lock)
         {
             LoadFromDb();
-            _cache[processName] = color;
+            // 用户主动设置的颜色必须即时反映：已存在键直接更新；
+            // 新键仅在缓存未满时加入（满则只落库，保持内存有界）
+            if (_cache.ContainsKey(processName) || _cache.Count < MaxCacheSize)
+                _cache[processName] = color;
             Data.AppColorRepository.Set(processName, color);
         }
     }

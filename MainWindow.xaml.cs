@@ -95,6 +95,10 @@ public partial class MainWindow : Window
     // 托盘图标已上移到 TrayHost（2026-08-23 方案A）；窗口只保留强制退出标志
     private bool _forceClose = false; // true=真正退出，false=最小化到托盘
 
+    // 隐藏到托盘后是否已释放 UI 资源（2026-08-25 内存优化）：
+    // true 期间忽略引擎事件与自动刷新，避免隐藏窗口继续积累数据缓存
+    private bool _uiReleased = false;
+
     // === 使用占比高亮 ===
     // 勾选高亮的应用名集合和类别名集合
     private readonly HashSet<string> _checkedApps = new();
@@ -170,6 +174,8 @@ public partial class MainWindow : Window
         };
         _autoRefreshTimer.Tick += (s, e) =>
         {
+            // 隐藏到托盘期间已释放 UI：跳过一切刷新（恢复时统一重载）
+            if (_uiReleased) return;
             // 只刷新今天的数据
             if (_currentDate == DateTime.Today)
             {
@@ -267,6 +273,43 @@ public partial class MainWindow : Window
         _autoRefreshTimer?.Stop();
         _debounceTimer?.Stop();
         Logger.Info("主窗口已关闭：解除服务事件订阅");
+    }
+
+    /// <summary>
+    /// 隐藏到托盘时释放 UI 侧的大对象（2026-08-25 内存优化）。
+    /// 窗口只是 Hide() 而未被销毁，可视树、当日活动缓存、统计页图表全部常驻内存；
+    /// 这里主动清空画布/列表/缓存并暂停定时器，让托管堆回归低位。
+    /// 恢复显示时由 ShowFromTray 重新加载数据（见 MainWindow.Tray.cs）。
+    /// </summary>
+    public void ReleaseUiResources()
+    {
+        if (_uiReleased) return;
+        _uiReleased = true;
+
+        // 停掉窗口内定时器：隐藏期间不再自动刷新/防抖（恢复时重新启动）
+        _autoRefreshTimer?.Stop();
+        _debounceTimer?.Stop();
+
+        // 清空当日数据缓存与列表（当天活动记录/显示项/截图路径缓存）
+        _cachedActivities.Clear();
+        _items.Clear();
+        _screenshotPathCache.Clear();
+        _checkedApps.Clear();
+        _checkedCategories.Clear();
+
+        // 清空四个画布的可视元素（时间轴/刻度/概览/概览刻度）
+        MainTimelineCanvas.Children.Clear();
+        TopScaleCanvas.Children.Clear();
+        OverviewCanvas.Children.Clear();
+        OverviewScaleCanvas.Children.Clear();
+        LegendPanel.Children.Clear();
+
+        // 清空统计列表与统计页图表元素
+        AppStatsList.Items.Clear();
+        CategoryStatsList.Items.Clear();
+        _statsPage?.UnloadData();
+
+        Logger.Info("主窗口已隐藏：释放 UI 资源与数据缓存");
     }
 
     /// <summary>

@@ -24,8 +24,39 @@ public static class SettingsRepository
     // 确保数据库已初始化（首次调用触发建表与默认值播种）
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
+    // ==================== 内存缓存（2026-08-25 内存优化） ====================
+    // 背景：Get() 原实现每次调用都新建 SQLite 连接+命令查库，而截图服务每次截图调 3 次、
+    // AI 服务每次调用调 4 次、渲染路径也频繁触发——产生大量短期对象推高 GC 压力。
+    // 设置值本身几乎不变（仅设置页保存时更新），全量内存缓存只需几 KB，收益显著。
+    // 缓存字典为库的镜像：值 null 表示库中该键为 NULL（区别于"键不存在"）。
+    private static Dictionary<string, string?>? _cache;
+    private static readonly object _cacheLock = new();
+
+    /// <summary>载入（或复用）设置缓存快照。首次调用走单次全表查询。</summary>
+    private static Dictionary<string, string?> LoadCache()
+    {
+        lock (_cacheLock)
+        {
+            if (_cache != null) return _cache;
+            var dict = new Dictionary<string, string?>(StringComparer.Ordinal);
+            using var conn = DbAccess.Open();
+            using var cmd = new SqliteCommand("SELECT Key, Value FROM Settings", conn);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                dict[reader.GetString(0)] = reader.IsDBNull(1) ? null : reader.GetString(1);
+            _cache = dict;
+            return dict;
+        }
+    }
+
+    /// <summary>使设置缓存失效（下次 Get 重新全量载入）。仅供底层直写库的兜底场景调用。</summary>
+    public static void InvalidateCache()
+    {
+        lock (_cacheLock) _cache = null;
+    }
+
     /// <summary>
-    /// 按 Key 获取单个设置值
+    /// 按 Key 获取单个设置值（内存缓存命中，无库访问）
     /// </summary>
     /// <param name="key">设置项键名</param>
     /// <param name="defaultValue">未找到时的默认返回值</param>
@@ -34,24 +65,16 @@ public static class SettingsRepository
     {
         // 初始化检查：保证 Settings 表已存在
         EnsureInit();
-        // 按主键级唯一键 Key 精确查询 Value 单列（Key 上的 UNIQUE 约束自带索引）
-        const string sql = "SELECT Value FROM Settings WHERE Key = @Key";
-
-        // 打开就绪连接（内部含初始化检查）
-        using var conn = DbAccess.Open();
-        // 创建查询命令
-        using var cmd = new SqliteCommand(sql, conn);
-        // 绑定键名参数
-        cmd.Parameters.AddWithValue("@Key", key);
-
-        // 标量查询：命中返回 Value（可能为 DBNull），未命中返回 null
-        var result = cmd.ExecuteScalar();
-        // 未命中或值为 NULL 都回退到 defaultValue；否则强转为字符串
-        return result == null || result == DBNull.Value ? defaultValue : (string)result;
+        // 缓存命中即返回；键存在但值为 NULL 时同样回退 defaultValue（与旧实现语义一致）
+        var cache = LoadCache();
+        lock (_cacheLock)
+        {
+            return cache.TryGetValue(key, out var value) ? (value ?? defaultValue) : defaultValue;
+        }
     }
 
     /// <summary>
-    /// 设置某个配置项的值（存在则更新，不存在则插入）
+    /// 设置某个配置项的值（存在则更新，不存在则插入），并同步内存缓存
     /// </summary>
     /// <param name="key">设置项键名</param>
     /// <param name="value">设置值</param>
@@ -75,10 +98,16 @@ public static class SettingsRepository
         cmd.Parameters.AddWithValue("@Value", value);
         // 执行 UPSERT 写入
         cmd.ExecuteNonQuery();
+        // 同步内存缓存
+        lock (_cacheLock)
+        {
+            var cache = LoadCache();
+            cache[key] = value;
+        }
     }
 
     /// <summary>
-    /// 批量写入设置（单连接+单事务）。
+    /// 批量写入设置（单连接+单事务），并同步内存缓存
     /// 2026-08-23：设置页保存要写 20+ 个键，逐键 Set 会产生同等次数的连接/命令开销，
     /// 造成保存瞬间卡顿；合并为一次事务后显著加快。
     /// </summary>
@@ -114,6 +143,13 @@ public static class SettingsRepository
         }
         // 全部成功后一次性提交
         tx.Commit();
+        // 同步内存缓存
+        lock (_cacheLock)
+        {
+            var cache = LoadCache();
+            foreach (var kv in items)
+                cache[kv.Key] = kv.Value;
+        }
     }
 
     /// <summary>

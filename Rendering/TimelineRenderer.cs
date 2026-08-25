@@ -37,6 +37,33 @@ public class TimelineRenderer
     /// </summary>
     public Func<string, string, Color> GetColorFunc { get; set; }
 
+    // ==================== 冻结 Brush 缓存（2026-08-25 内存优化） ====================
+    // 背景：每次重绘都 new SolidColorBrush 会持续产生大量未冻结对象（不可共享）；
+    // 改为"静态固定色 + 动态色实例缓存"，全部 Freeze 后由 WPF 复用，显著降低 GC 压力。
+    private readonly Dictionary<Color, SolidColorBrush> _brushCache = new();
+
+    private SolidColorBrush GetBrush(Color c)
+    {
+        if (_brushCache.TryGetValue(c, out var b)) return b;
+        var brush = new SolidColorBrush(c);
+        brush.Freeze();
+        _brushCache[c] = brush;
+        return brush;
+    }
+
+    private static SolidColorBrush Frozen(Color c)
+    {
+        var brush = new SolidColorBrush(c);
+        brush.Freeze();
+        return brush;
+    }
+
+    // 时间轴固定色（背景/贯穿灰条/刻度线/刻度文字）
+    private static readonly SolidColorBrush BgBrush = Frozen(Color.FromRgb(0xF5, 0xF5, 0xF5));
+    private static readonly SolidColorBrush BandBrush = Frozen(Color.FromArgb(70, 0x60, 0x60, 0x60));
+    private static readonly SolidColorBrush TickBrush = Frozen(Color.FromRgb(0xBB, 0xBB, 0xBB));
+    private static readonly SolidColorBrush TickTextBrush = Frozen(Color.FromRgb(0x99, 0x99, 0x99));
+
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -82,7 +109,7 @@ public class TimelineRenderer
         {
             Width = width,
             Height = height,
-            Fill = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5)),
+            Fill = BgBrush, // 冻结静态画刷（2026-08-25）
             RadiusX = 4,
             RadiusY = 4
         };
@@ -151,7 +178,7 @@ public class TimelineRenderer
                 {
                     Width = w,
                     Height = height,
-                    Fill = new SolidColorBrush(Color.FromArgb(70, 0x60, 0x60, 0x60)), // 灰色半透明贯穿带
+                    Fill = BandBrush, // 冻结静态画刷（2026-08-25）
                     RadiusX = 2,
                     RadiusY = 2
                 };
@@ -233,7 +260,7 @@ public class TimelineRenderer
             var path = new Path
             {
                 Data = geo,
-                Fill = new SolidColorBrush(kv.Key.C),
+                Fill = GetBrush(kv.Key.C), // 冻结画刷缓存（2026-08-25）
                 Opacity = kv.Key.Dim ? 0.2 : 1.0,
                 StrokeThickness = 0
             };
@@ -283,7 +310,7 @@ public class TimelineRenderer
             var line = new Line
             {
                 X1 = x, Y1 = 0, X2 = x, Y2 = 6,
-                Stroke = new SolidColorBrush(Color.FromRgb(0xBB, 0xBB, 0xBB)),
+                Stroke = TickBrush, // 冻结静态画刷（2026-08-25）
                 StrokeThickness = 1
             };
             canvas.Children.Add(line);
@@ -297,7 +324,7 @@ public class TimelineRenderer
             {
                 Text = label,
                 FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99))
+                Foreground = TickTextBrush // 冻结静态画刷（2026-08-25）
             };
             // 文字右移 2px 微调，置于刻度线正下方
             Canvas.SetLeft(text, x + 2);

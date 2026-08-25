@@ -49,6 +49,33 @@ public class ChartRenderer
         _colorHelper = colorHelper;
     }
 
+    // ==================== 冻结 Brush 缓存（2026-08-25 内存优化） ====================
+    // 固定色静态冻结复用；动态色（分类色/半透明轨道）走实例缓存，避免重绘产生大量未冻结对象
+    private readonly Dictionary<Color, SolidColorBrush> _brushCache = new();
+
+    private SolidColorBrush GetBrush(Color c)
+    {
+        if (_brushCache.TryGetValue(c, out var b)) return b;
+        var brush = new SolidColorBrush(c);
+        brush.Freeze();
+        _brushCache[c] = brush;
+        return brush;
+    }
+
+    private static SolidColorBrush Frozen(Color c)
+    {
+        var brush = new SolidColorBrush(c);
+        brush.Freeze();
+        return brush;
+    }
+
+    // 图表固定色（空态文字/次要文字/网格线/趋势线/排名条轨道）
+    private static readonly SolidColorBrush EmptyTextBrush = Frozen(Color.FromRgb(0xAA, 0xAA, 0xAA));
+    private static readonly SolidColorBrush GrayTextBrush = Frozen(Color.FromRgb(0x99, 0x99, 0x99));
+    private static readonly SolidColorBrush GridLineBrush = Frozen(Color.FromArgb(40, 0, 0, 0));
+    private static readonly SolidColorBrush TrendLineBrush = Frozen(Color.FromRgb(0x4A, 0x90, 0xD9));
+    private static readonly SolidColorBrush TopBarTrackBrush = Frozen(Color.FromArgb(30, 0x4A, 0x90, 0xD9));
+
     // ======================================================================
     // 类别占比条形图
     // ======================================================================
@@ -70,7 +97,7 @@ public class ChartRenderer
             panel.Children.Add(new TextBlock
             {
                 Text = "暂无数据",
-                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+                Foreground = EmptyTextBrush, // 冻结静态画刷（2026-08-25）
                 FontSize = 12
             });
             // 空数据处理完毕，不再往下布局
@@ -107,7 +134,7 @@ public class ChartRenderer
             var barBg = new Border
             {
                 Height = 18,
-                Background = new SolidColorBrush(Color.FromArgb(30, color.R, color.G, color.B)),
+                Background = GetBrush(Color.FromArgb(30, color.R, color.G, color.B)), // 冻结画刷缓存（2026-08-25）
                 CornerRadius = new CornerRadius(3),
                 Margin = new Thickness(4, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center
@@ -118,7 +145,7 @@ public class ChartRenderer
             var barFill = new Border
             {
                 Height = 18,
-                Background = new SolidColorBrush(color),
+                Background = GetBrush(color), // 冻结画刷缓存（2026-08-25）
                 CornerRadius = new CornerRadius(3),
                 HorizontalAlignment = HorizontalAlignment.Left
             };
@@ -142,7 +169,7 @@ public class ChartRenderer
             var pctText = new TextBlock
             {
                 Text = $"{pct * 100:F1}%", FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
+                Foreground = GrayTextBrush, // 冻结静态画刷（2026-08-25）
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(pctText, 3);
@@ -194,7 +221,7 @@ public class ChartRenderer
             var line = new Line
             {
                 X1 = 40, Y1 = y, X2 = w, Y2 = y,
-                Stroke = new SolidColorBrush(Color.FromArgb(40, 0, 0, 0)),
+                Stroke = GridLineBrush, // 冻结静态画刷（2026-08-25）
                 StrokeThickness = 1
             };
             canvas.Children.Add(line);
@@ -204,7 +231,7 @@ public class ChartRenderer
             var label = new TextBlock
             {
                 Text = $"{hours}h", FontSize = 9,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
+                Foreground = EmptyTextBrush // 冻结静态画刷（2026-08-25）
             };
             // 标签贴最左缘；上移 6px 让文字与刻度线视觉齐平
             Canvas.SetLeft(label, 2);
@@ -238,7 +265,7 @@ public class ChartRenderer
                 {
                     Text = day.ToString("MM-dd"),
                     FontSize = 9,
-                    Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
+                    Foreground = EmptyTextBrush // 冻结静态画刷（2026-08-25）
                 };
                 // 标签中心近似对准数据点（左移 15px），贴住画布底部
                 Canvas.SetLeft(label, x - 15);
@@ -258,7 +285,7 @@ public class ChartRenderer
                 {
                     X1 = points[i].X, Y1 = points[i].Y,
                     X2 = points[i + 1].X, Y2 = points[i + 1].Y,
-                    Stroke = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9)),
+                    Stroke = TrendLineBrush, // 冻结静态画刷（2026-08-25）
                     StrokeThickness = 2
                 };
                 canvas.Children.Add(line);
@@ -271,7 +298,7 @@ public class ChartRenderer
                 var dot = new Ellipse
                 {
                     Width = 5, Height = 5,
-                    Fill = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9))
+                    Fill = TrendLineBrush // 冻结静态画刷（2026-08-25）
                 };
                 // 圆心精确对准数据点（偏移半径 2.5）
                 Canvas.SetLeft(dot, p.X - 2.5);
@@ -301,7 +328,7 @@ public class ChartRenderer
             panel.Children.Add(new TextBlock
             {
                 Text = "暂无数据",
-                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
+                Foreground = EmptyTextBrush, // 冻结静态画刷（2026-08-25）
                 FontSize = 12
             });
             return;
@@ -332,7 +359,7 @@ public class ChartRenderer
             var rank = new TextBlock
             {
                 Text = $"{i + 1}", FontSize = 12, FontWeight = FontWeight.FromOpenTypeWeight(700),
-                Foreground = new SolidColorBrush(Color.FromRgb(0x99, 0x99, 0x99)),
+                Foreground = GrayTextBrush, // 冻结静态画刷（2026-08-25）
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(rank, 0);
@@ -351,7 +378,7 @@ public class ChartRenderer
             var barBg = new Border
             {
                 Height = 14,
-                Background = new SolidColorBrush(Color.FromArgb(30, 0x4A, 0x90, 0xD9)),
+                Background = TopBarTrackBrush, // 冻结静态画刷（2026-08-25）
                 CornerRadius = new CornerRadius(3),
                 Margin = new Thickness(4, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center
@@ -361,7 +388,7 @@ public class ChartRenderer
             var barFill = new Border
             {
                 Height = 14,
-                Background = new SolidColorBrush(Color.FromRgb(0x4A, 0x90, 0xD9)),
+                Background = TrendLineBrush, // 冻结静态画刷（2026-08-25）
                 CornerRadius = new CornerRadius(3),
                 HorizontalAlignment = HorizontalAlignment.Left
             };

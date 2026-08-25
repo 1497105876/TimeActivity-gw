@@ -331,8 +331,8 @@ public class ScreenshotService
             else
             {
                 // JPG 模式：根据设置调整压缩质量（high=80, medium=50, low=30）
-                // 注意：encoderParams 未 Dispose，存在少量非托管资源泄漏（每次 JPG 截图一次）
-                var encoderParams = new EncoderParameters(1);
+                // 2026-08-25：补 using —— EncoderParameters 含非托管句柄，原实现每次 JPG 截图泄漏少量资源
+                using var encoderParams = new EncoderParameters(1);
                 // 把质量档位映射为 0~100 的长整型编码参数
                 var quality = SettingsRepository.Get("ScreenshotQuality", "medium") switch
                 {

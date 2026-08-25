@@ -204,7 +204,7 @@ public partial class MainWindow
             PopupColor.Visibility = Visibility.Visible;
             PopupCategory.Visibility = Visibility.Visible;
             PopupProcess.Visibility = Visibility.Visible;
-            PopupColor.Fill = new SolidColorBrush(GetCategoryColor(hit.Category));
+            PopupColor.Fill = _colorHelper.GetBrush(hit.Category); // 冻结画刷缓存（2026-08-25）
             PopupCategory.Text = $"{hit.Category}  ·  {TimeFormatHelper.Format(hit.Duration)}";
             PopupTime.Text = $"{hit.StartTime:HH:mm:ss} → {hit.EndTime:HH:mm:ss}";
             PopupProcess.Text = hit.ProcessName;
@@ -281,7 +281,7 @@ public partial class MainWindow
             var rect = new Rectangle // 色块
             {
                 Width = 12, Height = 12,
-                Fill = new SolidColorBrush(CategoryColorHelper.ParseHex(kvp.Value)), // 解析颜色字符串
+                Fill = CategoryColorHelper.GetHexBrush(kvp.Value), // 冻结画刷缓存（2026-08-25）
                 RadiusX = 2, RadiusY = 2, // 圆角
                 VerticalAlignment = VerticalAlignment.Center
             };

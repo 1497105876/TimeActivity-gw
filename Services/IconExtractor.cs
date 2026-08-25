@@ -89,10 +89,12 @@ public static class IconExtractor
 
         lock (_lock)
         {
-            // LRU 淘汰：超出上限移除最久未访问（Hits 最小）的项
-            if (_cache.Count >= 150)
+            // LRU 淘汰：超出上限移除最久未访问（At 时间戳最早）的项。
+            // 2026-08-25：由"按 Hits 最小"改为按插入/命中时间淘汰，更符合 LRU 语义；
+            // 上限改用常量 MaxCacheSize，消除硬编码 150
+            if (_cache.Count >= MaxCacheSize)
             {
-                var lru = _cache.OrderBy(kv => kv.Value.Hits).First();
+                var lru = _cache.OrderBy(kv => kv.Value.At).First();
                 _cache.Remove(lru.Key);
             }
             // 无论成败都写入缓存（带时间戳、Hits=1），供下次快速返回或到期重试

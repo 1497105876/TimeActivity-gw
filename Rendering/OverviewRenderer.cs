@@ -36,6 +36,32 @@ public class OverviewRenderer
     /// </summary>
     public Func<string, string, Color> GetColorFunc { get; set; }
 
+    // ==================== 冻结 Brush 缓存（2026-08-25 内存优化） ====================
+    // 与 TimelineRenderer 同策略：固定色静态冻结 + 动态色实例缓存，降低重绘分配
+    private readonly Dictionary<Color, SolidColorBrush> _brushCache = new();
+
+    private SolidColorBrush GetBrush(Color c)
+    {
+        if (_brushCache.TryGetValue(c, out var b)) return b;
+        var brush = new SolidColorBrush(c);
+        brush.Freeze();
+        _brushCache[c] = brush;
+        return brush;
+    }
+
+    private static SolidColorBrush Frozen(Color c)
+    {
+        var brush = new SolidColorBrush(c);
+        brush.Freeze();
+        return brush;
+    }
+
+    // 概览条固定色（背景/视口框/刻度文字）
+    private static readonly SolidColorBrush BgBrush = Frozen(Color.FromRgb(0xE8, 0xE8, 0xE8));
+    private static readonly SolidColorBrush ViewportBorderBrush = Frozen(Color.FromRgb(0x33, 0x99, 0xFF));
+    private static readonly SolidColorBrush ViewportFillBrush = Frozen(Color.FromArgb(30, 0x33, 0x99, 0xFF));
+    private static readonly SolidColorBrush ScaleTextBrush = Frozen(Color.FromRgb(0xAA, 0xAA, 0xAA));
+
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -73,7 +99,7 @@ public class OverviewRenderer
         {
             Width = width,
             Height = height,
-            Fill = new SolidColorBrush(Color.FromRgb(0xE8, 0xE8, 0xE8)),
+            Fill = BgBrush, // 冻结静态画刷（2026-08-25）
             RadiusX = 3,
             RadiusY = 3
         };
@@ -131,7 +157,7 @@ public class OverviewRenderer
             var path = new Path
             {
                 Data = geo,
-                Fill = new SolidColorBrush(kv.Key),
+                Fill = GetBrush(kv.Key), // 冻结画刷缓存（2026-08-25）
                 Opacity = 0.7,
                 StrokeThickness = 0
             };
@@ -153,9 +179,9 @@ public class OverviewRenderer
         {
             Width = viewW,
             Height = height,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(0x33, 0x99, 0xFF)),
+            BorderBrush = ViewportBorderBrush, // 冻结静态画刷（2026-08-25）
             BorderThickness = new Thickness(2),
-            Background = new SolidColorBrush(Color.FromArgb(30, 0x33, 0x99, 0xFF)),
+            Background = ViewportFillBrush,
             CornerRadius = new CornerRadius(2)
         };
         // ZIndex 拉到 100，确保盖在所有活动色块之上
@@ -192,7 +218,7 @@ public class OverviewRenderer
             {
                 Text = $"{m / 60}",
                 FontSize = 9,
-                Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA))
+                Foreground = ScaleTextBrush // 冻结静态画刷（2026-08-25）
             };
             // 右移 2px 微调，让数字视觉上对准刻度位置
             Canvas.SetLeft(text, x + 2);

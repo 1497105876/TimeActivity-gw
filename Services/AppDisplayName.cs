@@ -24,6 +24,10 @@ public static class AppDisplayName
     private static readonly Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly object _lock = new();
 
+    // 缓存上限（2026-08-25 内存优化）：进程名集合自然有限，超限整体清空重建，
+    // 热点进程（用户常用软件）会很快重新填充，防止字典无界增长
+    private const int MaxCacheSize = 300;
+
     // Win32 API：通过进程句柄拿 exe 完整路径（比 MainModule 更可靠，UWP/系统进程也能拿）
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern bool QueryFullProcessImageNameW(IntPtr hProcess, uint dwFlags,
@@ -63,6 +67,9 @@ public static class AppDisplayName
 
         lock (_lock)
         {
+            // 超限防御：仅当新键即将写入且缓存已满时整体重建（避免只读命中被清空）
+            if (_cache.Count >= MaxCacheSize && !_cache.ContainsKey(processName))
+                _cache.Clear();
             _cache[processName] = displayName;
         }
         return displayName;

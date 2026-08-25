@@ -62,6 +62,31 @@ public class CategoryColorHelper
         }
     }
 
+    // ==================== 冻结 Brush 缓存（2026-08-25 内存优化） ====================
+    // 背景：渲染器每次重绘都 new SolidColorBrush，未 Freeze 的 Brush 不参与跨线程共享、
+    // 每个都是独立对象，60s 自动刷新 + 交互重绘持续产生大量短期对象。
+    // 已 Freeze 的 Brush 可被 WPF 内部缓存复用；分类色数量有限，全量缓存收益显著。
+    private static readonly object _brushLock = new();
+    private static readonly Dictionary<string, SolidColorBrush> _hexBrushCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>按十六进制颜色串取已冻结 Brush（带缓存；非法值回退灰色）。</summary>
+    public static SolidColorBrush GetHexBrush(string hex)
+    {
+        string key = string.IsNullOrWhiteSpace(hex) ? "#90A4AE" : hex;
+        lock (_brushLock)
+        {
+            if (_hexBrushCache.TryGetValue(key, out var cached)) return cached;
+            var brush = new SolidColorBrush(ParseHex(key));
+            brush.Freeze();
+            _hexBrushCache[key] = brush;
+            return brush;
+        }
+    }
+
+    /// <summary>按分类名取已冻结 Brush（未收录分类回退灰色）。</summary>
+    public SolidColorBrush GetBrush(string category)
+        => GetHexBrush(_colors.TryGetValue(category, out var hex) ? hex : "#90A4AE");
+
     /// <summary>
     /// 获取某个分类对应的颜色，找不到则回退灰色
     /// </summary>

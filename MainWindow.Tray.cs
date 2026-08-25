@@ -18,6 +18,14 @@ public partial class MainWindow
     /// <summary>从托盘恢复主窗口：显示、还原尺寸并抢焦点置前。</summary>
     public void ShowFromTray()
     {
+        // 若此前隐藏时已释放 UI 资源，则重载数据并重启定时器（2026-08-25 内存优化）
+        if (_uiReleased)
+        {
+            _uiReleased = false;
+            _autoRefreshTimer?.Start();
+            LoadDateData(_currentDate, isDateChange: true);   // 重查当日数据、重建列表与画布
+            _statsPage?.ReloadData();                          // 重载统计页图表
+        }
         Show();                          // 撤销 Hide() 的隐藏状态
         WindowState = WindowState.Normal;// 若之前是最小化则还原为普通大小
         Activate();                      // 激活窗口并将其带到前台
@@ -30,6 +38,7 @@ public partial class MainWindow
         {
             // 取消真实关闭，仅隐藏窗口
             e.Cancel = true;
+            ReleaseUiResources();        // 隐藏前释放 UI 资源与数据缓存（2026-08-25 内存优化）
             Hide();
             // 释放工作集、触发 GC、启用效率模式
             AppServices.OnMinimizedToTray();
