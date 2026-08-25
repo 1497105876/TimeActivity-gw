@@ -1,0 +1,22 @@
+// 直接使用低权限 Win32 API，避开 MainModule 访问异常
+            IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)proc.Id);
+            if (h == IntPtr.Zero) { proc.Dispose(); continue; }
+            try
+            {
+                var sb = new System.Text.StringBuilder(520);
+                uint size = (uint)sb.Capacity;
+                if (QueryFullProcessImageNameW(h, 0, sb, ref size))
+                {
+                    string p = sb.ToString();
+                    if (!string.IsNullOrEmpty(p))
+                    {
+                        proc.Dispose();
+                        return p;
+                    }
+                }
+            }
+            catch { /* 个别进程查询失败直接跳过 */ }
+            finally { CloseHandle(h); proc.Dispose(); }
+        }
+        return null;
+    }

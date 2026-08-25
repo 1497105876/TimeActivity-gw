@@ -6,6 +6,24 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- 内存/性能优化配置 -->
+    <GCHeapHardLimitPercent>60</GCHeapHardLimitPercent>
+    <TieredCompilation>false</TieredCompilation>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <SatelliteResourceLanguages>zh-Hans;en-US</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSingleFile>false</IncludeNativeLibrariesForSingleFile>
+    <IncludeAllContentForSelfExtract>false</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>zh-Hans;en-US</SatelliteResourceLanguages>
+    
   </PropertyGroup>
 
   <ItemGroup>

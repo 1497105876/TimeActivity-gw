@@ -7,7 +7,7 @@ App.xaml — WPF 应用入口声明
   ComboBox/TextBox 获得键盘焦点时显示的虚线框，使界面观感更现代。
 ============================================================================ -->
 <!-- 根元素 Application：x:Class 绑定到代码侧的 App 分部类；local 前缀指向本程序集命名空间 -->
-<Application x:Class="TimeActivity.App"
+<Application x:Class="TimeActivity.App" ShutdownMode="OnExplicitShutdown"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:TimeActivity">
