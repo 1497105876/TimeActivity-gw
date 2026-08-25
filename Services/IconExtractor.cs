@@ -63,20 +63,17 @@ public static class IconExtractor
     {
         if (string.IsNullOrEmpty(processName)) return null;
 
-        // 先查缓存：成功结果永久有效；失败结果(含 null)在 TTL 内直接复用
+// 先尝试从缓存获取
+        ImageSource? cachedIcon = null;
         lock (_lock)
         {
             if (_cache.TryGetValue(processName, out var cached))
             {
                 // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
-if (_cache.TryGetValue(processName, out var cached))
-            {
-                // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
                 if (cached.IconRef != null && cached.IconRef.TryGetTarget(out var icon) && icon != null)
                 {
                     // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
-                    bool fresh = true;
-                    if (fresh)
+                    if (true)
                     {
                         // 命中：更新访问时间和计数（用于 LRU）
                         _cache[processName] = (cached.IconRef, DateTime.Now, cached.Hits + 1);
@@ -85,9 +82,10 @@ if (_cache.TryGetValue(processName, out var cached))
                 }
                 // 弱引用已失效（GC 回收）或负缓存过期
             }
+        }
 
-            // 缓存没有/已过期就提取；仍失败则生成字母头像兜底
-            ImageSource? icon = ExtractIconInternal(processName) ?? CreateLetterAvatar(processName);
+        // 缓存没有/已过期就提取；仍失败则生成字母头像兜底
+        ImageSource? extractedIcon = ExtractIconInternal(processName) ?? CreateLetterAvatar(processName);
 
         lock (_lock)
         {
@@ -98,9 +96,9 @@ if (_cache.TryGetValue(processName, out var cached))
                 _cache.Remove(lru.Key);
             }
             // 无论成败都写入缓存（带时间戳、Hits=1），供下次快速返回或到期重试
-            _cache[processName] = (new WeakReference<ImageSource>(icon), DateTime.Now, 1);
+            _cache[processName] = (new WeakReference<ImageSource>(extractedIcon), DateTime.Now, 1);
         }
-        return icon;
+        return extractedIcon;
     }
 
     /// <summary>
@@ -323,7 +321,4 @@ if (_cache.TryGetValue(processName, out var cached))
                 _pathMapRef = null;
         }
     }
-}
-
-}
-}
+    }
