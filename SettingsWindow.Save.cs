@@ -101,12 +101,15 @@ public partial class SettingsWindow
         void Put(string key, string value) => kv.Add(new KeyValuePair<string, string>(key, value));
 
         // 追踪设置:采样间隔和空闲阈值
+        // 采样间隔：下拉框文案形如 "3秒"，去掉单位后解析为秒；非法/非正数回退默认 3 秒
         string samplingText = CbxSamplingInterval.Text.Replace("秒", "").Trim();
         Put("PollIntervalSeconds", int.TryParse(samplingText, out int sv) && sv > 0 ? sv.ToString() : "3");
 
+        // 空闲阈值：下拉框文案形如 "5分钟"，去掉单位后解析为分钟数，再换算成秒（引擎单位）
         string idleText = CbxIdleThreshold.Text.Replace("分钟", "").Trim();
         Put("IdleThresholdSeconds", int.TryParse(idleText, out int iv) && iv > 0 ? (iv * 60).ToString() : "300");
 
+        // 随开机自启时是否自动开始追踪（与"开机自启"本身是两个独立开关）
         Put("AutoStartTracking", ChkAutoStartTracking.IsChecked == true ? "true" : "false");
 
         // 截图设置:开关、间隔、格式、质量、路径、存储限制
@@ -127,6 +130,7 @@ public partial class SettingsWindow
         Put("MaxScreenshotAgeDays", int.TryParse(TxtMaxAge.Text, out int ma) && ma > 0 ? ma.ToString() : "30");
 
         // 数据设置
+        // 保留天数：下拉框文案形如 "90天"（"永久" 映射为 0 = 不清理），非法值回退默认 90 天
         string retentionText = CbxDataRetention.Text.Replace("天", "").Replace("永久", "0").Trim();
         Put("DataRetentionDays", int.TryParse(retentionText, out int dr) && dr >= 0 ? dr.ToString() : "90");
 
