@@ -1,7 +1,8 @@
-// ============================================================================
+﻿// ============================================================================
 // IconExtractor.cs — 进程图标提取与缓存（静态类）
 // 职责：由进程名定位 exe → 提取 16px 图标 → 转 WPF ImageSource；
 //       内存字典缓存 + 磁盘缓存目录，未找到时返回 null 并记忆负结果避免反复探测。
+// 优化：使用 WeakReference 缓存，支持 LRU 淘汰，内存压力时自动释放
 // ============================================================================
 using System;
 using System.Collections.Generic;
@@ -16,22 +17,22 @@ using System.Windows.Media.Imaging;
 namespace TimeActivity.Services;
 
 /// <summary>
-/// 提取应用程序图标
+/// 提取应用程序图标 - 内存优化版：使用 WeakReference 缓存，支持 LRU 淘汰
 /// </summary>
 public static class IconExtractor
 {
-// 进程名→(图标, 记录时间、访问计数)。成功图标长期缓存；失败的(含字母头像标记)带时间戳，超时可重试
-    private static readonly Dictionary<string, (ImageSource? Icon, DateTime At, int Hits)> _cache = new();
+    // 进程名→(图标弱引用, 记录时间、访问计数)。成功图标长期缓存；失败的(含字母头像标记)带时间戳，超时可重试
+    private static readonly Dictionary<string, (WeakReference<ImageSource> IconRef, DateTime At, int Hits)> _cache = new();
     private static readonly object _lock = new();
 
-    // 正向缓存 LRU 上限：最多缓存 200 个图标，超出按 LRU 淘汰
-    private const int MaxCacheSize = 200;
+    // 正向缓存 LRU 上限：最多缓存 150 个图标（从 200 降低），超出按 LRU 淘汰
+    private const int MaxCacheSize = 150;
 
     // 负结果重试间隔：拿不到图标的进程每 10 分钟允许再试一次（环境可能变化，如提权后）
     private static readonly TimeSpan NegativeTtl = TimeSpan.FromMinutes(10);
 
-    // 进程名→exe路径 的全量快照缓存：避免每次取图标都遍历进程
-    private static Dictionary<string, string>? _pathMap;
+    // 进程名→exe路径 的全量快照缓存（弱引用，允许 GC 回收）：避免每次取图标都遍历进程
+    private static WeakReference<Dictionary<string, string>>? _pathMapRef;
     private static DateTime _pathMapAt = DateTime.MinValue;
     private static readonly object _mapLock = new();
 
@@ -53,9 +54,10 @@ public static class IconExtractor
     private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
     /// <summary>
-    /// 根据进程名获取图标（带缓存）。
+    /// 根据进程名获取图标（带弱引用缓存 + LRU 淘汰）。
     /// 2026-08-23 增强：① 负缓存 10 分钟过期自动重试；② 彻底弃用 MainModule（消除"拒绝访问"异常）；
     /// ③ 最终兜底返回"首字母+分类色系圆角块"头像，界面不再出现大片空白。
+    /// 内存优化：使用 WeakReference 缓存，内存压力时自动释放；LRU 淘汰上限 150 个。
     /// </summary>
     public static ImageSource? GetIcon(string processName)
     {
@@ -67,30 +69,36 @@ public static class IconExtractor
             if (_cache.TryGetValue(processName, out var cached))
             {
                 // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
-                bool fresh = cached.Icon != null ||
-                             DateTime.Now - cached.At < NegativeTtl;
-                if (fresh)
+if (_cache.TryGetValue(processName, out var cached))
+            {
+                // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
+                if (cached.IconRef != null && cached.IconRef.TryGetTarget(out var icon) && icon != null)
                 {
-                    // 命中：更新访问时间和计数（用于 LRU）
-                    _cache[processName] = (cached.Icon, DateTime.Now, cached.Hits + 1);
-                    return cached.Icon;
+                    // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
+                    bool fresh = true;
+                    if (fresh)
+                    {
+                        // 命中：更新访问时间和计数（用于 LRU）
+                        _cache[processName] = (cached.IconRef, DateTime.Now, cached.Hits + 1);
+                        return icon;
+                    }
                 }
+                // 弱引用已失效（GC 回收）或负缓存过期
             }
-        }
 
-        // 缓存没有/已过期就提取；仍失败则生成字母头像兜底
-        ImageSource? icon = ExtractIconInternal(processName) ?? CreateLetterAvatar(processName);
+            // 缓存没有/已过期就提取；仍失败则生成字母头像兜底
+            ImageSource? icon = ExtractIconInternal(processName) ?? CreateLetterAvatar(processName);
 
         lock (_lock)
         {
             // LRU 淘汰：超出上限移除最久未访问（Hits 最小）的项
-            if (_cache.Count >= 200)
+            if (_cache.Count >= 150)
             {
                 var lru = _cache.OrderBy(kv => kv.Value.Hits).First();
                 _cache.Remove(lru.Key);
             }
             // 无论成败都写入缓存（带时间戳、Hits=1），供下次快速返回或到期重试
-            _cache[processName] = (icon, DateTime.Now, 1);
+            _cache[processName] = (new WeakReference<ImageSource>(icon), DateTime.Now, 1);
         }
         return icon;
     }
@@ -152,15 +160,15 @@ public static class IconExtractor
 
     /// <summary>
     /// 构建并缓存"所有运行中进程 → exe 路径"映射（按需懒加载，无定时刷新）。
-    /// 仅在缓存为空时构建，避免后台定时枚举进程。
+    /// 仅在缓存为空或 GC 回收时重新构建，避免后台定时枚举进程。
     /// </summary>
     private static Dictionary<string, string> GetProcessPathMap()
     {
         lock (_mapLock)
         {
-            // 缓存存在直接复用，只有 null 时才重新构建
-            if (_pathMap != null)
-                return _pathMap;
+            // 缓存存在且未被 GC 回收直接复用
+            if (_pathMapRef != null && _pathMapRef.TryGetTarget(out var cached))
+                return cached;
 
             // 构建新快照（先建局部变量再赋值字段：失败时旧快照仍可用）
             var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -182,9 +190,9 @@ public static class IconExtractor
                 catch { /* 个别进程查询失败直接跳过 */ }
                 finally { CloseHandle(h); proc.Dispose(); }
             }
-            _pathMap = map;
-            _pathMapAt = DateTime.Now;
-            return map;
+            var newMap = map;
+            _pathMapRef = new WeakReference<Dictionary<string, string>>(newMap);
+            return newMap;
         }
     }
 
@@ -292,4 +300,30 @@ public static class IconExtractor
         }
         return null;
     }
+
+    /// <summary>
+    /// 清理已失效的弱引用（GC 已回收的图标）。建议定期调用（如每 5 分钟）或在内存压力时调用。
+    /// </summary>
+    public static void CleanupDeadReferences()
+    {
+        lock (_lock)
+        {
+            var deadKeys = _cache
+                .Where(kv => kv.Value.IconRef == null || !kv.Value.IconRef.TryGetTarget(out _))
+                .Select(kv => kv.Key)
+                .ToList();
+            foreach (var key in deadKeys)
+                _cache.Remove(key);
+        }
+
+        // 清理路径映射弱引用
+        lock (_mapLock)
+        {
+            if (_pathMapRef != null && !_pathMapRef.TryGetTarget(out _))
+                _pathMapRef = null;
+        }
+    }
+}
+
+}
 }

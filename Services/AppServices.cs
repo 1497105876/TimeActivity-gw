@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // AppServices.cs — 后台服务中枢（静态单例集合）
 // 引入原因（2026-08-23，方案A"主窗口延迟创建"）：
 //   开机自启 --minimized 时不再创建 MainWindow，只有托盘宿主(TrayHost)。
@@ -6,6 +6,9 @@
 //   MainWindow 创建时从本类取实例（字段仍叫 _engine 等，改动面最小）。
 // ============================================================================
 using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading;
 using TimeActivity.Data;
 
 namespace TimeActivity.Services;
@@ -30,6 +33,9 @@ public static class AppServices
     // SettingsSaved 事件只允许订阅一次的防重入标志
     private static bool _settingsHooked;
     private static readonly object _settingsHookLock = new();
+
+    // 内存优化定时器
+    private static Timer? _memoryOptimizationTimer;
 
     /// <summary>
     /// 惰性初始化全部后台服务（幂等、线程安全）。
@@ -82,6 +88,9 @@ public static class AppServices
 
             // AI 总结定时调度（每天 0:00 自动生成 日/周/月 总结；启动也会补算错过的日/周/月）
             Scheduler.Start();
+
+            // 启动内存优化定时器：定期清理弱引用缓存、强制 GC
+            StartMemoryOptimizationTimer();
         }
     }
 
@@ -167,4 +176,65 @@ public static class AppServices
         try { Screenshots.Stop(); } catch { }
         try { Scheduler.Stop(); } catch { }
     }
-}
+
+    /// <summary>
+    /// 启动内存优化定时器：定期清理弱引用缓存、强制 GC
+    /// </summary>
+    private static void StartMemoryOptimizationTimer()
+    {
+        // 每 5 分钟清理一次死弱引用，每 10 分钟强制一次 Gen2 GC
+        _memoryOptimizationTimer = new Timer(
+            callback: _ =>
+            {
+                try
+                {
+                    IconExtractor.CleanupDeadReferences();
+                    // 每 2 次清理触发一次 Gen2 GC（约每 10 分钟）
+                    if (DateTime.Now.Minute % 10 == 0)
+                    {
+                        GC.Collect(2, GCCollectionMode.Optimized);
+                        GC.WaitForPendingFinalizers();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error("内存优化定时器异常", ex);
+                }
+            },
+            state: null,
+            dueTime: TimeSpan.FromMinutes(5),
+            period: TimeSpan.FromMinutes(5)
+        );
+    }
+
+    /// <summary>
+    /// 当窗口最小化到托盘时调用：释放工作集、触发 GC、启用效率模式
+    /// </summary>
+    public static void OnMinimizedToTray()
+    {
+        try
+        {
+            // 释放工作集（将内存页移至磁盘）
+            SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, (UIntPtr)0xFFFFFFFF, (UIntPtr)0xFFFFFFFF);
+            // 强制 Gen2 GC 回收托管内存
+            GC.Collect(2, GCCollectionMode.Optimized);
+            GC.WaitForPendingFinalizers();
+            // Windows 11+ 效率模式
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+            {
+                SetProcessDefaultEfficiencyMode(Process.GetCurrentProcess().Handle, 1); // PROCESS_POWER_THROTTLING
+            }
+            Logger.Info("已最小化到托盘，已释放工作集并触发 GC");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("最小化到托盘时内存优化失败", ex);
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetProcessWorkingSetSize(IntPtr hProcess, UIntPtr dwMinimumWorkingSetSize, UIntPtr dwMaximumWorkingSetSize);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetProcessDefaultEfficiencyMode(IntPtr hProcess, int value);
+                }
