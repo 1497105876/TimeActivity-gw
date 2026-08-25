@@ -94,28 +94,6 @@ public partial class StatisticsPage : Page
         LoadData();
     }
 
-    /// <summary>
-    /// 卸载图表数据（2026-08-25 内存优化）：主窗口隐藏到托盘时调用，
-    /// 清空三个图表面板与趋势缓存，释放可视化元素占用的托管内存。
-    /// 恢复显示时由 ReloadData 重新加载。
-    /// </summary>
-    public void UnloadData()
-    {
-        CategoryBarsPanel.Children.Clear();
-        TrendCanvas.Children.Clear();
-        TopAppsPanel.Children.Clear();
-        _cachedDailyData.Clear();
-        _cachedRangeStart = default;
-        _cachedRangeEnd = default;
-    }
-
-    /// <summary>
-    /// 重新加载当前周期的统计数据与图表（2026-08-25 内存优化）：
-    /// 用于主窗口从托盘恢复显示时，与 UnloadData 配对。
-    /// 不重建分类筛选（保留用户选择），仅重载数据。
-    /// </summary>
-    public void ReloadData() => LoadData();
-
     // ========== 周期切换 ==========
 
     /// <summary>

@@ -205,7 +205,7 @@ public static class AppServices
     }
 
     /// <summary>
-    /// 当窗口最小化到托盘时调用：释放工作集、触发 GC、启用效率模式
+    /// 当窗口最小化到托盘/关闭销毁时调用：释放工作集、触发压缩回收、启用效率模式
     /// </summary>
     public static void OnMinimizedToTray()
     {
@@ -213,8 +213,9 @@ public static class AppServices
         {
             // 释放工作集（将内存页移至磁盘）
             SetProcessWorkingSetSize(Process.GetCurrentProcess().Handle, (UIntPtr)0xFFFFFFFF, (UIntPtr)0xFFFFFFFF);
-            // 强制 Gen2 GC 回收托管内存
-            GC.Collect(2, GCCollectionMode.Optimized);
+            // 事件驱动的一次性强制 Gen2 GC + 堆压缩（2026-08-25 由 Optimized 改为 Forced+压缩：
+            // 窗口刚销毁的场景需要内存立刻回落，短暂停顿可接受；非周期调用无累积开销）
+            GC.Collect(2, GCCollectionMode.Forced, true, true);
             GC.WaitForPendingFinalizers();
             // Windows 11+ 效率模式
             if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))

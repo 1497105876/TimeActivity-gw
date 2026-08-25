@@ -64,7 +64,7 @@ public class TrayHost : Window
         Loaded += (_, _) => InitTray();
     }
 
-    /// <summary>创建/获取主窗口（延迟创建的唯一入口）。窗口关闭时解挂引擎事件，允许下次重建。</summary>
+    /// <summary>创建/获取主窗口（延迟创建的唯一入口）。窗口关闭时解挂引擎事件并回收内存，允许下次重建。</summary>
     private MainWindow EnsureMainWindow()
     {
         if (_mainWindow == null)
@@ -75,7 +75,10 @@ public class TrayHost : Window
             _mainWindow.Closed += (_, _) =>
             {
                 _mainWindow.DetachFromServices(); // 解除引擎事件/设置事件订阅并停窗口定时器
-                _mainWindow = null;
+                _mainWindow = null;               // 置空引用：窗口对象连同可视树交给 GC
+                // 2026-08-25 方案B：窗口已真正销毁，此刻触发一次工作集释放 + 压缩回收，
+                // 让"点 X 后后台内存立刻回落"（事件驱动，非周期调用）
+                AppServices.OnMinimizedToTray();
             };
         }
         return _mainWindow;
