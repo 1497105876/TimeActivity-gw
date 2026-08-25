@@ -208,12 +208,18 @@ public partial class StatisticsPage : Page
         // 因为 _periodStart 在周模式下可能是周中某天，但 AI 总结是按周一（周起始日）存的
         var (rangeStart, _) = GetRange();
 
-        // ---------------- 日总结分支：只查 manual 类型 ----------------
+        // ---------------- 日总结分支：manual 优先，历史日期回退 auto ----------------
+        // 2026-08-25 修复：原实现只查 manual，导致每天 0:00 自动生成的日报（auto）永远不显示，
+        // 用户误以为"每日总结没自动生成"。现改为：当前日期查 manual（可手动生成），
+        // 历史日期无 manual 时回退显示 auto（由 SummaryScheduler 每天自动生成并入库）。
         if (_period == "day")
         {
-            // 日总结：查 manual
+            // 先查手动总结（当前周期手动生成）
             var (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "manual");
-            // 库中已有该日的手动总结则直接展示
+            // 历史日期（非今天）没有手动总结时，回退显示自动总结
+            if (text == null && !IsCurrentPeriod())
+                (text, createdAt) = AISummaryRepository.GetWithMeta(rangeStart, summaryType, "auto");
+            // 库中已有总结则直接展示
             if (text != null)
             {
                 // 正文 Markdown 渲染 + 生成时间标签，同时缓存到 _currentAISummary
