@@ -64,7 +64,7 @@ classified_procs.json
 temp_*.txt
 temp_*.py
 
-
+.workbuddy/
 _shots/
 publish/
 
