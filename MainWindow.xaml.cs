@@ -95,6 +95,10 @@ public partial class MainWindow : Window
     // 托盘图标已上移到 TrayHost（2026-08-23 方案A）；窗口只保留强制退出标志
     private bool _forceClose = false; // true=真正退出，false=最小化到托盘
 
+    // 上次确认的"今天"（2026-09-02 跨天修复）：自动刷新 tick 里对比系统日期是否变化，
+    // 用于识别"程序开着跨 0:00"的场景 —— 此时界面正停留在旧的一天，应自动跳到新一天
+    private DateTime _lastKnownToday = DateTime.Today;
+
     // === 使用占比高亮 ===
     // 勾选高亮的应用名集合和类别名集合
     private readonly HashSet<string> _checkedApps = new();
@@ -174,6 +178,26 @@ public partial class MainWindow : Window
         };
         _autoRefreshTimer.Tick += (s, e) =>
         {
+            // —— 跨天自动跳转（2026-09-02 修复）——
+            // 此前问题：程序开着跨 0:00 后 DateTime.Today 已是新一天，而 _currentDate 仍停留在
+            // 昨天，下方"只刷新今天"的守卫永远不成立 → 界面永久卡在昨天，直到手动点"今天"。
+            // 现检测系统日期变化：若界面停留在"跨天前的今天"（被动卡住），自动跳转到新的一天；
+            // 用户主动浏览更早的历史日期则不打扰（_currentDate != 旧Today → 不跳）。
+            var today = DateTime.Today;
+            if (today != _lastKnownToday)
+            {
+                // 判断是否正停留在"跨天前的今天"：是 → 跨天卡住，自动跳转
+                bool wasViewingPreviousToday = _currentDate == _lastKnownToday;
+                _lastKnownToday = today; // 无论是否跳转都更新基准，避免反复触发
+                if (wasViewingPreviousToday)
+                {
+                    _currentDate = today;
+                    // isDateChange=true：按"切换日期"语义重置勾选并重建全部视图，与新一天一致
+                    LoadDateData(today, isDateChange: true);
+                    return; // 本轮已完成跳转，刷新逻辑交给下一个 60 秒周期
+                }
+            }
+
             // 只刷新今天的数据
             if (_currentDate == DateTime.Today)
             {
