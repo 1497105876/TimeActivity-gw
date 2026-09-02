@@ -64,9 +64,15 @@ public class ActivityDisplayItem : INotifyPropertyChanged
     /// <remarks>一次性赋值，不触发通知</remarks>
     public DateTime StartTime { get; set; }
 
+    private DateTime _endTime;
     /// <summary>结束时间</summary>
-    /// <remarks>一次性赋值，不触发通知</remarks>
-    public DateTime EndTime { get; set; }
+    /// <remarks>2026-09-02 修复：补 INPC 通知 —— XAML"结束"列绑定此属性，此前 60s tick 更新
+    /// 进行中活动的 EndTime 时界面不刷新（检查报告 2.4/3.5）。StartTime 一次性赋值仍不通知。</remarks>
+    public DateTime EndTime
+    {
+        get => _endTime;
+        set { if (_endTime != value) { _endTime = value; OnPropertyChanged(); } }
+    }
 
     private string _durationText = "";
     /// <summary>格式化好的时长文本，如 "1h23m"</summary>

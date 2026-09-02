@@ -19,6 +19,38 @@ public static class ScreenshotRepository
     private static void EnsureInit() => DatabaseHelper.Initialize();
 
     /// <summary>
+    /// 按文件路径删除截图记录（2026-09-02 H4 修复新增）。
+    /// 供截图清理逻辑在删除物理文件后同步清理索引行，避免 Screenshots 表
+    /// 残留"文件已删、行还在"的幻影行。
+    /// </summary>
+    /// <param name="fullPath">截图文件的绝对路径</param>
+    /// <remarks>
+    /// 表中 FilePath 存储形式有两种：程序目录内的截图存相对路径、
+    /// 自定义目录的截图存绝对路径（见 ScreenshotService.CaptureAndSave 的入库逻辑），
+    /// 因此按 绝对路径 + 程序目录相对路径 两种形式一并删除。
+    /// </remarks>
+    public static void DeleteByPath(string fullPath)
+    {
+        // 初始化检查：保证 Screenshots 表已存在
+        EnsureInit();
+        // 程序目录前缀（与 CaptureAndSave 入库时的相对化规则保持一致）
+        string appDir = AppDomain.CurrentDomain.BaseDirectory;
+        // 绝对路径 → 相对路径（程序目录内的截图）；目录外保持绝对路径（两种形式相同）
+        string relPath = fullPath.StartsWith(appDir, StringComparison.OrdinalIgnoreCase)
+            ? fullPath.Substring(appDir.Length)
+            : fullPath;
+
+        // 打开就绪连接（内部含初始化检查）
+        using var conn = DbAccess.Open();
+        // 两种存储形式任一命中即删除
+        using var cmd = new SqliteCommand(
+            "DELETE FROM Screenshots WHERE FilePath = @Abs OR FilePath = @Rel", conn);
+        cmd.Parameters.AddWithValue("@Abs", fullPath);
+        cmd.Parameters.AddWithValue("@Rel", relPath);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
     /// 插入一条截图记录，返回新记录的自增 Id
     /// </summary>
     /// <param name="filePath">截图文件路径（相对路径或绝对路径）</param>

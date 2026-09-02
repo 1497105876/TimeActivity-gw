@@ -21,7 +21,8 @@ namespace TimeActivity.Services;
 /// </summary>
 public static class IconExtractor
 {
-    // 进程名→(图标弱引用, 记录时间、访问计数)。成功图标长期缓存；失败的(含字母头像标记)带时间戳，超时可重试
+    // 进程名→(图标弱引用, 记录时间、访问计数)。仅缓存"真实提取到的图标"（弱引用+LRU）；
+    // 提取失败的进程不进本缓存，改记到下方 _negativeCache（2026-09-02 负缓存重构）
     private static readonly Dictionary<string, (WeakReference<ImageSource> IconRef, DateTime At, int Hits)> _cache = new();
     private static readonly object _lock = new();
 
@@ -30,6 +31,10 @@ public static class IconExtractor
 
     // 负结果重试间隔：拿不到图标的进程每 10 分钟允许再试一次（环境可能变化，如提权后）
     private static readonly TimeSpan NegativeTtl = TimeSpan.FromMinutes(10);
+
+    // 负缓存（2026-09-02 修复）：进程名 → 最近一次提取失败的时间。
+    // TTL 内直接用字母头像不重复探测；过期后允许重新提取。随 CleanupDeadReferences 定期清理过期项。
+    private static readonly Dictionary<string, DateTime> _negativeCache = new();
 
     // 进程名→exe路径 的全量快照缓存（弱引用，允许 GC 回收）：避免每次取图标都遍历进程
     private static WeakReference<Dictionary<string, string>>? _pathMapRef;
@@ -54,51 +59,65 @@ public static class IconExtractor
     private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
     /// <summary>
-    /// 根据进程名获取图标（带弱引用缓存 + LRU 淘汰）。
-    /// 2026-08-23 增强：① 负缓存 10 分钟过期自动重试；② 彻底弃用 MainModule（消除"拒绝访问"异常）；
-    /// ③ 最终兜底返回"首字母+分类色系圆角块"头像，界面不再出现大片空白。
-    /// 内存优化：使用 WeakReference 缓存，内存压力时自动释放；LRU 淘汰上限 150 个。
+    /// 根据进程名获取图标（弱引用缓存 + LRU 淘汰 + 负缓存 TTL）。
+    /// 2026-09-02 修复（检查报告 1.3/1.4）：原实现把"字母头像兜底"也写入图标缓存，
+    /// 导致负缓存 10 分钟 TTL 重试机制完全失效（命中判断恒真）。现拆分：
+    ///   - 主缓存 _cache：只存"真实提取到的图标"（弱引用 + LRU 上限）；
+    ///   - 负缓存 _negativeCache：记录提取失败的进程与时间，TTL 内直接用字母头像不重复探测，
+    ///     过期后允许重新提取（环境变化如提权/文件就绪后可拿到真图标）。
     /// </summary>
     public static ImageSource? GetIcon(string processName)
     {
         if (string.IsNullOrEmpty(processName)) return null;
 
-// 先尝试从缓存获取
-        ImageSource? cachedIcon = null;
+        // 1. 主缓存命中（弱引用存活）→ 更新 LRU 后直接返回
         lock (_lock)
         {
-            if (_cache.TryGetValue(processName, out var cached))
+            if (_cache.TryGetValue(processName, out var cached) &&
+                cached.IconRef != null && cached.IconRef.TryGetTarget(out var icon) && icon != null)
             {
-                // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
-                if (cached.IconRef != null && cached.IconRef.TryGetTarget(out var icon) && icon != null)
-                {
-                    // fresh 判定：有图标 → 永久新鲜；无图标 → 仅负缓存 TTL 内新鲜
-                    if (true)
-                    {
-                        // 命中：更新访问时间和计数（用于 LRU）
-                        _cache[processName] = (cached.IconRef, DateTime.Now, cached.Hits + 1);
-                        return icon;
-                    }
-                }
-                // 弱引用已失效（GC 回收）或负缓存过期
+                // 命中：更新访问时间与计数（LRU 依据）
+                _cache[processName] = (cached.IconRef, DateTime.Now, cached.Hits + 1);
+                return icon;
             }
         }
 
-        // 缓存没有/已过期就提取；仍失败则生成字母头像兜底
-        ImageSource? extractedIcon = ExtractIconInternal(processName) ?? CreateLetterAvatar(processName);
-
+        // 2. 负缓存检查：TTL 内提取失败的进程不再重复探测（省 IO），直接字母头像
+        bool recentlyFailed;
         lock (_lock)
         {
-            // LRU 淘汰：超出上限移除最久未访问（At 时间戳最早）的项。
-            // 2026-08-25：由"按 Hits 最小"改为按插入/命中时间淘汰，更符合 LRU 语义；
-            // 上限改用常量 MaxCacheSize，消除硬编码 150
-            if (_cache.Count >= MaxCacheSize)
+            recentlyFailed = _negativeCache.TryGetValue(processName, out var failedAt)
+                             && DateTime.Now - failedAt < NegativeTtl;
+        }
+
+        ImageSource? extractedIcon = null;
+        if (!recentlyFailed)
+            extractedIcon = ExtractIconInternal(processName);
+
+        if (extractedIcon != null)
+        {
+            // 3a. 提取成功 → 存入主缓存（LRU 淘汰后写入），并清除该进程的负缓存记录（若有）
+            lock (_lock)
             {
-                var lru = _cache.OrderBy(kv => kv.Value.At).First();
-                _cache.Remove(lru.Key);
+                if (_cache.Count >= MaxCacheSize)
+                {
+                    var lru = _cache.OrderBy(kv => kv.Value.At).First();
+                    _cache.Remove(lru.Key);
+                }
+                _cache[processName] = (new WeakReference<ImageSource>(extractedIcon), DateTime.Now, 1);
+                // 成功后即清负缓存：不再等待 CleanupDeadReferences 周期清理（语义完整，避免
+                // 主缓存弱引用被 GC 回收后误走旧失败记录）——虽旧记录已过期无害，但留着无意义
+                _negativeCache.Remove(processName);
             }
-            // 无论成败都写入缓存（带时间戳、Hits=1），供下次快速返回或到期重试
-            _cache[processName] = (new WeakReference<ImageSource>(extractedIcon), DateTime.Now, 1);
+        }
+        else
+        {
+            // 3b. 提取失败 → 记负缓存（TTL 过后允许重试），兜底字母头像保证界面不空白
+            lock (_lock)
+            {
+                _negativeCache[processName] = DateTime.Now;
+            }
+            extractedIcon = CreateLetterAvatar(processName);
         }
         return extractedIcon;
     }
@@ -314,6 +333,15 @@ public static class IconExtractor
                 .ToList();
             foreach (var key in deadKeys)
                 _cache.Remove(key);
+
+            // 清理已过期的负缓存条目（2026-09-02）：TTL 过后移除，允许下次 GetIcon 重新探测；
+            // 同时防止负缓存字典随失败进程数无界增长
+            var expiredNegatives = _negativeCache
+                .Where(kv => DateTime.Now - kv.Value >= NegativeTtl)
+                .Select(kv => kv.Key)
+                .ToList();
+            foreach (var key in expiredNegatives)
+                _negativeCache.Remove(key);
         }
 
         // 清理路径映射弱引用

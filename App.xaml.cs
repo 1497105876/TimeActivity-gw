@@ -27,10 +27,9 @@ public partial class App : Application
     //   - 分身实例把分身会话里的活动（如原神）和截图写入共享库 → 主实例时间轴被污染；
     //   - 主实例的 GetForegroundWindow/GetLastInputInfo 看不到分身会话 → 误判空闲/长活动。
     // 解决：Global\ 前缀命名互斥体跨 Windows 会话可见，分身实例启动时能命中主实例。
+    // 仅 createdNew=true 的第一个实例把互斥体存入此字段，退出时 Release；
+    // 未持有者字段保持 null，ReleaseSingleInstance 直接跳过（避免对未拥有互斥体调用 ReleaseMutex 抛异常）
     private static Mutex? _singleInstanceMutex;
-
-    /// <summary>本实例是否持有互斥体（仅 createdNew=true 的第一个实例拥有，退出时才 Release）。</summary>
-    private bool _ownsSingleInstanceMutex;
 
     /// <summary>
     /// 尝试获取全局单实例互斥体。

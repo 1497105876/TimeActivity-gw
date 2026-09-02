@@ -224,9 +224,8 @@ public partial class MainWindow : Window
                 {
                     var last = activities[activities.Count - 1];
                     var item = _items[0];
-                    // 注意：EndTime 属性未实现变更通知，此处在界面上可能不会立即刷新（见 ActivityDisplayItem）
+                    // EndTime/DurationText 均已实现变更通知（2026-09-02），ListView 的"结束/时长"列都会立即刷新
                     item.EndTime = last.EndTime;
-                    // DurationText 有变更通知，ListView 会立即刷新时长列
                     item.DurationText = TimeFormatHelper.Format(last.Duration);
                 }
 
@@ -244,7 +243,7 @@ public partial class MainWindow : Window
             try { DailySummaryRepository.GenerateForDate(DateTime.Today.ToDateKey()); }
             catch (Exception ex) { Logger.Error("自动刷新生成每日汇总失败", ex); }
         };
-        _autoRefreshTimer.Start(); // 启动 30 秒周期自动刷新
+        _autoRefreshTimer.Start(); // 启动 60 秒周期自动刷新
 
         // （调度器/自动开始追踪已上移 AppServices：窗口未创建时也要持续追踪与总结）
 

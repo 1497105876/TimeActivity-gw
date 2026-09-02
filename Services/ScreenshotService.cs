@@ -217,7 +217,9 @@ public class ScreenshotService
                     if (f.CreationTime < cutoff)
                     {
                         // 单个文件删除失败（被占用等）只记日志，继续处理其余文件
-                        try { f.Delete(); }
+                        // 2026-09-02 H4 修复：文件删除成功后同步删除 Screenshots 表对应行，
+                        // 消除"文件已删、索引行还在"的幻影行（表行删除失败仅记日志，不阻断）
+                        try { f.Delete(); ScreenshotRepository.DeleteByPath(f.FullName); }
                         catch (Exception ex) { Logger.Error($"删除旧截图失败: {f.Name}", ex); }
                     }
                 }
@@ -240,9 +242,10 @@ public class ScreenshotService
                     var oldest = files[0];
                     try
                     {
-                        // 先从累计大小中扣减，再删除文件
+                        // 先从累计大小中扣减，再删除文件；并同步删除表行（2026-09-02 H4 修复）
                         currentSize -= oldest.Length;
                         oldest.Delete();
+                        ScreenshotRepository.DeleteByPath(oldest.FullName);
                     }
                     catch (Exception ex) { Logger.Error($"删除旧截图失败: {oldest.Name}", ex); }
                     // 无论删除成功与否都移出列表，保证循环必然收敛
@@ -315,8 +318,9 @@ public class ScreenshotService
             string format = SettingsRepository.Get("ScreenshotFormat", "jpg") ?? "jpg";
             // 非 png 一律按 jpg 处理（扩展名同步统一）
             string ext = format == "png" ? "png" : "jpg";
-            // 文件名只含时分秒（日期体现在目录层级）；同秒多次截屏存在同名覆盖风险
-            string fileName = $"screenshot_{DateTime.Now:HH-mm-ss}.{ext}";
+            // 文件名含时分秒+毫秒（2026-09-02 H3 修复：原秒级精度在定时截图与切换截图
+            // 同秒触发时会互相覆盖丢图；截图全程持 _capLock 串行，毫秒精度已足够防冲突）
+            string fileName = $"screenshot_{DateTime.Now:HH-mm-ss-fff}.{ext}";
             // 按日期分文件夹：screenshots/2026-08-15/screenshot_14-30-00.jpg
             string dateDir = Path.Combine(_screenshotDir, DateTime.Now.ToDateKey());
             // 确保当日子目录存在
