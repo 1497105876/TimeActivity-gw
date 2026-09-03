@@ -33,9 +33,9 @@ public class TimeFormatHelperTests
     [InlineData(3599, "59m59s")]   // 差一秒到一小时，还没有小时分量
     [InlineData(3600, "1h")]       // 刚好 1 小时，分秒都为 0
     [InlineData(3605, "1h0m5s")]   // 满小时必须保留 0 分，注释里的明确口径
-    [InlineData(3660, "1h1m")]     // 秒为 0，显示时和分
-    [InlineData(3725, "1h1m5s")]
-    [InlineData(5425, "1h30m25s")]
+    [InlineData(3660, "1h1m")]     // 3600+60，秒为 0，显示时和分
+    [InlineData(3725, "1h2m5s")]   // 3600+120+5，注意是 2 分不是 1 分
+    [InlineData(5425, "1h30m25s")] // 3600+1800+25
     [InlineData(-5, "-5s")]        // 负数兜底，落进不足一分钟分支，原样带负号
     public void Format_按约定格式化(int 秒数, string 期望)
     {

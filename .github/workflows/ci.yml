@@ -312,9 +312,14 @@ jobs:
           "zip_name=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "version=$v zip=$zip"
 
-      - name: 发布（单文件 / 依赖框架）
+      # 必须用 --self-contained true，跟本地手工发布保持一致。
+      # 原因：framework-dependent 模式下，wpfgfx_cor3 / PresentationNative_cor3
+      # 这些 WPF 原生库属于共享框架，不会复制到输出目录，产物校验会判缺失；
+      # 而且用户机器上没装 .NET 8 桌面运行时的话，拷过去根本跑不起来。
+      # 代价是包从约 60MB 涨到 150MB 以上，换来用户双击就能用，桌面应用值这个钱。
+      - name: 发布（单文件 / 自带运行时）
         run: |
-          dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} --self-contained false -o ${{ env.PUB_DIR }} -v minimal
+          dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} --self-contained true -o ${{ env.PUB_DIR }} -v minimal
 
       # 单文件 publish 最容易漏的就是随行文件和原生库，
       # 少一个 dll 用户那边就是启动即崩，所以这里逐项点名检查。
