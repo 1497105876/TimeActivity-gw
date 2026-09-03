@@ -103,15 +103,16 @@ jobs:
           Write-Host "错误 $err 个，警告 $warn 个"
 
   # ----------------------------------------------------------
-  # 2. 验证（测试占位）
-  #    仓库目前还没有单元测试项目，这一阶段先做三件不依赖测试
-  #    框架的事：格式检查、启动冒烟、运行期产物检查。
-  #    将来接上 xUnit 后，只需要在本 job 里加一行
-  #      dotnet test <测试项目> -c Release -p:DebugType=portable
-  #    并把下面 continue-on-error 的占位步骤换成真正的门禁。
+  # 2. 验证
+  #    这一阶段分两类，性质完全不同：
+  #      【门禁】单元测试 —— 挂了就拦下，后面的打包直接不跑；
+  #      【参考】格式检查 / 启动冒烟 / 产物检查 —— 各自 continue-on-error，黄了不拦。
+  #    这么分的理由：单元测试证明"算得对"，结果稳定可复现；
+  #    冒烟只能证明"没崩"，且受 runner 环境影响太大（没有桌面会话、
+  #    没有托盘区），拿它当门禁会随机误报，得不偿失。
   # ----------------------------------------------------------
   verify:
-    name: 2 验证（测试占位）
+    name: 2 验证
     needs: build
     runs-on: windows-2022
 
@@ -136,6 +137,21 @@ jobs:
           dotnet restore ${{ env.PROJECT }}
           dotnet build ${{ env.PROJECT }} -c Release --no-restore -v minimal
 
+      # ===== 真正的门禁 =====
+      # 这条没有 continue-on-error：只要有一个用例挂了，整个作业就红，
+      # package 因为 needs 依赖也就不会执行，坏代码打不出包。
+      # -p:DebugType=portable 是给将来收覆盖率留的：
+      # 主项目设了 DebugType=none 不产 pdb，不覆盖的话覆盖率会是空的。
+      - name: 运行单元测试（门禁）
+        shell: pwsh
+        run: |
+          dotnet test tests/TimeActivity.Tests/TimeActivity.Tests.csproj `
+            -c Release -p:DebugType=portable `
+            --logger "console;verbosity=normal" `
+            --logger "trx;LogFileName=test-results.trx" `
+            --results-directory TestResults
+
+      # ===== 以下三项仅供参考，失败不阻断 =====
       # 项目根目录没有 .editorconfig，格式规则会跑出不少噪音，
       # 所以这里只报告不阻断，等哪天真要立规矩再加门禁。
       - name: 代码格式检查（不阻断）
