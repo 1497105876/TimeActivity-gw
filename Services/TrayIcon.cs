@@ -83,31 +83,48 @@ public class TrayIcon : IDisposable
     // 托盘图标数据结构（Win32 NOTIFYICONDATAW）
     // 此处仅声明到 szTip 的"旧版"布局：未用的 VISTA+ 扩展字段省略可减小封送体积，
     // 但 cbSize 必须与声明一致（Marshal.SizeOf 自动匹配）
+    /// <summary>
+    /// Win32 NOTIFYICONDATAW 结构的"旧版前缀"子集：仅覆盖本类用到的 cbSize~szTip 字段。
+    /// 字段顺序必须与系统头文件一致，禁止调整/删减（P/Invoke 按声明顺序平铺内存）。
+    /// </summary>
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NOTIFYICONDATAW
     {
+        /// <summary>结构体字节大小，Win32 据此识别版本；每次调用前由 Marshal.SizeOf 填充。</summary>
         public int cbSize;       // 结构体大小
+        /// <summary>接收回调消息的窗口句柄（NIM_ADD 时指定）。</summary>
         public IntPtr hWnd;      // 接收回调消息的窗口句柄
+        /// <summary>托盘图标 ID（同一窗口可挂多个，靠 ID 区分）。</summary>
         public uint uID;         // 托盘图标 ID（同一窗口可以有多个托盘图标）
+        /// <summary>有效字段掩码：声明 NIF_MESSAGE|NIF_ICON|NIF_TIP 中哪些字段被填充。</summary>
         public uint uFlags;      // 指定哪些字段有效（NIF_MESSAGE|NIF_ICON|NIF_TIP）
+        /// <summary>托盘鼠标消息回调号（交互时发给 hWnd 的消息 ID）。</summary>
         public uint uCallbackMessage; // 回调消息号（托盘交互时发给 hWnd）
+        /// <summary>要显示的图标句柄。</summary>
         public IntPtr hIcon;     // 图标句柄
+        /// <summary>悬停提示文字（宽字符、固定 128 字符上限，含结尾 '\0'）。</summary>
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
         public string szTip;     // 鼠标悬停提示文字
     }
 
     // 宿主窗口句柄
+    /// <summary>接收托盘回调消息的宿主窗口句柄（由 TrayHost 传入，生命周期比本对象长）。</summary>
     private IntPtr _hWnd;
     // 图标句柄
+    /// <summary>当前托盘使用的图标句柄（共享系统图标或自有句柄）；Dispose 时按来源决定是否 DestroyIcon。</summary>
     private IntPtr _hIcon;
     // 图标是否已添加到托盘
+    /// <summary>图标是否已通过 NIM_ADD 注册到托盘；后续 NIM_MODIFY/NIM_DELETE 都以它为前置条件。</summary>
     private bool _added;
     // 托盘图标 ID
+    /// <summary>托盘图标 ID（固定 1）：同一窗口挂多个托盘图标时用于区分，HandleMessage 里按它校验来源。</summary>
     private readonly uint _uID = 1;
 
     // 用户交互回调（双击托盘图标、右键菜单触发时调用）
     // 公有字段式回调：由宿主（TrayHost）在 InitTray 中赋值
+    /// <summary>左键双击托盘图标时触发（宿主一般映射为"显示主窗口"）。</summary>
     public Action? OnDoubleClick;
+    /// <summary>右键抬起时触发（宿主一般在此弹右键菜单）。</summary>
     public Action? OnShowMenu;
 
     // Win32 API：获取鼠标当前位置
@@ -121,6 +138,7 @@ public class TrayIcon : IDisposable
     private static extern bool DestroyIcon(IntPtr hIcon);
 
     // Win32 POINT 结构体（屏幕坐标 x/y）
+    /// <summary>Win32 POINT（屏幕坐标），GetCursorPos 的输出目标；两个 int 字段按声明平铺。</summary>
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int X; public int Y; }
 
@@ -131,6 +149,7 @@ public class TrayIcon : IDisposable
     /// <param name="tooltip">鼠标悬停时显示的提示文字</param>
     public TrayIcon(IntPtr hWnd, string tooltip = "TimeActivity")
     {
+        // 记录宿主句柄：后续 NIM_MODIFY/DELETE 都要用同一句柄+ID 标识
         _hWnd = hWnd;
         // 先拿到图标句柄再注册（NIM_ADD 需要 hIcon）
         _hIcon = LoadDefaultIcon();
@@ -138,15 +157,17 @@ public class TrayIcon : IDisposable
         // 构建托盘数据并添加到系统托盘
         var data = new NOTIFYICONDATAW
         {
-            cbSize = Marshal.SizeOf<NOTIFYICONDATAW>(),
+            cbSize = Marshal.SizeOf<NOTIFYICONDATAW>(), // 结构体实际字节数，Win32 用版本字段校验
             hWnd = hWnd,
             uID = _uID,
             uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,  // 回调消息+图标+提示都有效
-            uCallbackMessage = WM_TRAYICON,
+            uCallbackMessage = WM_TRAYICON,             // 鼠标交互时向 hWnd 发的回调消息号
             hIcon = _hIcon,
             szTip = tooltip
         };
+        // 注册进系统托盘；返回 false 表示失败（如托盘进程尚未就绪），本对象不检查该返回值
         Shell_NotifyIconW(NIM_ADD, ref data);
+        // 置标记：此后 UpdateTooltip 允许发 MODIFY、Dispose 需要发 DELETE
         _added = true;
     }
 
@@ -165,12 +186,14 @@ public class TrayIcon : IDisposable
         int msg = (int)lParam & 0xFFFF;
         switch (msg)
         {
+            // 左键双击托盘图标：唤醒/显示主窗口
             case WM_LBUTTONDBLCLK:
                 OnDoubleClick?.Invoke();
-                return true;
+                return true; // 已消费：不再交回 WPF 默认流程
+            // 右键抬起：在光标处弹上下文菜单
             case WM_RBUTTONUP:
                 OnShowMenu?.Invoke();
-                return true;
+                return true; // 已消费：避免触发系统自带菜单
         }
         // 其余鼠标消息（单击移动等）不消费，交回默认处理
         return false;
@@ -188,10 +211,8 @@ public class TrayIcon : IDisposable
     }
 
     /// <summary>
-    /// 显示右键菜单
-    /// </summary>
-    /// <summary>
-    /// 显示右键菜单（显示主窗口/开始或停止追踪/退出）。
+    /// 显示右键菜单（显示主窗口 / 开始或停止追踪 / 退出），并把用户选择分发到对应回调。
+    /// 菜单项 ID 约定：1=显示主窗口、2=开始/停止追踪、3=退出。
     /// </summary>
     /// <param name="x">菜单左上角 X 坐标</param>
     /// <param name="y">菜单左上角 Y 坐标</param>
@@ -203,9 +224,10 @@ public class TrayIcon : IDisposable
         if (hMenu == IntPtr.Zero) return;
 
         // 追加菜单项：显示主窗口、开始/停止追踪、分隔线、退出
+        // 项 ID 与下方 switch 严格对应：1/2/3 分别映射到三个回调
         AppendMenuW(hMenu, MF_STRING, 1, "显示主窗口");
-        AppendMenuW(hMenu, MF_STRING, 2, isRunning ? "停止追踪" : "开始追踪");
-        AppendMenuW(hMenu, MF_SEPARATOR, 0, "");
+        AppendMenuW(hMenu, MF_STRING, 2, isRunning ? "停止追踪" : "开始追踪"); // 文案随运行状态切换
+        AppendMenuW(hMenu, MF_SEPARATOR, 0, ""); // 分隔线：无 ID 无文案，仅做视觉分组
         AppendMenuW(hMenu, MF_STRING, 3, "退出");
 
         // 显示菜单并等待用户选择，返回值是菜单项 ID
@@ -222,8 +244,10 @@ public class TrayIcon : IDisposable
     }
 
     // 切换追踪状态的回调
+    /// <summary>菜单项"开始/停止追踪"被选中时触发（由宿主执行真正的启停逻辑）。</summary>
     public Action? OnToggleTracking;
     // 退出程序的回调
+    /// <summary>菜单项"退出"被选中时触发（由宿主关主窗并 Shutdown 应用）。</summary>
     public Action? OnExit;
 
     /// <summary>
@@ -243,6 +267,7 @@ public class TrayIcon : IDisposable
             uFlags = NIF_TIP,
             szTip = text
         };
+        // NIM_MODIFY 原地更新提示文字；失败静默（托盘重启等罕见场景下下次会重建）
         Shell_NotifyIconW(NIM_MODIFY, ref data);
     }
 
@@ -253,7 +278,11 @@ public class TrayIcon : IDisposable
     private static IntPtr LoadDefaultIcon()
     {
         // "#32512" 是 IDI_APPLICATION 的资源编号，系统默认应用图标
+        // hInst=null + "#编号" 字符串 → 指向系统资源；宽高传 0 使用资源原始尺寸；
+        // fuLoad=0x00000010 | 0x00008000（0x8010）：0x8000 是 LR_SHARED（返回系统共享句柄，
+        // 共享句柄不可 DestroyIcon），0x10 位按现有实现透传，不在此展开语义
         IntPtr hIcon = LoadImageW(IntPtr.Zero, "#32512", 1, 0, 0, 0x00000010 | 0x00008000);
+        // 主路径返回空（例如某些系统版本对 flag 组合处理不同）→ 用 LoadIconW 直接取 IDI_APPLICATION 兜底
         if (hIcon == IntPtr.Zero)
             hIcon = LoadIconW(IntPtr.Zero, (IntPtr)32512); // IDI_APPLICATION 兜底
         return hIcon;
@@ -274,13 +303,17 @@ public class TrayIcon : IDisposable
                 hWnd = _hWnd,
                 uID = _uID
             };
+            // 通知系统移除托盘图标；失败静默（应用本身即将退出，无碍）
             Shell_NotifyIconW(NIM_DELETE, ref data);
+            // 无论删除是否成功都复位标记，保证 Dispose 幂等、可安全重复调用
             _added = false;
         }
 
         // 释放图标句柄
         if (_hIcon != IntPtr.Zero)
         {
+            // 对"共享图标"调用 DestroyIcon 是多余但无害的（返回 false）；
+            // 对自有句柄则必须释放，否则 GDI 句柄泄漏
             DestroyIcon(_hIcon);
             // 置零防止二次释放
             _hIcon = IntPtr.Zero;

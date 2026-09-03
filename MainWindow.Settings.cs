@@ -42,6 +42,7 @@ public partial class MainWindow
         }
         catch (Exception ex) // 设置窗口构造/初始化异常时给出完整错误信息
         {
+            // 弹窗带完整 StackTrace：SettingsWindow 是独立大窗口，任一环节初始化抛错都能据此直接定位
             MessageBox.Show($"打开设置失败：{ex.Message}\n\n{ex.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -56,11 +57,13 @@ public partial class MainWindow
         try
         {
             var win = new SettingsWindow(section); // 传入分区名，窗口内部会导航到对应页面
+            // 归属主窗口并模态弹出：行为与"设置"按钮完全一致，只是落地页不同
             win.Owner = this;
             win.ShowDialog();
         }
-        catch (Exception ex)
+        catch (Exception ex) // 设置窗口构造/初始化异常时给出完整错误信息
         {
+            // 弹窗带完整 StackTrace：设置窗口内部任何抛错都可定位到具体组件
             MessageBox.Show($"打开设置失败：{ex.Message}\n\n{ex.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -78,6 +81,7 @@ public partial class MainWindow
         _timelineRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
         _overviewRenderer.GetColorFunc = (proc, cat) => GetAppColor(proc, cat);
         LoadCategoryColors(); // 重新加载颜色
+        // 图例与时间轴/概览条按新模式整体重绘
         DrawLegend();
         DrawAll();
         // 刷新统计列表
@@ -113,12 +117,11 @@ public partial class MainWindow
         {
             var pos = e.GetPosition(AppStatsList); // 鼠标相对列表控件的位置
 
-            // 找点击的行
+            // 用命中测试找点击所在的行；点到行间空白处返回 null → 忽略本次右键
             var item = GetListViewItemFromPoint(AppStatsList, pos);
             if (item == null) return;
 
-            // 从行中提取进程名
-            // 找到点击的行对应的进程名
+            // 从整行容器 Border 的 Tag 里取出应用名（进程名）；取不到则忽略本次右键
             string? processName = GetTagFromStatsRow(item);
             if (string.IsNullOrEmpty(processName)) return;
 
@@ -141,6 +144,7 @@ public partial class MainWindow
                 }
                 catch (Exception ex) { MessageBox.Show($"颜色选择失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
             };
+            // "颜色"项入菜单
             menu.Items.Add(miColor);
 
             // 菜单项 2：更改应用所属分类
@@ -165,6 +169,8 @@ public partial class MainWindow
                     // 排除「空闲」分类（不允许手动把应用归为空闲）
                     foreach (var cat in cats.Where(c => c.Name != "空闲"))
                     {
+                        // 按钮 Tag 携带分类对象：点击回调从 sender.Tag 反取目标分类，而非直接引用 foreach 循环变量
+                        // —— 规避经典的"闭包捕获循环变量"陷阱，保证每个按钮的回调取到自己那一个分类
                         var btn = new Button
                         {
                             Content = cat.Name,
@@ -197,21 +203,27 @@ public partial class MainWindow
                                 var match = _cachedActivities.FirstOrDefault(a => a.ProcessName == item.ProcessName);
                                 if (match != null) item.Category = match.Category;
                             }
-                            DrawAll();
-                            LoadStatsLists();
-                            UpdateTodayTotal();
-                            selWin.Close();
-                            ShowStatus($"已将「{processName}」改到「{selected.Name}」");
+                        // 改类后必须全量重刷界面：时间轴/概览、统计列表、顶部总时长，否则配色与占比停留在旧分类
+                        DrawAll();
+                        LoadStatsLists();
+                        UpdateTodayTotal();
+                        // 用户已选定目标分类：关掉选择小窗，并在状态栏回显改类结果
+                        selWin.Close();
+                        ShowStatus($"已将「{processName}」改到「{selected.Name}」");
                         };
+                        // 把该分类按钮收进竖排面板，随面板一起显示
                         panel.Children.Add(btn);
                     }
+                    // 面板整体作为小窗内容再模态弹出；选类结果由上面 btn.Click 回调收尾并自行 Close
                     selWin.Content = panel;
                     selWin.ShowDialog();
                 }
                 catch (Exception ex) { MessageBox.Show($"更改类别失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
             };
+            // "更改类别"项入菜单
             menu.Items.Add(miCategory);
 
+            // IsOpen=true 就地弹出（ContextMenu 用 IsOpen 而非 ShowDialog 才不会有焦点丢失问题）
             menu.IsOpen = true;
         }
         catch (Exception ex) { MessageBox.Show($"右键菜单失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }
@@ -225,6 +237,7 @@ public partial class MainWindow
     {
         try
         {
+            // 命中测试找点击所在的行；点到行间空白返回 null → 忽略
             var item = GetListViewItemFromPoint(CategoryStatsList, e.GetPosition(CategoryStatsList));
             if (item == null) return;
 
@@ -234,6 +247,7 @@ public partial class MainWindow
             // 动态构建右键菜单（颜色 / 查看类别 两项）
             var menu = new ContextMenu();
 
+            // 颜色项：修改该分类在时间轴/图例/占比条里使用的颜色
             var miColor = new MenuItem { Header = "颜色" };
             miColor.Click += (s, ev) =>
             {
@@ -252,12 +266,16 @@ public partial class MainWindow
                     _statsPage?.RefreshData(); // 统计报表页若已打开也同步刷新
                 }
             };
+            // "颜色"项入菜单
             menu.Items.Add(miColor);
 
+            // 查看类别项：一键跳到设置窗口的"规则管理"分区，便于用户核对/调整该分类的规则
             var miView = new MenuItem { Header = "查看类别" };
             miView.Click += (s, ev) => OpenSettings("rules"); // 跳到设置的规则管理分区
+            // "查看类别"项入菜单
             menu.Items.Add(miView);
 
+            // IsOpen=true 就地弹出（ContextMenu 用 IsOpen 而非 ShowDialog，避免焦点切换带来的怪问题）
             menu.IsOpen = true;
         }
         catch (Exception ex) { MessageBox.Show($"右键菜单失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error); }

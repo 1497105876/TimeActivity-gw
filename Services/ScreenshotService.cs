@@ -25,38 +25,60 @@ public class ScreenshotService
     // ==================== 字段与配置 ====================
 
     // 截图间隔（分钟），默认 5 分钟
+    /// <summary>定时截屏间隔（分钟）。来自设置 ScreenshotIntervalMinutes，构造/ReloadSettings 时被夹到 1~1440。</summary>
     private int _intervalMinutes;
     // 截图保存目录
+    /// <summary>截图根目录。来自设置 ScreenshotPath，未配置或不可用时为程序目录下 screenshots/。</summary>
     private string _screenshotDir = "";
     // 定时截屏的计时器
+    /// <summary>周期截屏定时器（后台线程回调）；Stop 时 Dispose 并置 null。</summary>
     private System.Threading.Timer? _timer;
     // 是否正在运行
+    /// <summary>服务是否处于运行态：Start 置 true、Stop 置 false，切换截屏与定时截屏都看它。</summary>
     private bool _running;
 
     // 是否在切换应用时截屏（仿 ManicTime）
+    /// <summary>是否开启"应用一切换就截屏"。来自设置 ScreenshotOnSwitch（默认 true）。</summary>
     private bool _captureOnSwitch;
 
     // 切换应用截屏的冷却时间：避免极短时间内反复切换（如连续 Alt-Tab）造成截图风暴
+    /// <summary>切换截屏的最小间隔：3 秒内只认第一次切换，之后的一律丢弃。</summary>
     private static readonly TimeSpan SwitchCaptureCooldown = TimeSpan.FromSeconds(3);
 
     // 上次切换截屏的时间（UTC），用于冷却判断
     // 该字段的读改写在 OnAppSwitched 中未加锁，极端并发下可能多截一张，无害
+    /// <summary>上一次"切换截屏"发生的时刻（UTC）。初值 DateTime.MinValue 表示从未截过，首次切换必定放行。</summary>
     private DateTime _lastSwitchCaptureUtc = DateTime.MinValue;
 
     // 串行化锁：定时器回调与 OnAppSwitched 后台线程可能并发进入截图/清理，
     // 加锁避免同秒截图互相覆盖、清理与写入交错导致刚写的就被删或库里留重复记录。
+    /// <summary>截屏/清理串行化锁：定时回调与切换回调可能并发进入，靠它避免同名文件互覆与统计错乱。</summary>
     private readonly object _capLock = new();
 
     // 记录上次清理日期，同一天只清理一次
+    /// <summary>上次执行清理的日期（本地日期）；与 DateTime.Today 不同才触发下一轮清理。</summary>
     private DateTime _lastCleanDate = DateTime.MinValue;
 
     // ==================== Win32 API ====================
 
     // Win32 API：获取屏幕尺寸（传 nIndex 参数指定要获取宽还是高）
+    /// <summary>
+    /// 取系统度量值（屏幕尺寸、边框厚度等）。来自 user32.dll。
+    /// </summary>
+    /// <param name="nIndex">要查询的度量项索引（这里只用 SM_CXSCREEN / SM_CYSCREEN）</param>
+    /// <returns>该项的像素值；索引非法时返回 0</returns>
+    /// <remarks>
+    /// SM_CXSCREEN/SM_CYSCREEN 返回的是"主显示器"分辨率（不是所有显示器拼接的虚拟桌面），
+    /// 多显示器环境下用 SM_XVIRTUALSCREEN 系列才能拿到整块虚拟屏，本程序当前只截主屏。
+    /// 同时它受 DPI 虚拟化影响：进程未声明高 DPI 感知时拿到的是缩放后的逻辑像素，
+    /// 与 CopyFromScreen 拷到的实际像素可能不一致（会截出缺一角的图）。
+    /// </remarks>
     [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int nIndex);
 
+    /// <summary>GetSystemMetrics 的索引：主显示器宽度（像素）。</summary>
     private const int SM_CXSCREEN = 0;  // 屏幕宽度索引
+    /// <summary>GetSystemMetrics 的索引：主显示器高度（像素）。</summary>
     private const int SM_CYSCREEN = 1;  // 屏幕高度索引
 
     /// <summary>是否正在运行。</summary>
@@ -74,15 +96,22 @@ public class ScreenshotService
     /// 从数据库重新读取截图相关设置（间隔、路径、格式、开关等）。
     /// 路径无效时回退到程序目录下的 screenshots/ 文件夹。
     /// </summary>
+    /// <remarks>
+    /// 只刷新字段，不重启定时器：若服务已在运行，改了间隔要等下次 Start() 才生效
+    /// （定时器在创建时就固定了周期，这里没有做热更新）。
+    /// 另外"格式/质量"两项是每次截图时现读的，改了立刻生效。
+    /// </remarks>
     public void ReloadSettings()
     {
         // 截图间隔，限制在 1~1440 分钟
         // 解析失败或非法值一律回退默认 5 分钟，防止定时器被配坏
+        // 1440 = 24 小时，即允许的最大间隔；Math.Clamp 同时挡住 0、负数与超大值
         _intervalMinutes = int.TryParse(
             SettingsRepository.Get("ScreenshotIntervalMinutes", "5"), out int iv) && iv > 0
             ? Math.Clamp(iv, 1, 1440) : 5;
 
         // 是否启用"应用切换时立即截屏"
+        // 严格比较 "true"：大小写敏感，其它任何值（含 "True"）都视为关闭
         _captureOnSwitch = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true";
 
         // 截图保存路径：用户配了就用配的，没配就用程序目录下 screenshots/
@@ -109,6 +138,9 @@ public class ScreenshotService
         {
             // 未配置路径：使用程序目录下 screenshots/
             _screenshotDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots");
+            // 注意：这一句没有 try 保护（与上面用户路径分支不一致）——
+            // 程序装在无写权限目录（如 Program Files）时 CreateDirectory 会抛异常，
+            // 并一路冒泡到 Start()/构造函数的调用方
             Directory.CreateDirectory(_screenshotDir);
         }
     }
@@ -122,7 +154,7 @@ public class ScreenshotService
     {
         // 幂等保护：已在运行不重复启动
         if (_running) return;
-        // 设置里没开截图功能就不启动
+        // 设置里没开截图功能就不启动（EnableScreenshot 默认 "false"，即默认关闭截图）
         if (SettingsRepository.Get("EnableScreenshot", "false") != "true") return;
         // 启动前重读一遍设置，保证间隔/目录用的是最新配置
         ReloadSettings();
@@ -140,11 +172,14 @@ public class ScreenshotService
         // 启动定时器，每隔 N 分钟截一张（清理单独走天级检查）
         // 回调里顺带做跨天清理检查；首次触发延迟 = 间隔（不会立刻又截一张）
         _timer = new System.Threading.Timer(
+            // 周期回调体：先截一张图，再检查是否跨天需要清理（两者内部都自带异常兜底）
             _ => { CaptureAndSave(); MaybeCleanOldScreenshots(); },
             null,
             // 首次触发延迟：一个完整间隔
+            // （首个间隔之前已经手动截了一张，这里再等一个间隔才第二次截）
             TimeSpan.FromMinutes(_intervalMinutes),
             // 后续重复间隔：同样为一个间隔
+            // 定时器回调跑在线程池线程上；系统休眠/睡眠期间不触发，唤醒后按计划继续
             TimeSpan.FromMinutes(_intervalMinutes));
     }
 
@@ -156,6 +191,8 @@ public class ScreenshotService
         // 先摘掉运行标志，OnAppSwitched 立即失效
         _running = false;
         // 释放定时器并置空，终止后续定时截屏
+        // 注意：Dispose 不等待"正在进行"的截图——若此刻有回调正在持 _capLock 截图，
+        // 它会先跑完再退出，Stop 只是保证不会有下一次触发
         _timer?.Dispose();
         _timer = null;
     }
@@ -168,6 +205,8 @@ public class ScreenshotService
     private void MaybeCleanOldScreenshots()
     {
         // 只有跨天了才执行清理；同一天内的多次触发直接跳过
+        // _lastCleanDate 未加锁也非 volatile：定时器线程与切换回调线程可能并发写，
+        // 最坏结果是同一天多清一次（清理本身有锁保护），可以接受
         if (_lastCleanDate != DateTime.Today)
         {
             CleanOldScreenshots();
@@ -185,6 +224,7 @@ public class ScreenshotService
         // 全程持锁串行化：避免与并发进行的截图写入交错（边删边写导致误删/漏删统计）
         lock (_capLock)
         {
+        // 清理整体兜底：目录被临时占用/权限变化等任何意外都只记日志，绝不能中断截图主流程
         try
         {
             // 目录不存在说明从未截过图，无需清理
@@ -299,6 +339,7 @@ public class ScreenshotService
         // 全程持锁：定时截屏与切换截屏可能同时进入，串行化避免同名文件互覆与脏统计
         lock (_capLock)
         {
+        // 整体兜底：截屏/编码/落库任何环节出错都只记日志，让后台线程静默存活继续下一轮
         try
         {
             // 用 Win32 API 获取屏幕分辨率
@@ -323,8 +364,9 @@ public class ScreenshotService
             string fileName = $"screenshot_{DateTime.Now:HH-mm-ss-fff}.{ext}";
             // 按日期分文件夹：screenshots/2026-08-15/screenshot_14-30-00.jpg
             string dateDir = Path.Combine(_screenshotDir, DateTime.Now.ToDateKey());
-            // 确保当日子目录存在
+            // 确保当日子目录存在（多线程下 CreateDirectory 对已存在目录是幂等的）
             Directory.CreateDirectory(dateDir);
+            // 完整落盘路径 = 日期子目录 + 毫秒级文件名
             string filePath = Path.Combine(dateDir, fileName);
 
             if (format == "png")
@@ -356,6 +398,7 @@ public class ScreenshotService
             // 存数据库：如果是程序目录下的路径就用相对路径，否则用绝对路径
             // 读取刚落盘文件的字节大小用于入库
             var fileSize = new FileInfo(filePath).Length;
+            // exe 所在目录作为"程序目录内/外"的判定基准
             string appDir = AppDomain.CurrentDomain.BaseDirectory;
             // 程序目录内的路径去掉前缀存相对路径，便于程序挪动目录后记录仍有效
             string dbPath = filePath.StartsWith(appDir) ? filePath.Substring(appDir.Length) : filePath;

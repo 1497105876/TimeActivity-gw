@@ -23,6 +23,9 @@ public static class CategoryRepository
 {
     /// <summary>
     /// 预置分类的最大 Id，超过此值的都是用户自定义分类
+    /// 取值必须与下面 PresetCategories 的条目数保持一致（当前正好 13 条，Id 分配为 1..13）：
+    /// 播种时是按数组顺序 INSERT 的，AUTOINCREMENT 从 1 开始依次分配，两者天然对齐。
+    /// 这个常量同时被 Delete（拒绝删预置）、ResetToDefault（只删 Id > 13 的）和设置页 UI 用来判断能否删除。
     /// </summary>
     public const int MaxPresetCategoryId = 13;
 
@@ -75,10 +78,13 @@ public static class CategoryRepository
         // 结果容器
         var list = new List<Category>();
         // 创建连接（指向统一权威连接字符串）
+        // 注意：本类是少数几个没走 DbAccess.Open() 的地方（GetAll 与 RuleRepository.GetAll 同款写法），
+        //       因为已经显式调了 EnsureInit()，功能等价，只是样板代码多一点
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         // 打开连接
         conn.Open();
         // 按 SortOrder 排序，SortOrder 相同的按 Id 排
+        // 全表读取：分类条目固定在十几条，不需要任何过滤或分页
         using var cmd = new SqliteCommand("SELECT Id, Name, Color, Icon, SortOrder FROM Categories ORDER BY SortOrder, Id", conn);
         // 执行查询得到游标
         using var reader = cmd.ExecuteReader();
@@ -188,6 +194,9 @@ public static class CategoryRepository
         cmd.Parameters.AddWithValue("@Id", id);
         // 受影响行数 > 0 视为删除成功
         // 注意：Rules.CategoryId 与 Activities.Category 的历史引用不会被级联清理
+        // ——Rules 会留下指向已删分类 Id 的悬挂外键（连接字符串没开 PRAGMA foreign_keys，删的时候不会报错），
+        //   Activities 存的是分类名快照，删了分类后历史记录里还会显示那个名字；
+        //   这两处都由上层（设置页保存 / ReclassifyAll）负责兜底
         return cmd.ExecuteNonQuery() > 0;
     }
 

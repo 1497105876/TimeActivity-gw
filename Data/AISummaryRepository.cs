@@ -41,6 +41,8 @@ public static class AISummaryRepository
         using var conn = DbAccess.Open();
 
         // 用事务包住 DELETE+INSERT，中途失败不会丢数据
+        // 这里没有写 try/catch：任何异常向外抛时，using 会在栈展开过程中 Dispose 掉 transaction，
+        // SqliteTransaction.Dispose 对未提交的事务执行回滚，所以"删了旧的却没插新的"不会发生
         using var transaction = conn.BeginTransaction();
 
         // 先删同类型同日期同来源的旧记录，再插入新的，保证每次只保留最新一条
@@ -118,6 +120,8 @@ public static class AISummaryRepository
         // 以“今天”为基准推导各失效窗口
         var today = DateTime.Today;
         // 打开就绪连接
+        // 三次 DELETE 各是独立语句，没有包在同一事务里：
+        // 中途失败会留下"日报清了但周报没清"的部分失效状态，下次调用会补齐，不追求强一致
         using var conn = DbAccess.Open();
 
         // 删最近 7 天日报（auto）

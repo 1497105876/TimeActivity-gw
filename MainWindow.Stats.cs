@@ -26,15 +26,30 @@ namespace TimeActivity;
 // ============================================================================
 public partial class MainWindow
 {
-    // 统计行固定色（2026-08-25 内存优化）：冻结复用，避免每次构建行都新建画刷
+    // 统计行固定色（2026-08-25 内存优化）：冻结复用，避免每次构建行都新建画刷。
+    // 三个静态画刷对应统计行里三处固定颜色：
+    //   StatsCatTextBrush(0x88 灰) —— 应用行中"所属类别"列的文字色；
+    //   StatsBarBorderBrush(0xCC 浅灰) —— 占比条 1px 外框色；
+    //   StatsBarTextBrush(0x33 深灰) —— 占比文字落在透明底（未盖住色块）时的文字色。
+    // 颜色的用法见下方 CreateStatsRow，这里只用"颜色常量"的形式统一收敛。
     private static readonly SolidColorBrush StatsCatTextBrush = CreateFrozenBrush(Color.FromRgb(0x88, 0x88, 0x88));
     private static readonly SolidColorBrush StatsBarBorderBrush = CreateFrozenBrush(Color.FromRgb(0xCC, 0xCC, 0xCC));
     private static readonly SolidColorBrush StatsBarTextBrush = CreateFrozenBrush(Color.FromRgb(0x33, 0x33, 0x33));
 
+    /// <summary>
+    /// 创建并立即 Freeze 的画刷：WPF 冻结对象不再触发变更通知，
+    /// 可被静态字段跨线程安全共享，渲染走快速路径且不产生 GC 压力。
+    /// 反例：不在新建时冻结，每个统计行都 new 一次画刷 → 高密度列表会频繁触发 GC。
+    /// </summary>
+    /// <param name="c">画刷颜色</param>
+    /// <returns>已冻结（只读、可跨线程）的 SolidColorBrush</returns>
     private static SolidColorBrush CreateFrozenBrush(Color c)
     {
+        // 先构造一个普通（可变）画刷
         var b = new SolidColorBrush(c);
+        // Freeze 后对象变为只读：任何线程都不得再修改其属性，WPF 才会放行共享与缓存
         b.Freeze();
+        // 返回已冻结画刷，供上方静态字段一次性初始化后长期复用
         return b;
     }
 
@@ -65,17 +80,19 @@ public partial class MainWindow
     /// </summary>
     private static string? GetTagFromStatsRow(object item)
     {
-        // item 是 ListViewItem，里面包裹的是 Border（CreateStatsRow 返回的）
-        if (item is System.Windows.DependencyObject d)
+        // item 是 ListViewItem，里面包裹的是 Border（CreateStatsRow 返回的整行容器）
+        if (item is System.Windows.DependencyObject d) // 可视树遍历要求 item 是 DependencyObject
         {
+            // 沿可视树向下找第一个 Border：它正是整行容器，Tag 上存着应用名/分类名
             var border = FindChild<Border>(d);
-            if (border?.Tag is string s)
+            if (border?.Tag is string s) // 命中且 Tag 能读成字符串 → 直接返回名称
                 return s;
-            // Border 可能直接就是 item 的 Content
+            // 兜底：个别视觉树形态下列表把 Border 直接作为 Content 挂载（不是嵌套子级），
+            // FindChild 找不到，改从 ContentControl.Content 上取
             if (item is System.Windows.Controls.ContentControl cc && cc.Content is Border b && b.Tag is string s2)
                 return s2;
         }
-        return null;
+        return null; // 非预期结构或行上没有 Tag → 调用方忽略本次右键
     }
 
     /// <summary>
@@ -135,26 +152,33 @@ public partial class MainWindow
     /// </summary>
     private Border CreateStatsRow(bool isCategory, string name, string category, int seconds, double pct, string barColor, ImageSource? icon, string displayName)
     {
-        // 行容器：Tag 存名称供右键菜单提取；透明背景保证整行可命中
+        // 行容器：Tag 存名称供右键菜单提取；透明背景保证整行任意位置都可命中点击
         var row = new Border { Padding = new Thickness(2), Margin = new Thickness(0, 1, 0, 1), Tag = name, Background = System.Windows.Media.Brushes.Transparent };
         // 用 Grid 布局一行：复选框 + 图标 + 名称 + 类别 + 占比条 + 时长
+        // 注意：下面"添加列定义"与"添加控件"必须按相同顺序进行，靠 col 游标逐列对齐
         var grid = new Grid();
+        // 第一列：勾选框，固定 20px
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });   // checkbox
         if (!isCategory)
         {
+            // 第二列：图标，仅应用行需要（分类行不展示图标）
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });   // icon
         }
+        // 名称列：分类行少了"图标/类别"两列，名称区可给宽些(100px)；应用行只留 80px
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(isCategory ? 100 : 80) }); // name
         if (!isCategory)
         {
+            // 类别列：仅应用行需要，固定 50px
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });   // category
         }
+        // 占比条列：Star 占满行内剩余宽度 —— 保证所有行的占比条同一横向基准、两端对齐可比
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // bar
+        // 时长列：固定 60px 右对齐
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });   // duration
 
         int col = 0; // 当前列游标，随控件添加递增
 
-        // 复选框（勾选后高亮对应时间轴色块）
+        // 复选框（勾选后高亮对应时间轴色块）；Tag 存名称，勾选回调据此识别是哪个应用/分类
         var cb = new CheckBox { VerticalAlignment = VerticalAlignment.Center, Tag = name };
         if (isCategory) // 分类行挂分类勾选事件
         {
@@ -166,18 +190,20 @@ public partial class MainWindow
             cb.Checked += AppStatsRow_CheckChanged;
             cb.Unchecked += AppStatsRow_CheckChanged;
         }
+        // SetColumn 放进第 col 列后 col++（下同）；Children.Add 才真正把控件挂进 Grid
         Grid.SetColumn(cb, col++);
         grid.Children.Add(cb);
 
         // 图标（仅应用行有）
         if (!isCategory)
         {
+            // 16x16 小图标：进程图标来自 exe 提取；Stretch.Uniform 等比缩放，防止图标变形
             var img = new Image { Source = icon, Width = 16, Height = 16, Stretch = Stretch.Uniform, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(img, col++);
             grid.Children.Add(img);
         }
 
-        // 名称
+        // 名称（友好显示名）：超长时省略号截断，避免把右侧占比条挤没
         var nameTb = new TextBlock { Text = displayName, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
         Grid.SetColumn(nameTb, col++);
         grid.Children.Add(nameTb);
@@ -185,12 +211,15 @@ public partial class MainWindow
         // 类别（仅应用行有）
         if (!isCategory)
         {
+            // 类别文字用固定灰(0x88)并缩小字号——弱化存在感，名称列才是主信息
             var catTb = new TextBlock { Text = category, VerticalAlignment = VerticalAlignment.Center, Foreground = StatsCatTextBrush, FontSize = 11 };
             Grid.SetColumn(catTb, col++);
             grid.Children.Add(catTb);
         }
 
         // 占比条 — 用 Canvas 实现，固定宽度 120px
+        // 宽度设为常量而非占满 Star 列：各行条宽一致，长短差只反映"填充长度"，比"满条"更易读；
+        // Canvas 便于三层像素级手工定位（外框/填充/百分比文字），这是 Grid 做不到的
         const double BarWidth = 120;
         const double BarHeight = 14;
         var barCanvas = new Canvas { Width = BarWidth, Height = BarHeight, Margin = new Thickness(4, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center };
@@ -205,6 +234,7 @@ public partial class MainWindow
         double fillWidth = BarWidth * pct / 100.0;
         // 行颜色字符串解析为 Color；画刷走静态冻结缓存（2026-08-25）
         var fillBorder = new Border { Background = CategoryColorHelper.GetHexBrush(barColor), Height = BarHeight - 2, CornerRadius = new CornerRadius(2, 0, 0, 2) };
+        // 填充条从(1,1)放起、高度减 2px：整体内缩 1px，避免盖住外框的 1px 描边
         Canvas.SetLeft(fillBorder, 1); Canvas.SetTop(fillBorder, 1);
         // 内缩 1px 避免盖住边框；Math.Max 下限保护
         fillBorder.Width = Math.Max(0, fillWidth - 1);

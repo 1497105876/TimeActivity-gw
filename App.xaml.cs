@@ -40,6 +40,7 @@ public partial class App : Application
         try
         {
             // Global\ 前缀：跨会话共享命名空间 —— 物理桌面与 RDP 分身会话互相可见
+            // initiallyOwned:true + out createdNew：构造时即申请持有；createdNew=true 才表示"我是第一个实例，真持有它"
             var mutex = new Mutex(initiallyOwned: true, @"Global\TimeActivity_SingleInstance", out bool createdNew);
             if (createdNew)
             {
@@ -57,12 +58,15 @@ public partial class App : Application
             // （至少能挡同桌面/同会话内的双开；跨会话场景退回原行为，不阻塞启动）
             try
             {
+                // 会话级命名空间（无 Global\ 前缀）：只能拦同桌面/同会话内的双开，跨 RDP 会话的场景管不到
                 var mutex = new Mutex(initiallyOwned: true, @"TimeActivity_SingleInstance", out bool createdNew);
                 if (createdNew)
                 {
+                    // 与 Global 分支逻辑一致：只有真正创建成功的第一实例才持有并存入字段
                     _singleInstanceMutex = mutex;
                     return true;
                 }
+                // 本实例未持有：释放句柄并返回 false，调用方提示后退出
                 mutex.Dispose();
                 return false;
             }
@@ -113,7 +117,9 @@ protected override void OnStartup(StartupEventArgs e)
     // 先执行 WPF 默认启动流程（触发 Startup 事件等）
     base.OnStartup(e);
 
-    // 全局未捕获异常处理
+    // 全局未捕获异常处理（两道防线，各司其职）：
+    // ① DispatcherUnhandledException —— 只管 UI/Dispatcher 线程抛出的异常，可置 Handled=true 把异常"消化掉"，防止进程崩溃；
+    // ② AppDomain.CurrentDomain.UnhandledException —— 兜底其余后台线程，该事件无法阻止进程终止，仅记录现场。
     this.DispatcherUnhandledException += (s, e) =>
     {
         Logger.Error("UI 线程未捕获异常", e.Exception);
@@ -121,6 +127,7 @@ protected override void OnStartup(StartupEventArgs e)
     };
     AppDomain.CurrentDomain.UnhandledException += (s, e) =>
     {
+        // 后台线程异常到达此处后进程仍会终止（此事件无法"消化"异常），记日志仅为保留崩溃现场
         Logger.Error("非 UI 线程未捕获异常", e.ExceptionObject as Exception);
     };
 
@@ -132,6 +139,7 @@ protected override void OnStartup(StartupEventArgs e)
     Host.Show(); // 0x0 且定位屏幕外，用户不可见
 
     // 非 --minimized 启动 → 立即显示主窗口；--minimized → 只驻留托盘
+    // 判定规则：参数列表非空，且其中任意一项等于 --minimized（忽略大小写，兼容自启快捷方式的各种大小写写法）
     bool minimized = e.Args is { Length: > 0 } args &&
                      Array.Exists(args, a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
     if (!minimized)

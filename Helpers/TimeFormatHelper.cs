@@ -2,7 +2,7 @@ namespace TimeActivity.Helpers;
 
 /// <summary>
 /// 时长格式化工具 — 全项目统一用这一个
-/// 输出格式: 65s / 2m5s / 1h2m5s / 1h30m
+/// 输出格式: 45s / 2m5s / 1h2m5s / 1h30m
 /// </summary>
 public static class TimeFormatHelper
 {
@@ -10,7 +10,7 @@ public static class TimeFormatHelper
     /// 将秒数格式化为简洁的时长字符串
     /// </summary>
     /// <param name="totalSeconds">总秒数</param>
-    /// <returns>格式化后的时长，如 65s / 2m5s / 1h2m5s / 1h30m</returns>
+    /// <returns>格式化后的时长，如 45s / 2m5s / 1h2m5s / 1h30m</returns>
     public static string Format(int totalSeconds)
     {
         // 复用 long 版本的实现，避免两份逻辑
@@ -21,11 +21,11 @@ public static class TimeFormatHelper
     /// 将秒数格式化为简洁的时长字符串（long 版本，支持超过 int.MaxValue 秒的超大时长）
     /// </summary>
     /// <param name="totalSeconds">总秒数</param>
-    /// <returns>格式化后的时长，如 65s / 2m5s / 1h2m5s / 1h30m</returns>
+    /// <returns>格式化后的时长，如 1m5s / 2m5s / 1h2m5s / 1h30m</returns>
     public static string Format(long totalSeconds)
     {
-        // 注意：负数输入会原样输出（如 "-5s"），调用方应保证传入非负秒数
-        // 不足 1 分钟直接显示秒
+        // 调用方应保证传入非负秒数；负数一律先落进 <60 分支，原样带负号输出（如 -5s）
+        // 不足 1 分钟（0~59s）直接显示秒，0 秒时即输出 "0s"
         if (totalSeconds < 60) return $"{totalSeconds}s";
 
         // 拆分成时分秒：整除 3600 得小时，余数再整除 60 得分钟，其余为秒
@@ -35,13 +35,15 @@ public static class TimeFormatHelper
 
         if (h > 0)
         {
-            // 有小时：秒为 0 省略秒，分钟为 0 省略分钟
+            // 满 1 小时才进这层；小时数 h 一定非 0
+            // 秒为 0 时：分钟也为 0 → 只输出 "{h}h"；分钟非 0 → 输出 "{h}h{m}m"
             if (s == 0) return m == 0 ? $"{h}h" : $"{h}h{m}m";
+            // 秒非 0 则小时分钟秒全带上（分钟可能为 0，会出现 "1h0m5s" 这类形态）
             return $"{h}h{m}m{s}s";
         }
-        // 没有小时：秒为 0 省略秒
+        // 没有小时（0~59 分钟之间）：秒为 0 只输出分钟，如 "30m"
         if (s == 0) return $"{m}m";
-        // 分钟+秒组合输出（如 2m5s）
+        // 秒非 0：分钟+秒组合输出，如 2m5s
         return $"{m}m{s}s";
     }
 }

@@ -15,6 +15,12 @@ namespace TimeActivity.Data;
 /// 供各 Repository 复用，消除每个方法重复的 EnsureInit()+new SqliteConnection+Open 三连。
 /// 仅 internal 可见，不对外暴露 API；公开方法签名与数据处理逻辑保持不变。
 /// </summary>
+/// <remarks>
+/// 关于连接复用：本类不搞连接池、也不缓存连接，每次调用都新开一条。
+/// SQLite 是进程内嵌数据库，建连接只是打开文件句柄，开销远小于网络数据库，
+/// 换来的是"连接生命周期与调用栈严格一致"——不会有意外的跨线程/长事务持有。
+/// 连接对象不是线程安全的：谁 Open 谁用，不要在线程之间传递返回值。
+/// </remarks>
 internal static class DbAccess
 {
     /// <summary>
@@ -31,6 +37,8 @@ internal static class DbAccess
         // 第三步：真正打开连接（首次 Open 才建立文件句柄；库文件不存在时由引擎自动创建）
         conn.Open();
         // 返回就绪连接；上方任一步抛异常则不会走到这里，由调用方决定如何处理
+        // 调用方约定：一律写成 using var conn = DbAccess.Open()，让连接跟方法栈一起释放，
+        //            不要在字段里长期持有（WAL 模式下长期持有的连接会拖住检查点，导致 -wal 文件只长不小）
         return conn;
     }
 }

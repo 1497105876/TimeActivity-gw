@@ -67,7 +67,8 @@ public partial class MainWindow
     /// </summary>
     private async Task CheckAutoSummaryAsync()
     {
-        // 同一天只执行一次，避免 30 秒刷新重复查库
+        // 同一天只检查一次：构造函数与 60 秒自动刷新定时器都会调用本方法，用"上次检查日期"去重，
+        // 避免 60 秒一个周期内反复查库/反复触发 AI
         if (_lastAutoSummaryCheckDate == DateTime.Today) return;
         // 立即记录本次检查日期（先赋值再执行，防止后续异常导致同日反复重试）
         _lastAutoSummaryCheckDate = DateTime.Today;
@@ -84,6 +85,7 @@ public partial class MainWindow
 
             // 每次新建服务实例（内部读取 API 配置），避免长期持有连接/状态
             var aiService = new AISummaryService();
+            // 方法体可能耗时（含 AI 请求），先固定"今天"为统一基准，避免期间跨 0 点导致周/月边界算错
             DateTime today = DateTime.Today;
 
             // 检查上周总结：今天回退 7 天后取其所在周的周一
@@ -99,6 +101,7 @@ public partial class MainWindow
                     // 调用 AI 服务异步生成周报正文
                     string? result = await aiService.GenerateWeeklySummary(lastWeekStart);
                     Logger.Info($"上周总结生成结果：{(result != null ? "成功" : "null")}");
+                    // 仅正文非空才入库：返回 null 说明生成失败（网络/限流），刻意不写占位记录，下次启动会再补算
                     if (result != null)
                         AISummaryRepository.Insert(lastWeekStart, result, "weekly", "auto");
                 }
@@ -122,11 +125,13 @@ public partial class MainWindow
                     // 调用 AI 服务异步生成月报正文
                     string? result = await aiService.GenerateMonthlySummary(lastMonthStart);
                     Logger.Info($"上月总结生成结果：{(result != null ? "成功" : "null")}");
+                    // 同上：返回 null 表示生成失败，不写记录以便下次启动重试补算
                     if (result != null)
                         AISummaryRepository.Insert(lastMonthStart, result, "monthly", "auto");
                 }
                 else
                 {
+                    // 无活动也写占位文案：避免报表页切到该月时一直显示"正在进行"（与周报处理一致）
                     AISummaryRepository.Insert(lastMonthStart, "本月没有活动记录。", "monthly", "auto");
                 }
             }

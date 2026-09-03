@@ -15,7 +15,7 @@ using System.Windows;
 using System.Windows.Controls;
 // 画刷与颜色类型（Brushes/Color，图表配色辅助）
 using System.Windows.Media;
-// Shape 图元（Polyline/Ellipse 等，ChartRenderer 绘制折线所依赖）
+// Shape 图元（Line/Ellipse 等，ChartRenderer 绘制折线与圆点所依赖）
 using System.Windows.Shapes;
 // 项目内：数据仓储层（活动记录 / 每日汇总 / 分类 / AI 总结）
 using TimeActivity.Data;
@@ -38,10 +38,12 @@ namespace TimeActivity;
 // 职责：
 //   1) 日/周/月三档周期切换与前后翻页，计算对应日期范围；
 //   2) 类别占比、每日趋势折线图、Top 应用排行的数据聚合与渲染调度；
-//   3) 分类筛选（多选高亮）；
-//   4) AI 总结的展示/手动生成（日/周 manual；历史周/月 auto）。
-// 协作对象：ActivityRepository(数据聚合)、AISummaryRepository/AISummaryService(AI)、
-//           ChartRenderer(折线图)、CategoryColorHelper(颜色)、DateHelper(周期边界)。
+//   3) 分类筛选：下拉框单选分类后按新条件重新聚合（选中具体分类时，日模式的占比栏整段隐藏）；
+//   4) AI 总结的展示/手动生成（当前期查 manual；历史日期回退 auto）；
+//   5) 「跳过空闲」开关：日模式对所有明细聚合生效；周/月模式因预汇总表建表时已剔除空闲，只影响趋势图取哪一列。
+// 协作对象：ActivityRepository/DailySummaryRepository(聚合：日模式扫明细表、周/月读每日预汇总表)、
+//           AISummaryRepository/AISummaryService(AI 总结)、ChartRenderer(占比条/趋势折线/Top 三张图)、
+//           CategoryColorHelper(分类配色)、CategoryRepository(下拉数据源)、DateHelper(周起始边界)。
 // ============================================================================
 public partial class StatisticsPage : Page
 {
@@ -52,16 +54,16 @@ public partial class StatisticsPage : Page
     private DateTime _periodStart = DateTime.Today;
 
     // 分类颜色助手与图表渲染器
-    private CategoryColorHelper _colorHelper = new();
-    private ChartRenderer _chartRenderer;
+    private CategoryColorHelper _colorHelper = new(); // 从 Categories 表读取“分类→颜色”，图表取色统一走它
+    private ChartRenderer _chartRenderer;             // 负责占比条 / 趋势折线 / Top 应用的绘制
 
     // 分类名 → 颜色十六进制字符串
-    private Dictionary<string, string> _categoryColors = new();
+    private Dictionary<string, string> _categoryColors = new(); // “分类名 → #RRGGBB”，Load() 一次建好后长期复用
 
     // 缓存趋势数据，窗口 SizeChanged 时重绘用
-    private Dictionary<string, int> _cachedDailyData = new();
-    private DateTime _cachedRangeStart;
-    private DateTime _cachedRangeEnd;
+    private Dictionary<string, int> _cachedDailyData = new(); // 最近一次聚合的“日期(yyyy-MM-dd) → 当日秒数”
+    private DateTime _cachedRangeStart;                       // 缓存趋势数据的起始日期
+    private DateTime _cachedRangeEnd;                         // 缓存趋势数据的结束日期
 
     /// <summary>
     /// 构造函数：初始化颜色、图表渲染器，加载分类筛选和默认数据
@@ -72,7 +74,7 @@ public partial class StatisticsPage : Page
         _categoryColors = _colorHelper.Load();    // 预载分类颜色
         _chartRenderer = new ChartRenderer(_colorHelper); // 创建折线图渲染器
         LoadCategoryFilter();                     // 构建分类筛选复选框
-        RbDay.IsChecked = true; // 默认选日模式（触发周期切换事件）
+        RbDay.IsChecked = true; // 默认勾选「日」，保证控件态与 _period="day" 一致（页面未加载，即便触发 Checked 事件也会被 IsLoaded 挡掉）
         UpdateRange();                            // 计算并显示日期范围 + 载入 AI 总结
         LoadData();                               // 加载图表与排行数据
     }
@@ -176,16 +178,17 @@ public partial class StatisticsPage : Page
     /// </summary>
     private bool IsCurrentPeriod()
     {
+        // 先算出当前查看周期的边界（对周/月比较才有意义）
         var (start, end) = GetRange();
         if (_period == "day") // 日模式：就是今天
-            return _periodStart == DateTime.Today;
+            return _periodStart == DateTime.Today; // 参考日恰为今天，即处于“当前”
         if (_period == "week") // 周模式：起始等于本周一
         {
-            var todayWeekStart = DateHelper.GetWeekStart(DateTime.Today);
-            return start == todayWeekStart;
+            var todayWeekStart = DateHelper.GetWeekStart(DateTime.Today); // 本周一（须与 GetRange 里的周一算法保持一致）
+            return start == todayWeekStart; // 本周期起点是本周一 ⇒ 正在查看本周
         }
         // month: 年月均与当前一致
-        return _periodStart.Year == DateTime.Today.Year && _periodStart.Month == DateTime.Today.Month;
+        return _periodStart.Year == DateTime.Today.Year && _periodStart.Month == DateTime.Today.Month; // 同年同月才算“当前月”
     }
 
 
@@ -196,10 +199,10 @@ public partial class StatisticsPage : Page
     private void LoadAISummary()
     {
         // 切换周期时重置按钮文字（避免"正在生成..."串到其他周期）
-        bool currentGen = _generatingByPeriod.TryGetValue(_period, out bool g) && g;
-        if (currentGen && _generatingPeriod == _period)
+        bool currentGen = _generatingByPeriod.TryGetValue(_period, out bool g) && g; // 只读“切换后新周期”自己的生成标志
+        if (currentGen && _generatingPeriod == _period) // 新周期确实正处于生成中，这个提示才成立
             BtnGenerateAI.Content = "正在生成...";
-        else
+        else // 该周期空闲（或上次生成已结束）→ 恢复成可点击的常规文案
             BtnGenerateAI.Content = "生成总结";
 
         string summaryType = _period switch { "week" => "weekly", "month" => "monthly", _ => "daily" }; // 周期 → 库中类型标识
@@ -291,7 +294,7 @@ public partial class StatisticsPage : Page
     /// </summary>
     private static string FormatSummaryTime(string? createdAt)
     {
-        if (string.IsNullOrEmpty(createdAt)) return "";
+        if (string.IsNullOrEmpty(createdAt)) return ""; // 部分旧记录没存 CreatedAt，直接当空处理
         try
         {
             // CreatedAt 格式：yyyy-MM-dd HH:mm:ss.fff
@@ -300,7 +303,7 @@ public partial class StatisticsPage : Page
             // 输出形如「8/3 20:30 总结」的简短时间戳
             return $"{dt:M/d} {dt:HH:mm} 总结";
         }
-        catch (Exception ex) { Logger.Error("格式化总结时间失败", ex); return ""; }
+        catch (Exception ex) { Logger.Error("格式化总结时间失败", ex); return ""; } // 异常兜底：不中断展示流程
     }
 
     /// <summary>
@@ -375,14 +378,14 @@ public partial class StatisticsPage : Page
     private void LoadCategoryFilter()
     {
         CategoryFilter.Items.Clear(); // 清空旧选项
-        var allItem = new ComboBoxItem { Content = "全部分类", Tag = "", IsSelected = true }; // 第一项=不过滤
-        CategoryFilter.Items.Add(allItem);
+        var allItem = new ComboBoxItem { Content = "全部分类", Tag = "", IsSelected = true }; // 第一项=不过滤（约定 Tag 为空串）
+        CategoryFilter.Items.Add(allItem); // “全部分类”本身也占一个下拉项，用户可随时切回
         try
         {
-            var cats = CategoryRepository.GetAll(); // 逐个分类加入下拉
-            foreach (var cat in cats)
+            var cats = CategoryRepository.GetAll(); // 读全部分类（Categories 表），供下拉逐项添加
+            foreach (var cat in cats) // 遍历分类名
             {
-                CategoryFilter.Items.Add(new ComboBoxItem { Content = cat.Name, Tag = cat.Name });
+                CategoryFilter.Items.Add(new ComboBoxItem { Content = cat.Name, Tag = cat.Name }); // Content=显示名，Tag=分类名（供筛选比对）
             }
         }
         // 分类列表读取失败只记日志，保证页面其余功能可用
@@ -398,8 +401,8 @@ public partial class StatisticsPage : Page
     private void TrendCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         // 仅当缓存过趋势数据时才重绘（首次布局时避免画空图）
-        if (_cachedDailyData.Count > 0 || _cachedRangeStart != default)
-            _chartRenderer.DrawTrendChart(TrendCanvas, _cachedDailyData, _cachedRangeStart, _cachedRangeEnd);
+        if (_cachedDailyData.Count > 0 || _cachedRangeStart != default) // 区间已缓存即重绘（数据为空也能画空图而非白屏）
+            _chartRenderer.DrawTrendChart(TrendCanvas, _cachedDailyData, _cachedRangeStart, _cachedRangeEnd); // 按 LoadData 缓存的原范围重画
     }
 
     /// <summary>
@@ -407,85 +410,85 @@ public partial class StatisticsPage : Page
     /// </summary>
     private void LoadData()
     {
-        // 取当前周期的起止日期
+        // 取当前周期的起止日期（日=当天、周=周一~周日、月=1号~月末）
         var (start, end) = GetRange();
 
         // 是否包含空闲时段、是否筛选了某个分类
-        bool includeIdle = ChkSkipIdle.IsChecked != true;
-        string filterCategory = GetSelectedFilterCategory();
+        bool includeIdle = ChkSkipIdle.IsChecked != true; // “跳过空闲”勾选时置 false，查询端排除 IsIdle=1 的记录
+        string filterCategory = GetSelectedFilterCategory(); // 下拉选中的分类（空串=不过滤，统计全部分类）
 
         // 三份聚合结果：分类占比 / 进程(Top应用)排行 / 按日总量
-        Dictionary<string, int> catData;
-        Dictionary<string, int> procData;
-        Dictionary<string, int> dailyData;
+        Dictionary<string, int> catData;   // “分类名 → 秒数”，喂给占比条并求和成总时长
+        Dictionary<string, int> procData;  // “进程名 → 秒数”，喂给 Top 应用榜
+        Dictionary<string, int> dailyData; // “日期(yyyy-MM-dd) → 秒数”，喂给趋势折线图
 
         // ---------- 日模式：直查原始活动明细表 ----------
         if (_period == "day")
         {
-            // 日模式直接查原始活动表（数据量小，需要明细）
-            catData = ActivityRepository.GetCategorySummaryByRange(start, end, includeIdle);  // 分类聚合
-            procData = ActivityRepository.GetProcessSummaryByRange(start, end, includeIdle);  // 进程聚合
-            dailyData = ActivityRepository.GetDailyTotalsByRange(start, end, includeIdle);    // 每日总量
+            // 日模式直接在明细表 Activities 上做 SQL 聚合（单日范围扫描量小，重载时永远拿到最新数据）
+            catData = ActivityRepository.GetCategorySummaryByRange(start, end, includeIdle);  // 分类聚合（includeIdle=false 时 SQL 追加 IsIdle=0）
+            procData = ActivityRepository.GetProcessSummaryByRange(start, end, includeIdle);  // 进程聚合（Top 应用源数据）
+            dailyData = ActivityRepository.GetDailyTotalsByRange(start, end, includeIdle);    // 逐日总量（日模式范围仅一天，故只产出今天这一行）
 
             // 筛选了特定分类时，只保留该分类的数据
             if (!string.IsNullOrEmpty(filterCategory))
             {
                 catData = catData.Where(k => k.Key == filterCategory)
-                    .ToDictionary(k => k.Key, v => v.Value);          // 类别占比只留选中项
-                procData = FilterProcessByCategory(start, end, filterCategory); // 进程按分类重新聚合
+                    .ToDictionary(k => k.Key, v => v.Value);          // 类别占比只留选中项（下方总时长也随之只算选中分类）
+                procData = FilterProcessByCategory(start, end, filterCategory); // 进程排行必须回明细重算：DailyProcessSummary 每天每进程只存主分类，按分类筛会漏掉次要分类的时长
             }
         }
-        // ---------- 周/月模式：改读每日汇总表（扫描量小、速度更快） ----------
+        // ---------- 周/月模式：改读每日汇总表（扫描行数少、聚合更快） ----------
         else
         {
-            // 周/月模式读每日汇总表（大幅减少扫描行数，性能好）
-            catData = DailySummaryRepository.GetCategorySummary(start, end);
-            dailyData = DailySummaryRepository.GetDailyTotals(start, end, includeIdle);
+            // 周/月模式读每日预汇总表：把 N 天的二次聚合折到“天×分类/进程”的行数上，避开明细表全表扫描
+            catData = DailySummaryRepository.GetCategorySummary(start, end); // 分类汇总（该表生成时已剔除空闲，故本接口没有 includeIdle 参数）
+            dailyData = DailySummaryRepository.GetDailyTotals(start, end, includeIdle); // 趋势数据：includeIdle 决定取 TotalSeconds 还是 TotalActiveSeconds 列
 
             // Top 应用：有筛选则按类别查，否则查全部
             procData = DailySummaryRepository.GetProcessSummary(start, end,
-                string.IsNullOrEmpty(filterCategory) ? null : filterCategory);
+                string.IsNullOrEmpty(filterCategory) ? null : filterCategory); // 分类条件直接下推到 SQL 过滤（进程表同样只存活跃秒数）
 
             // 类别筛选时只保留选中的类别
             if (!string.IsNullOrEmpty(filterCategory))
             {
-                catData = catData.Where(k => k.Key == filterCategory)
-                    .ToDictionary(k => k.Key, v => v.Value);
+                catData = catData.Where(k => k.Key == filterCategory) // 占比条与总时长只认选中分类
+                    .ToDictionary(k => k.Key, v => v.Value);          // 重建字典，丢弃选中分类之外的条目
             }
         }
 
         // 计算总时长并显示
-        int totalSeconds = catData.Values.Sum();      // 各分类之和即总活跃秒数
+        int totalSeconds = catData.Values.Sum();      // 各分类求和=展示用总秒数（未勾“跳过空闲”时会把空闲一并算入）
         // 把总秒数转成 TimeSpan 便于拆解小时与分钟
         TimeSpan ts = TimeSpan.FromSeconds(totalSeconds);
 
-        TotalText.Text = $"总活跃时长：{ts.Hours + ts.Days * 24}h{ts.Minutes}m"; // 跨天折算小时
+        TotalText.Text = $"总活跃时长：{ts.Hours + ts.Days * 24}h{ts.Minutes}m"; // 跨天折算：TimeSpan 的天数部分摊进小时
 
         // 补充信息：日均时长
         if (_period == "day") // 日模式无需日均
-            DetailText.Text = "";
+            DetailText.Text = ""; // 副文案留空
         else if (_period == "week") // 周均摊 7 天
-            DetailText.Text = $"日均：{totalSeconds / 7 / 3600}h{totalSeconds / 7 % 3600 / 60}m";
-        else
+            DetailText.Text = $"日均：{totalSeconds / 7 / 3600}h{totalSeconds / 7 % 3600 / 60}m"; // 周总秒数÷7 得日均再拆 h/m（整除会丢弃余秒）
+        else // 月模式：按当月实际天数均摊
         {
-            int days = DateTime.DaysInMonth(start.Year, start.Month); // 月按实际天数均摊
-            DetailText.Text = $"日均：{totalSeconds / days / 3600}h{totalSeconds / days % 3600 / 60}m";
+            int days = DateTime.DaysInMonth(start.Year, start.Month); // 月按实际天数均摊（大小月/闰年天数不同）
+            DetailText.Text = $"日均：{totalSeconds / days / 3600}h{totalSeconds / days % 3600 / 60}m"; // 天均秒数 → h/m（整除丢弃余秒）
         }
 
         // 日模式筛选了某分类时隐藏类别占比栏（因为只有一个分类没意义）
         if (_period == "day" && !string.IsNullOrEmpty(filterCategory))
-            CategorySection.Visibility = Visibility.Collapsed;
+            CategorySection.Visibility = Visibility.Collapsed; // 收掉占比栏：单分类时展示它只会是恒定的 100%
         else
-            CategorySection.Visibility = Visibility.Visible;
+            CategorySection.Visibility = Visibility.Visible;   // 周/月模式或未筛分类时占比栏照常展示
 
         // 画各类图表
         _chartRenderer.DrawCategoryBars(CategoryBarsPanel, catData, totalSeconds); // 类别占比条
 
         // 缓存趋势数据，SizeChanged 时重绘
-        _cachedDailyData = dailyData;
-        _cachedRangeStart = start;
-        _cachedRangeEnd = end;
-        _chartRenderer.DrawTrendChart(TrendCanvas, dailyData, start, end); // 每日趋势折线
+        _cachedDailyData = dailyData; // 逐日秒数（供重绘复用）
+        _cachedRangeStart = start;    // 范围起点
+        _cachedRangeEnd = end;        // 范围终点
+        _chartRenderer.DrawTrendChart(TrendCanvas, dailyData, start, end); // 按当前日期范围画逐日趋势折线
 
         _chartRenderer.DrawTopApps(TopAppsPanel, procData); // Top 应用排行
     }
@@ -493,9 +496,9 @@ public partial class StatisticsPage : Page
     /// <summary>读取筛选下拉当前选中的分类名（"" 表示不过滤）。</summary>
     private string GetSelectedFilterCategory()
     {
-        if (CategoryFilter?.SelectedItem is ComboBoxItem item)
-            return item.Tag?.ToString() ?? "";
-        return "";
+        if (CategoryFilter?.SelectedItem is ComboBoxItem item) // 空条件运算符兼作类型判断（防止控件未初始化）
+            return item.Tag?.ToString() ?? ""; // Tag 里存的就是分类名；空 Tag 也按“不过滤”处理
+        return ""; // 未选中任何项或控件不可用时的兜底：一律视为不过滤
     }
 
     /// <summary>分类筛选变化：重新加载数据与图表。</summary>
@@ -519,16 +522,17 @@ public partial class StatisticsPage : Page
     /// </summary>
     private Dictionary<string, int> FilterProcessByCategory(DateTime start, DateTime end, string category)
     {
-        // 日模式 start==end，查询需要 end+1 天
-        DateTime queryEnd = start.Date == end.Date ? end.AddDays(1) : end;
+        // 日模式 start==end；GetByRange 是左闭右开 [start,end)，要覆盖一整天必须把上界推后一天
+        DateTime queryEnd = start.Date == end.Date ? end.AddDays(1) : end; // 只有“同一天”才 +1，多日区间直接沿用 end
         // 拉取区间内的原始活动明细记录
         var activities = ActivityRepository.GetByRange(start, queryEnd);
         // LINQ 管道：过滤指定分类 → 按进程分组 → 组内时长求和 → 时长降序 → 转字典
+        // 末尾 ToDictionary 在 .NET 实际按插入序迭代，DrawTopApps 直接 Take(15)，此处的降序即最终榜单顺序
         return activities
-            .Where(a => a.Category == category)
-            .GroupBy(a => a.ProcessName)
-            .OrderByDescending(g => g.Sum(a => a.Duration))
-            .ToDictionary(g => g.Key, g => g.Sum(a => a.Duration));
+            .Where(a => a.Category == category)      // 只留属于选中分类的活动
+            .GroupBy(a => a.ProcessName)             // 按进程名分组
+            .OrderByDescending(g => g.Sum(a => a.Duration)) // 组总时长降序，榜首排最前
+            .ToDictionary(g => g.Key, g => g.Sum(a => a.Duration)); // 进程名 → 区间总秒数
     }
 
     /// <summary>
@@ -569,30 +573,30 @@ public partial class StatisticsPage : Page
         AISummaryText.Markdown = "正在生成...";
 
         // 锁定当前周期，防止 await 期间用户切换页面导致结果串台
-        var (lockRangeStart, _) = GetRange();
-        DateTime lockPeriodStart = lockRangeStart;
-        _generatingPeriod = lockPeriod;
+        var (lockRangeStart, _) = GetRange(); // 只取范围起点：周=本周一、月=本月1号（AI 总结按该日期键入库/查询）
+        DateTime lockPeriodStart = lockRangeStart; // 把起点固化为本地快照，供 await 结束后与“当时的周期”比对
+        _generatingPeriod = lockPeriod;            // 全局标记“正在生成 lockPeriod”，配合防重复与防串台
 
         try
         {
             var aiService = new AISummaryService(); // 每次新建（读取最新 API 配置）
 
             // 根据锁定的周期调对应方法
-            string? result;
-            if (lockPeriod == "day")
+            string? result; // 承接生成结果：成功返回 Markdown 正文，配置缺失/网络失败时可能为 null
+            if (lockPeriod == "day") // 日：当天总结
                 result = await aiService.GenerateDailySummary(lockPeriodStart);
-            else if (lockPeriod == "week")
+            else if (lockPeriod == "week") // 周：整周总结（按周一 0 点取数）
                 result = await aiService.GenerateWeeklySummary(lockPeriodStart);
-            else
+            else // 月：整月总结（按本月 1 号 0 点取数）
                 result = await aiService.GenerateMonthlySummary(lockPeriodStart);
 
             if (result != null) // 生成成功
             {
-                _currentAISummary = result;
+                _currentAISummary = result; // 正文先缓存到内存（刷新展示与后续落盘都基于它）
 
                 // 存入数据库
-                string summaryType = lockPeriod switch { "week" => "weekly", "month" => "monthly", _ => "daily" };
-                AISummaryRepository.Insert(lockPeriodStart, result, summaryType, "manual");
+                string summaryType = lockPeriod switch { "week" => "weekly", "month" => "monthly", _ => "daily" }; // 周期标识 → 库内类型字面量
+                AISummaryRepository.Insert(lockPeriodStart, result, summaryType, "manual"); // 手动来源入库；Insert 按(日期,类型,来源)先删后插，只留最新一条
 
                 // 自动保存到文件（按日期分文件夹，每次保留不覆盖）
                 string? savePath = null;
@@ -627,7 +631,7 @@ public partial class StatisticsPage : Page
         finally
         {
             _generatingByPeriod[lockPeriod] = false; // 复位该类型生成标志
-            _generatingPeriod = null;
+            _generatingPeriod = null;                // 清空“正在生成”的全局标记，解除防串台状态
             // 只有用户还在当前周期才重置按钮文字（否则由 LoadAISummary 管理）
             if (lockPeriod == _period)
                 BtnGenerateAI.Content = "生成总结";

@@ -43,6 +43,7 @@ public partial class SettingsWindow
         try
         {
             var cats = CategoryRepository.GetAll(); // 读库
+            // 遍历时保留 Id / SortOrder 原值：Id≤0 表示"尚未落库的新增行"，保存时靠它区分插入还是更新
             foreach (var cat in cats)
             {
                 // 数据模型 → 显示模型 一一转换
@@ -59,7 +60,7 @@ public partial class SettingsWindow
 
         // CbxRuleFilter 已移除(新方案用折叠面板)
 
-        LoadCategorySidebar();
+        LoadCategorySidebar(); // 分类有增删/改名时侧边栏要同步重建
     }
 
     /// <summary>
@@ -69,10 +70,11 @@ public partial class SettingsWindow
     private void LoadCategorySidebar()
     {
         if (CategorySidebar == null) return; // 控件未就绪
-        var sidebarItems = new ObservableCollection<CategoryItem>();
+        var sidebarItems = new ObservableCollection<CategoryItem>(); // 全新重建一个集合，稍后整体替换 ItemsSource
         // 从内存 _allRules 算 Count(如果已加载),否则查一次数据库
         if (_allRules.Count > 0)
         {
+            // 规则已在内存缓存里：直接按分类名比对计数，避免再查一次库
             foreach (var c in _categories)
             {
                 int count = _allRules.Count(r => r.CategoryName == c.Name); // 内存统计规则数
@@ -82,13 +84,14 @@ public partial class SettingsWindow
         else
         {
             var dbRules = RuleRepository.GetAll(); // 兜底：查库统计
+            // 规则还没加载过，Rule 实体尚未映射出 CategoryName，只能用 CategoryId 外键比对
             foreach (var c in _categories)
             {
                 int count = dbRules.Count(r => r.CategoryId == c.Id);
                 sidebarItems.Add(new CategoryItem { Id = c.Id, Name = c.Name, Color = c.Color, SortOrder = c.SortOrder, Count = count });
             }
         }
-        CategorySidebar.ItemsSource = sidebarItems;
+        CategorySidebar.ItemsSource = sidebarItems; // 侧边栏整体刷新：每项显示 色块+分类名+规则数
     }
 
     /// <summary>
@@ -102,6 +105,7 @@ public partial class SettingsWindow
     {
         var expander = new Expander
         {
+            // Header 复用 CreateCategoryHeader：色块+加粗分类名+该分类的规则条数
             Header = CreateCategoryHeader(cat, rules.Count),
             IsExpanded = forceExpand, // 搜索时全部展开,否则默认折叠
             Margin = new Thickness(0, 0, 0, 4),
@@ -115,8 +119,10 @@ public partial class SettingsWindow
         expander.Expanded += (s, e) =>
         {
             if (expander.Tag as string == "search") return; // 搜索模式不折叠
+            // 遍历规则面板的所有子元素，把其它普通分组收起来，保证同时只展开一个
             foreach (var child in RulesPanel.Children)
             {
+                // 自己不动；同样带 "search" 标记的搜索结果分组也不被动
                 if (child is Expander other && other != expander && other.Tag as string != "search")
                     other.IsExpanded = false;
             }
@@ -129,7 +135,7 @@ public partial class SettingsWindow
             var row = CreateAppRow(rule); // 逐条构建应用行
             itemsPanel.Children.Add(row);
         }
-        expander.Content = itemsPanel;
+        expander.Content = itemsPanel; // 行列表装配成可折叠内容
 
         return expander;
     }
@@ -139,6 +145,7 @@ public partial class SettingsWindow
     /// </summary>
     private StackPanel CreateCategoryHeader(CategoryItem cat, int count)
     {
+        // 头容器：横向排布 分类色块 + 加粗分类名 + 灰色规则数（左右留少量边距）
         var header = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 2) };
 
         var colorBox = new Border // 分类颜色小方块
@@ -196,19 +203,19 @@ public partial class SettingsWindow
         // 行内横向排布：勾选框 + 图标 + 名称
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
 
-        // CheckBox
+        // CheckBox：勾选态按当前多选集合初始化，保证面板重建（如搜索/拖拽后）勾选状态不丢
         var checkbox = new CheckBox
         {
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 6, 0),
-            IsChecked = _selectedProcessNames.Contains(rule.ProcessName),
-            Tag = rule.ProcessName,
+            IsChecked = _selectedProcessNames.Contains(rule.ProcessName), // 集合里已有该进程 → 初始为勾选
+            Tag = rule.ProcessName, // Tag 携带进程名，勾选事件和拖拽都靠它识别是哪一行
         };
-        checkbox.Checked += AppCheckbox_Changed;
+        checkbox.Checked += AppCheckbox_Changed;   // 勾选与取消共用同一处理器，内部按 IsChecked 增删集合
         checkbox.Unchecked += AppCheckbox_Changed;
         panel.Children.Add(checkbox);
 
-        // 图标
+        // 图标：IconExtractor 有缓存，多次重建面板不会反复取文件图标
         if (icon != null)
         {
             var img = new Image
@@ -232,10 +239,10 @@ public partial class SettingsWindow
                 Background = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
                 CornerRadius = new CornerRadius(2)
             };
-            panel.Children.Add(placeholder);
+            panel.Children.Add(placeholder); // 灰色小方块，尺寸与真实图标一致，保持行高对齐
         }
 
-        // 友好名
+        // 友好名：取不到友好名时 AppDisplayName 会退回进程名本身
         var nameText = new TextBlock
         {
             Text = displayName,
@@ -263,7 +270,7 @@ public partial class SettingsWindow
             else // 取消 → 移出集合
                 _selectedProcessNames.Remove(procName);
             UpdateSelectionMode(); // 更新按钮显隐
-            MarkChanged();         // 勾选本身也视为更改（会随保存写库）
+            MarkChanged();         // 走统一脏标记；是否真产生可保存差异由 CheckHasChanges 比对快照裁定（仅勾选不改分类名时不会算变更）
         }
     }
 

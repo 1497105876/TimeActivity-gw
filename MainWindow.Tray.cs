@@ -41,6 +41,8 @@ public partial class MainWindow
     {
         try
         {
+            // 全部键一次性写入（SetMany 单事务），避免逐条 Set 的多次连接开销
+            // 数值统一用 InvariantCulture 序列化：防止系统区域设置（小数分隔符、负数格式等）破坏"存→取"的往返解析
             var items = new System.Collections.Generic.KeyValuePair<string, string>[]
             {
                 new("Ui_CurrentDate", _currentDate.ToString("yyyy-MM-dd")),
@@ -121,6 +123,7 @@ public partial class MainWindow
         // 关闭按钮（非强制退出）→ 保存状态并放行关闭：窗口真正销毁，程序驻留托盘。
         // 与旧的 Hide 方案相比：WPF 可视树/统计页/数据缓存随窗口一起释放，后台内存更低；
         // 代价是从托盘打开需要重建窗口（约 0.5~1s），由 RestoreWindowState 找回体验。
+        // 走本分支必须同时满足：非托盘"退出"触发(forceClose=false) 且 设置允许最小化到托盘
         if (!_forceClose && SettingsRepository.Get("MinimizeToTray", "true") == "true")
         {
             SaveWindowState();   // 持久化日期/缩放/几何，供重建时恢复
@@ -129,7 +132,8 @@ public partial class MainWindow
         }
 
         // —— 真正退出的清理流程：按依赖顺序停掉全部后台服务 ——
-        // （这些单例同时被 AppServices 管理，此处提前停止以尽快落库最后一条活动）
+        // （这些单例同时被 AppServices 管理，此处提前停止以尽快落库最后一条活动；
+        //   不在此 Dispose 单例，统一留给 App.OnExit → AppServices.ShutdownAll 兜底，避免停止顺序冲突）
         _engine.Stop();           // 停止活动追踪轮询（会落库最后一条未完结活动）
         _screenshotService.Stop();// 停止定时截图服务
         _summaryScheduler.Stop(); // 停止日/周/月 AI 总结调度器

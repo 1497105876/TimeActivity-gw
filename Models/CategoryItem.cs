@@ -9,13 +9,15 @@ namespace TimeActivity.Models;
 /// 分类项 — 用于设置页分类管理显示
 /// </summary>
 /// <remarks>
-/// Category 的 UI 包装模型：附加"能否删除/规则计数/现成颜色值"等绑定便利属性；
+/// Category 的 UI 包装模型：附加"能否删除/规则计数/现成颜色值"等展示便利属性，
+/// 其中 Count/ColorValue 供左侧侧边栏绑定（见 SettingsWindow.xaml）；
 /// 展示型 POCO（不实现变更通知），修改后需手动保存才落库。
+/// 注意：新分类入库前 Id 为 0，此时 CanDelete（>13）同样为 false。
 /// </remarks>
 public class CategoryItem
 {
     /// <summary>数据库主键</summary>
-    /// <remarks>0 表示尚未入库的新分类；1~13 为预置分类不可删</remarks>
+    /// <remarks>0 表示尚未入库的新分类；1~13 为预置分类不可删（删除判断在 SaveCategories，见 MaxPresetCategoryId）</remarks>
     public int Id { get; set; }
 
     /// <summary>十六进制颜色字符串</summary>
@@ -30,7 +32,7 @@ public class CategoryItem
     public int SortOrder { get; set; }
 
     /// <summary>预置分类（Id 1-13）不可删，自定义分类可以</summary>
-    /// <remarks>计算属性：以 Id 魔数 13 作为预置/自定义分界</remarks>
+    /// <remarks>计算属性：以魔数 13 作分界，等价于 CategoryRepository.MaxPresetCategoryId 的语义</remarks>
     public bool CanDelete => Id > 13;
 
     /// <summary>该分类下有多少条规则（用于侧边栏显示）</summary>

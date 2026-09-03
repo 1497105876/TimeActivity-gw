@@ -50,23 +50,26 @@ public partial class SettingsWindow
                 foreach (var r in rules)
                 {
                     // 只展示用户用过的应用
+                    // 库里躺着大量规则但用户从未运行过 → 不占界面；等真用到了下次进来自然出现
                     if (!usedProcesses.Contains(r.ProcessName)) continue;
                     var cat = _categories.FirstOrDefault(c => c.Id == r.CategoryId); // 规则→分类名
                     ruleItems.Add(new RuleItem
                     {
-                        Id = r.Id,
+                        Id = r.Id,                          // 原样保留，便于保存时定位是更新哪条
                         ProcessName = r.ProcessName ?? "",
-                        TitleKeyword = r.TitleKeyword ?? "",
-                        CategoryName = cat?.Name ?? "",
+                        TitleKeyword = r.TitleKeyword ?? "", // 窗口标题关键字：匹配到标题也算进该分类
+                        CategoryName = cat?.Name ?? "",     // 转为分类名；界面上的增删改都围绕这个名字
                         IsCustom = r.IsCustom
                     });
                 }
                 // 用户用过但没有规则匹配的进程，显示为"未分类"
                 var ruledProcessNames = new HashSet<string>(rules.Select(r => r.ProcessName), StringComparer.OrdinalIgnoreCase);
+                // 大小写不敏感去重：Windows 进程名匹配不区分大小写
                 foreach (var proc in usedProcesses)
                 {
                     if (!ruledProcessNames.Contains(proc)) // 该进程没有任何规则
                     {
+                        // 占位行 Id=0：用户把"未分类"项拖到某分类后，这条会变成新规则入库
                         ruleItems.Add(new RuleItem
                         {
                             Id = 0,               // 0 表示尚未入库的占位规则

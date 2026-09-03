@@ -167,6 +167,7 @@ public partial class SettingsWindow
         if (TxtApiKey == null || TxtApiKeyPlain == null) return; // XAML 未就绪
         if (TglShowKey.IsChecked == true)
         {
+            // 切到明文：把密文值搬到普通 TextBox，两个输入框显隐对调，按钮文案同步换
             TxtApiKeyPlain.Text = TxtApiKey.Password;   // 密文 → 明文
             TxtApiKey.Visibility = Visibility.Collapsed;
             TxtApiKeyPlain.Visibility = Visibility.Visible;
@@ -174,6 +175,7 @@ public partial class SettingsWindow
         }
         else
         {
+            // 切回密文：普通框的值搬回 PasswordBox，来回切换不丢内容
             TxtApiKey.Password = TxtApiKeyPlain.Text;   // 明文 → 密文
             TxtApiKeyPlain.Visibility = Visibility.Collapsed;
             TxtApiKey.Visibility = Visibility.Visible;
@@ -205,6 +207,7 @@ public partial class SettingsWindow
         try
         {
             // 调服务层探测 /models 端点（带 Key）
+            // 取的是界面上刚填的地址与 Key，即使还没点保存也按当前输入探测
             var (ok, status, models, err) = await AISummaryService.TryFetchModelsAsync(apiUrl, GetKeyInput());
             if (!ok) // 失败分支：区分网络异常与 HTTP 错误
             {
@@ -215,7 +218,7 @@ public partial class SettingsWindow
             // 模型名排序后逐项加入下拉
             foreach (var m in models.OrderBy(x => x))
                 CbxAIModel.Items.Add(new ComboBoxItem { Content = m });
-            TxtAITestResult.Text = $"HTTP {status} · 获取到 {models.Count} 个模型";
+            TxtAITestResult.Text = $"HTTP {status} · 获取到 {models.Count} 个模型"; // 成功摘要写进结果区
             if (models.Count == 0) // 空列表：提示可手输
                 TxtAITestResult.Text += "（列表为空，可手输模型名）";
         }
@@ -264,9 +267,9 @@ public partial class SettingsWindow
                 // 按状态码给出针对性提示
                 string hint = status switch
                 {
-                    401 or 403 => "（Key 无效或无权限）",
-                    404 => "（地址可能缺少 /v1 或服务未开启兼容端点）",
-                    _ => ""
+                    401 or 403 => "（Key 无效或无权限）",   // 鉴权类错误最常见的两种
+                    404 => "（地址可能缺少 /v1 或服务未开启兼容端点）", // 端点拼错/服务没开 OpenAI 兼容口
+                    _ => ""                                 // 其余状态码不做特别解释，原文展示
                 };
                 TxtAITestResult.Text = $"❌ HTTP {status} {hint} · 端点:{AISummaryService.BuildModelsEndpoint(apiUrl)}";
                 return;
@@ -316,6 +319,7 @@ public partial class SettingsWindow
             int w = ScreenshotService.GetScreenWidth();   // 当前屏幕宽
             int h = ScreenshotService.GetScreenHeight(); // 当前屏幕高
             double ratio = (double)(w * h) / (2560 * 1440); // 面积比
+            // 基准估算值按"实际面积/2560x1440 面积"等比缩放，屏越大估得越大
             return (int)(GetEstPerShotKB() * ratio);      // 基准值×面积比
         }
         catch (Exception ex)

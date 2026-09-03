@@ -36,11 +36,14 @@ namespace TimeActivity.Services;
 public class SummaryScheduler
 {
     // 后台定时器；用一次性触发 + 每次重新排程的方式，避免间隔漂移、也天然兼容夏令时/手动改时钟
+    /// <summary>一次性定时器：到点后由 OnTick 重新排到下一个 0:00（period 设为 Infinite，绝不重复自触发）。</summary>
     private System.Threading.Timer? _timer;
     // 运行标志：Start 后为 true、Stop 后为 false，用于让迟到的定时器回调自行退出
+    /// <summary>调度器是否在运行：true 才允许排程与触发；Stop 置 false 让迟到回调自觉放弃。</summary>
     private bool _running;
 
     // 启动/补算时最多回补最近 7 天日报，避免冷启动（程序长期没开）猛调一堆 AI
+    /// <summary>日报补算窗口：最多回填最近 7 天（昨天往前数），超过的旧缺日报不再补，防止攒太久一次调爆 AI。</summary>
     private const int DailyBackfillDays = 7;
 
     // ==================== 启停与手动触发 ====================
@@ -52,6 +55,7 @@ public class SummaryScheduler
     {
         // 幂等保护：已在运行则忽略重复启动
         if (_running) return;
+        // 先置运行标志再排程：ScheduleNext 内部会检查 _running，不置它则定时器永远排不上
         _running = true;
 
         // 启动即补：把错过的总结任务一次性补齐（程序可能没在 0:00 运行）
@@ -60,6 +64,7 @@ public class SummaryScheduler
 
         // 排定下一个 0:00 的定时触发
         ScheduleNext();
+        // 启动日志：便于运维确认调度器确实跑起来了
         Logger.Info("AI 总结定时调度已启动（每天 0:00 检查 日/周/月）");
     }
 
@@ -94,6 +99,7 @@ public class SummaryScheduler
         var now = DateTime.Now;
         // 今天 0:00 加一天 = 下一个 0:00
         var nextMidnight = now.Date.AddDays(1);
+        // 距下个 0:00 的剩余时长，即一次性定时器的触发延迟
         var due = nextMidnight - now;
         // 防御：极边界（due 极小或为负）时至少等 1 秒，避免误触成的密集触发
         if (due < TimeSpan.FromSeconds(1)) due = TimeSpan.FromSeconds(1);
@@ -151,6 +157,7 @@ public class SummaryScheduler
                     {
                         // 入库：类型 daily、来源 auto，受唯一索引保护
                         AISummaryRepository.Insert(day, text, "daily", "auto");
+                        // 记一条成功日志，便于追溯"哪些日期是自动补出来的"
                         Logger.Info($"已自动生成每日总结：{day:yyyy-MM-dd}");
                     }
                 }
@@ -171,6 +178,7 @@ public class SummaryScheduler
                     {
                         // 入库：类型 weekly、来源 auto
                         AISummaryRepository.Insert(ws, text, "weekly", "auto");
+                        // 记录的是当周周一日期
                         Logger.Info($"已自动生成每周总结：{ws:yyyy-MM-dd}（当周周一）");
                     }
                 }
@@ -191,6 +199,7 @@ public class SummaryScheduler
                     {
                         // 入库：类型 monthly、来源 auto
                         AISummaryRepository.Insert(ms, text, "monthly", "auto");
+                        // 记录的是上月 1 号日期
                         Logger.Info($"已自动生成每月总结：{ms:yyyy-MM}（当月月初）");
                     }
                 }

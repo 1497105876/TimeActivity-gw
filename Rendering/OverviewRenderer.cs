@@ -40,27 +40,30 @@ public class OverviewRenderer
     // 与 TimelineRenderer 同策略：固定色静态冻结 + 动态色实例缓存，降低重绘分配
     private readonly Dictionary<Color, SolidColorBrush> _brushCache = new();
 
+    // 动态取色→画刷的统一入口：首次遇到某颜色才新建并 Freeze，此后同色直接复用
     private SolidColorBrush GetBrush(Color c)
     {
+        // 命中缓存直接返回，避免重绘时反复创建画刷对象
         if (_brushCache.TryGetValue(c, out var b)) return b;
-        var brush = new SolidColorBrush(c);
-        brush.Freeze();
-        _brushCache[c] = brush;
+        var brush = new SolidColorBrush(c); // 未命中：按颜色值新建一个画刷
+        brush.Freeze(); // Freeze 冻结：内容锁定，WPF 才能跨线程安全共享
+        _brushCache[c] = brush; // 登记进缓存，后续同色直接命中
         return brush;
     }
 
+    // 静态固定色的专用构造：初始化期一次性建立，用后即冻结，无需走缓存
     private static SolidColorBrush Frozen(Color c)
     {
-        var brush = new SolidColorBrush(c);
-        brush.Freeze();
+        var brush = new SolidColorBrush(c); // 按颜色值创建画刷
+        brush.Freeze(); // 固定色内容不可变，冻结后交给静态字段持有
         return brush;
     }
 
     // 概览条固定色（背景/视口框/刻度文字）
-    private static readonly SolidColorBrush BgBrush = Frozen(Color.FromRgb(0xE8, 0xE8, 0xE8));
-    private static readonly SolidColorBrush ViewportBorderBrush = Frozen(Color.FromRgb(0x33, 0x99, 0xFF));
-    private static readonly SolidColorBrush ViewportFillBrush = Frozen(Color.FromArgb(30, 0x33, 0x99, 0xFF));
-    private static readonly SolidColorBrush ScaleTextBrush = Frozen(Color.FromRgb(0xAA, 0xAA, 0xAA));
+    private static readonly SolidColorBrush BgBrush = Frozen(Color.FromRgb(0xE8, 0xE8, 0xE8)); // 无活动段的底色：浅灰
+    private static readonly SolidColorBrush ViewportBorderBrush = Frozen(Color.FromRgb(0x33, 0x99, 0xFF)); // 视口框描边：亮蓝
+    private static readonly SolidColorBrush ViewportFillBrush = Frozen(Color.FromArgb(30, 0x33, 0x99, 0xFF)); // 视口框内部填充：同蓝但 alpha=30，近似透明
+    private static readonly SolidColorBrush ScaleTextBrush = Frozen(Color.FromRgb(0xAA, 0xAA, 0xAA)); // 刻度数字文字：中浅灰
 
     /// <summary>
     /// 构造函数
@@ -97,12 +100,13 @@ public class OverviewRenderer
         // 圆角矩形铺满画布，充当无活动时段的底色
         var bg = new Rectangle
         {
-            Width = width,
-            Height = height,
+            Width = width, // 横向铺满整条概览
+            Height = height, // 纵向撑满（主窗口固定传 20px）
             Fill = BgBrush, // 冻结静态画刷（2026-08-25）
-            RadiusX = 3,
-            RadiusY = 3
+            RadiusX = 3, // 圆角 3px：视觉上更柔和
+            RadiusY = 3 // 与 RadiusX 配对，四个角都带圆角
         };
+        // 定位到画布左上角
         Canvas.SetLeft(bg, 0);
         Canvas.SetTop(bg, 0);
         canvas.Children.Add(bg);
@@ -146,20 +150,20 @@ public class OverviewRenderer
             {
                 foreach (var (x, w) in kv.Value)
                 {
-                    // 逐个追加闭合的四点矩形轮廓
-                    ctx.BeginFigure(new Point(x, 0), true, true);
-                    ctx.LineTo(new Point(x + w, 0), true, false);
-                    ctx.LineTo(new Point(x + w, height), true, false);
-                    ctx.LineTo(new Point(x, height), true, false);
+                    // 每个矩形按顺时针描 4 个顶点：左上→右上→右下→左下，由闭合标志收口
+                    ctx.BeginFigure(new Point(x, 0), true, true); // 起点取左上角 (x,0)
+                    ctx.LineTo(new Point(x + w, 0), true, false); // 顶边：向右走 w 到右上角
+                    ctx.LineTo(new Point(x + w, height), true, false); // 右边：下探到画布底部
+                    ctx.LineTo(new Point(x, height), true, false); // 底边：向左回到左下角
                 }
             }
             // 整体透明度 0.7 让底色微透，层次更好
             var path = new Path
             {
-                Data = geo,
+                Data = geo, // 前面拼好的 StreamGeometry 作为形状数据
                 Fill = GetBrush(kv.Key), // 冻结画刷缓存（2026-08-25）
-                Opacity = 0.7,
-                StrokeThickness = 0
+                Opacity = 0.7, // 0.7 不透明度：让灰底透出来，区分出空闲段
+                StrokeThickness = 0 // 无描边，只显示填充色块
             };
             Canvas.SetLeft(path, 0);
             Canvas.SetTop(path, 0);
@@ -177,12 +181,12 @@ public class OverviewRenderer
         // 蓝框：2px 描边 + alpha=30 浅蓝填充，标识当前查看的时间窗
         var viewport = new Border
         {
-            Width = viewW,
-            Height = height,
+            Width = viewW, // 视口宽（秒→像素）：越大表示当前看得越宽
+            Height = height, // 与概览条同高，覆盖整条
             BorderBrush = ViewportBorderBrush, // 冻结静态画刷（2026-08-25）
-            BorderThickness = new Thickness(2),
-            Background = ViewportFillBrush,
-            CornerRadius = new CornerRadius(2)
+            BorderThickness = new Thickness(2), // 四边各 2px 描边
+            Background = ViewportFillBrush, // 框内淡蓝填充
+            CornerRadius = new CornerRadius(2) // 描边圆角 2px
         };
         // ZIndex 拉到 100，确保盖在所有活动色块之上
         Panel.SetZIndex(viewport, 100);

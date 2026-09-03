@@ -82,17 +82,18 @@ public partial class SettingsWindow : Window
         if (!string.IsNullOrEmpty(initialSection))
         {
             // 分区名 → 导航索引（与 Navigation 部分类中的面板顺序一一对应）
+            // 主窗口可传 "rules" 等让设置窗直接落到对应页签（如统计页点规则入口时）
             int index = initialSection.ToLower() switch
             {
-                "tracking" => 0,
-                "screenshot" => 1,
-                "rules" => 2,
-                "categories" => 3,
-                "data" => 4,
-                "ai" => 5,
-                "system" => 6,
-                "io" => 7,
-                _ => -1
+                "tracking" => 0,   // 追踪设置页
+                "screenshot" => 1, // 截图设置页
+                "rules" => 2,      // 分类规则页（首次进入才延迟加载规则）
+                "categories" => 3, // 分类管理页
+                "data" => 4,       // 数据设置页
+                "ai" => 5,         // AI 设置页
+                "system" => 6,     // 系统设置页
+                "io" => 7,         // 导入/导出页
+                _ => -1            // 无法识别 → 不跳转，停在默认首页
             };
             if (index >= 0 && NavList != null) // 合法索引才切换
             {

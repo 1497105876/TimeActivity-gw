@@ -55,6 +55,8 @@ public static class RuleRepository
                 // 目标分类 Id
                 CategoryId = reader.GetInt32(3),
                 // 0/1 → bool：是否用户自定义
+                // GetBoolean 读的是 INTEGER 列，Microsoft.Data.Sqlite 按"非 0 即 true"转换，
+                // 所以库里万一存了 2 之类也会当 true
                 IsCustom = reader.GetBoolean(4)
             });
         }
@@ -104,9 +106,13 @@ public static class RuleRepository
         cmd.Parameters.AddWithValue("@P", processName);
         // 执行更新并取受影响行数
         int rows = cmd.ExecuteNonQuery();
+        // 受影响 0 行 ⇒ 库里没有这个进程名的规则
         if (rows == 0)
         {
             // 该进程名还没有规则，插入一条新的自定义规则
+            // 注意：Insert 内部会再开一条新连接（嵌套连接），本方法自己的 conn 此时还开着。
+            // 两条连接各写各的，不会死锁，但这次 INSERT 在旧连接的事务之外——
+            // 也就是如果调用方把 UpdateCategory 包在自己的事务里，这条新增记录不会跟着一起回滚
             Insert(processName, null, categoryId);
         }
     }

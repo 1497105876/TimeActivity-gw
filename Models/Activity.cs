@@ -9,7 +9,7 @@ namespace TimeActivity.Models;
 /// </summary>
 /// <remarks>
 /// 纯数据载体（POCO）：不实现 INotifyPropertyChanged，属性变更不会主动通知 UI；
-/// 时间均为本地时间，Duration 单位为秒，对应数据库 activities 表的一行。
+/// 时间均为本地时间，Duration 单位为秒，对应数据库 Activities 表的一行。
 /// </remarks>
 public class ActivityRecord
 {
@@ -34,7 +34,8 @@ public class ActivityRecord
     public DateTime StartTime { get; set; }
 
     /// <summary>活动结束时间（最后一条可能仍在进行中，等于当前时间）</summary>
-    /// <remarks>进行中的记录会随后续快照顺延更新；可能跨午夜（EndTime&lt;StartTime 当天表示）</remarks>
+    /// <remarks>可能跨午夜：StartTime 与 EndTime 分属两天，此时 EndTime 的当天秒偏移小于 StartTime 的偏移，
+    /// 渲染端据此判断跨段并 +86400s 修正（见 TimelineRenderer）；不按自然日切分，整条记在起始日</remarks>
     public DateTime EndTime { get; set; }
 
     /// <summary>持续秒数 = EndTime - StartTime</summary>

@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private readonly ScreenshotService _screenshotService;
 
     // AI 总结定时调度：每天 0:00 自动生成 日/周/月 总结，启动也会补算错过的（后台线程，不阻塞 UI）
+    // 注意：字段初始化里 new() 只是保证非空，构造函数中会立刻被 AppServices.Scheduler 覆盖为进程级单例
     private readonly SummaryScheduler _summaryScheduler = new();
 
     // 活动列表的数据源（ObservableCollection 支持双向绑定自动刷新）
@@ -74,7 +75,7 @@ public partial class MainWindow : Window
     private System.Windows.Threading.DispatcherTimer? _debounceTimer;
     private const int DebounceMs = 500;
 
-    // 自动刷新定时器：每 30 秒轻量刷新数据
+    // 自动刷新定时器：每 60 秒轻量刷新数据（构造函数里 Interval = 60s，与此保持一致）
     private System.Windows.Threading.DispatcherTimer? _autoRefreshTimer;
 
     // 当前日期的活动数据缓存
@@ -155,6 +156,8 @@ public partial class MainWindow : Window
         AppColorAllocator.LoadFromDb(); // 预载应用颜色表
 
         // 画图例并加载当天数据
+        // 顺序依赖：图例需要先就绪的颜色缓存；LoadDateData 走 isDateChange=true 的"切日语义"
+        // （重置高亮勾选、重建列表），保证首次进入与之后手动切日的行为完全一致
         DrawLegend();
         LoadDateData(_currentDate, isDateChange: true);
 
@@ -184,6 +187,7 @@ public partial class MainWindow : Window
             // 现检测系统日期变化：若界面停留在"跨天前的今天"（被动卡住），自动跳转到新的一天；
             // 用户主动浏览更早的历史日期则不打扰（_currentDate != 旧Today → 不跳）。
             var today = DateTime.Today;
+            // 系统日期已比"上次记录的今天"新 = 程序跨过了 0:00（进入新的一天），需要判断界面是否要跟着跳
             if (today != _lastKnownToday)
             {
                 // 判断是否正停留在"跨天前的今天"：是 → 跨天卡住，自动跳转
@@ -239,6 +243,8 @@ public partial class MainWindow : Window
             // 检查是否需要自动生成周/月总结
             _ = CheckAutoSummaryAsync();
 
+            // 注意：以下两个动作在"浏览历史日期"时也会执行 —— 它们以"系统今天"为基准，
+            // 与当前浏览的日期无关，属于全局性的每日例行任务
             // 每次自动刷新都更新当天的汇总（一天的数据量不大，GROUP BY 很快）
             try { DailySummaryRepository.GenerateForDate(DateTime.Today.ToDateKey()); }
             catch (Exception ex) { Logger.Error("自动刷新生成每日汇总失败", ex); }
@@ -276,6 +282,7 @@ public partial class MainWindow : Window
     public void ForceClose()
     {
         _forceClose = true;
+        // OnClosing 读到 _forceClose=true 才会走"停服务→真退出"，否则按"最小化到托盘"放行
         Close();
     }
 

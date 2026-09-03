@@ -89,8 +89,9 @@ public static class ActivityRepository
         var result = new List<ActivityRecord>();
         // 入参转 yyyy-MM-dd 键（忽略时间部分）
         string dateStr = date.ToDateKey();
-        // 用 date(StartTime) 提取日期部分做比较，省去时间部分的干扰
+        // 用 date(StartTimeUtc,'localtime') 提取日期部分做比较，省去时间部分的干扰
         // 口径说明：过滤基于 UTC 列换算出的本地日历日，跨零点归属与汇总统计一致
+        // 代价：列上包了函数就用不了索引，本查询是全表扫描
         const string sql = @"
             SELECT Id, ProcessName, WindowTitle, Category, StartTime, EndTime, Duration, IsIdle
             FROM Activities
@@ -155,9 +156,13 @@ public static class ActivityRepository
             ORDER BY StartTimeUtc";
 
         // 打开就绪连接并创建命令
-        using var conn = DbAccess.Open();
-        using var cmd = new SqliteCommand(sql, conn);
-        // 下界：本地→UTC 的 ISO 串（含）；命中 IX_Activities_StartTime 同构列序可走索引
+        using var conn = DbAccess.Open();           // 连接随方法结束释放
+        using var cmd = new SqliteCommand(sql, conn); // 命令复用该连接
+        // 下界：本地→UTC 的 ISO 串（含）
+        // 索引说明：StartTimeUtc 上没有建索引，这里的范围过滤与 ORDER BY StartTimeUtc 都走不了索引，
+        //          IX_Activities_StartTime 建在 StartTime（本地列）上，本查询用不到它
+        // ToUniversalTime 的前提：入参 Kind 为 Local 或 Unspecified（Unspecified 按本地处理）；
+        // 若传进来就是 Utc，转出来不变，边界仍然正确
         cmd.Parameters.AddWithValue("@Start", start.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"));
         // 上界：不含（左闭右开）
         cmd.Parameters.AddWithValue("@End", end.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"));
@@ -221,10 +226,11 @@ public static class ActivityRepository
         cmd.Parameters.AddWithValue("@DateStr", dateStr);
 
         // 逐行写入字典（第0列=分类名，第1列=总秒数）
+        // 有分组行就一定有 SUM 值，不会是 NULL，所以直接按 Int32 取
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
             result[reader.GetString(0)] = reader.GetInt32(1);
-        // 返回当日分类汇总
+        // 返回当日分类汇总；当天没有任何非空闲记录时返回的是空字典（而非 0），调用方需自行补零
         return result;
     }
 
@@ -259,7 +265,7 @@ public static class ActivityRepository
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
             result[reader.GetString(0)] = reader.GetInt32(1);
-        // 返回当日进程汇总
+        // 返回当日进程汇总；同样，无数据时是空字典
         return result;
     }
 
@@ -289,8 +295,9 @@ public static class ActivityRepository
         // includeIdle=false 时追加 IsIdle=0 过滤条件
         // 片段来自固定白名单字符串拼接，无注入风险
         string idleFilter = includeIdle ? "" : " AND IsIdle = 0";
-        // 用 date(StartTime) 取日期部分做范围比较
-        // 注意：对列包 date() 函数会使 IX_Activities_StartTime 失效，区间大时为全表扫描聚合
+        // 用 date(StartTimeUtc,'localtime') 取日期部分做范围比较
+        // 注意：列上包了函数之后任何索引都用不上（现有索引建在 StartTime 上，UTC 列根本没有索引），
+        //      所以区间聚合这三个方法在大区间下都是全表扫描
         string sql = $@"
             SELECT Category, SUM(Duration) AS TotalSeconds
             FROM Activities
@@ -299,8 +306,8 @@ public static class ActivityRepository
             ORDER BY TotalSeconds DESC";
 
         // 打开就绪连接并创建命令
-        using var conn = DbAccess.Open();
-        using var cmd = new SqliteCommand(sql, conn);
+        using var conn = DbAccess.Open();              // 连接随方法结束释放
+        using var cmd = new SqliteCommand(sql, conn);  // 命令复用该连接
         // 起始日期键（闭区间下界）
         cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
         // 结束日期键（闭区间上界）
@@ -310,7 +317,7 @@ public static class ActivityRepository
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
             result[reader.GetString(0)] = reader.GetInt32(1);
-        // 返回区间分类汇总
+        // 返回区间分类汇总（区间内无数据时返回空字典）
         return result;
     }
 
@@ -348,8 +355,8 @@ public static class ActivityRepository
             ORDER BY TotalSeconds DESC";
 
         // 打开就绪连接并创建命令
-        using var conn = DbAccess.Open();
-        using var cmd = new SqliteCommand(sql, conn);
+        using var conn = DbAccess.Open();              // 连接随方法结束释放
+        using var cmd = new SqliteCommand(sql, conn);  // 命令复用该连接
         // 起始日期键（含）
         cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
         // 结束日期键（含）
@@ -359,7 +366,7 @@ public static class ActivityRepository
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
             result[reader.GetString(0)] = reader.GetInt32(1);
-        // 返回区间进程汇总
+        // 返回区间进程汇总（区间内无数据时返回空字典）
         return result;
     }
 
@@ -398,8 +405,8 @@ public static class ActivityRepository
             ORDER BY Date";
 
         // 打开就绪连接并创建命令
-        using var conn = DbAccess.Open();
-        using var cmd = new SqliteCommand(sql, conn);
+        using var conn = DbAccess.Open();              // 连接随方法结束释放
+        using var cmd = new SqliteCommand(sql, conn);  // 命令复用该连接
         // 起始日期键（含）
         cmd.Parameters.AddWithValue("@Start", start.ToDateKey());
         // 结束日期键（含）
@@ -425,6 +432,8 @@ public static class ActivityRepository
         using var conn = DbAccess.Open();
         // 排除空闲记录和占位符 "(空闲)"
         // DISTINCT 由引擎去重；配合忽略大小写集合双重保险
+        // 没有 ORDER BY：返回顺序取决于引擎扫描顺序，调用方不应依赖它（集合本身也是无序的）
+        // IsIdle 列上没有索引，这里是整表扫描（设置页打开时调一次，可接受）
         using var cmd = new SqliteCommand(
             "SELECT DISTINCT ProcessName FROM Activities WHERE IsIdle = 0", conn);
         // 执行查询
@@ -434,10 +443,12 @@ public static class ActivityRepository
             // 取原始进程名
             var name = reader.GetString(0);
             // 过滤掉空进程名和 "(空闲)" 占位符
+            // "(空闲)" 是采集端写空闲记录时用的占位进程名（与 Models/采集服务约定的魔数），
+            // 它不是真实进程，不能出现在"用过的应用"列表里，否则用户会给它建规则
             if (!string.IsNullOrEmpty(name) && name != "(空闲)")
                 result.Add(name);
         }
-        // 返回去重后的进程名集合
+        // 返回去重后的进程名集合（可能为空集合，调用方要处理"还没有任何数据"的情况）
         return result;
     }
 }

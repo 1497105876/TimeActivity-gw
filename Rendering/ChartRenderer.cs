@@ -55,26 +55,28 @@ public class ChartRenderer
 
     private SolidColorBrush GetBrush(Color c)
     {
+        // 命中缓存直接返回：同色画刷只建一次，重绘不再重复分配
         if (_brushCache.TryGetValue(c, out var b)) return b;
-        var brush = new SolidColorBrush(c);
-        brush.Freeze();
-        _brushCache[c] = brush;
+        var brush = new SolidColorBrush(c); // 未命中：按颜色值新建
+        brush.Freeze(); // Freeze 冻结：内容锁定，WPF 才能跨线程安全共享
+        _brushCache[c] = brush; // 登记进缓存，后续同色直接命中
         return brush;
     }
 
     private static SolidColorBrush Frozen(Color c)
     {
-        var brush = new SolidColorBrush(c);
-        brush.Freeze();
+        // 静态固定色专用构造：颜色在初始化期定死，建一次即冻结即可
+        var brush = new SolidColorBrush(c); // 按颜色值创建画刷
+        brush.Freeze(); // 冻结后交给静态字段长期持有
         return brush;
     }
 
     // 图表固定色（空态文字/次要文字/网格线/趋势线/排名条轨道）
-    private static readonly SolidColorBrush EmptyTextBrush = Frozen(Color.FromRgb(0xAA, 0xAA, 0xAA));
-    private static readonly SolidColorBrush GrayTextBrush = Frozen(Color.FromRgb(0x99, 0x99, 0x99));
-    private static readonly SolidColorBrush GridLineBrush = Frozen(Color.FromArgb(40, 0, 0, 0));
-    private static readonly SolidColorBrush TrendLineBrush = Frozen(Color.FromRgb(0x4A, 0x90, 0xD9));
-    private static readonly SolidColorBrush TopBarTrackBrush = Frozen(Color.FromArgb(30, 0x4A, 0x90, 0xD9));
+    private static readonly SolidColorBrush EmptyTextBrush = Frozen(Color.FromRgb(0xAA, 0xAA, 0xAA)); // "暂无数据"等提示文字：中浅灰
+    private static readonly SolidColorBrush GrayTextBrush = Frozen(Color.FromRgb(0x99, 0x99, 0x99)); // 百分比等弱化文字：中灰
+    private static readonly SolidColorBrush GridLineBrush = Frozen(Color.FromArgb(40, 0, 0, 0)); // 折线图水平网格：纯黑但 alpha=40，淡到不抢主图
+    private static readonly SolidColorBrush TrendLineBrush = Frozen(Color.FromRgb(0x4A, 0x90, 0xD9)); // 主题蓝：趋势折线/数据点/排行条实心段
+    private static readonly SolidColorBrush TopBarTrackBrush = Frozen(Color.FromArgb(30, 0x4A, 0x90, 0xD9)); // 排行条底轨：主题蓝 alpha=30 的浅底
 
     // ======================================================================
     // 类别占比条形图
@@ -115,7 +117,7 @@ public class ChartRenderer
             string durStr = TimeFormatHelper.Format(kvp.Value);
 
             // 一行用 Grid 布局，4 列：名称、色条、时长、百分比
-            var row = new Grid { Margin = new Thickness(0, 0, 0, 6) };
+            var row = new Grid { Margin = new Thickness(0, 0, 0, 6) }; // 底部留 6px，行与行之间不粘连
             // 列宽方案：名称定宽 70px｜色条 Star 吃满剩余｜时长 80px｜百分比 56px
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -133,21 +135,21 @@ public class ChartRenderer
             // 第 1 列：色条底轨——主题色加 alpha=30 的半透明背景当轨道
             var barBg = new Border
             {
-                Height = 18,
+                Height = 18, // 轨道高 18px（条形整体高度）
                 Background = GetBrush(Color.FromArgb(30, color.R, color.G, color.B)), // 冻结画刷缓存（2026-08-25）
-                CornerRadius = new CornerRadius(3),
-                Margin = new Thickness(4, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Center
+                CornerRadius = new CornerRadius(3), // 圆角 3px
+                Margin = new Thickness(4, 0, 8, 0), // 左右留白 4/8px，不与相邻列贴边
+                VerticalAlignment = VerticalAlignment.Center // 行内垂直居中
             };
             Grid.SetColumn(barBg, 1);
 
             // 底轨内部左对齐的实心填充条，宽度随占比动态设置
             var barFill = new Border
             {
-                Height = 18,
+                Height = 18, // 与轨道同高，才呈现"底轨包填充条"的双层圆角效果
                 Background = GetBrush(color), // 冻结画刷缓存（2026-08-25）
-                CornerRadius = new CornerRadius(3),
-                HorizontalAlignment = HorizontalAlignment.Left
+                CornerRadius = new CornerRadius(3), // 圆角 3px，与轨道一致
+                HorizontalAlignment = HorizontalAlignment.Left // 左对齐：从轨道左侧开始按占比伸长
             };
             // 按占比填充：star 列实际宽度确定后才准确，用 SizeChanged 随布局更新，
             // 避免原先"pct*100 当像素"在列宽≠100px 时条形失真
@@ -213,24 +215,25 @@ public class ChartRenderer
         // 数据全 0 时仍取 3600 兜底：避免除零，坐标也不致全部压在底线
         if (maxSec <= 0) maxSec = 3600;
 
-        // 画 4 条水平刻度线 + Y 轴标签
+        // 画 5 条水平网格线（i=0 底线、i=4 顶线）作为 Y 轴刻度参考，左侧附整小时标签
         for (int i = 0; i <= 4; i++)
         {
             // i=0 为底线、i=4 为顶线；绘图区上下各留 16px 内边距
+            // y 从底部往上缩：h-16 是底线，再按 i/4 比例扣掉 (h-32) 的可画区高度
             double y = h - 16 - (h - 32) * i / 4.0;
             var line = new Line
             {
-                X1 = 40, Y1 = y, X2 = w, Y2 = y,
+                X1 = 40, Y1 = y, X2 = w, Y2 = y, // 横线：从左侧 Y 标签区边缘(40)拉到画布右缘
                 Stroke = GridLineBrush, // 冻结静态画刷（2026-08-25）
-                StrokeThickness = 1
+                StrokeThickness = 1 // 1px 细网格，保持低调
             };
             canvas.Children.Add(line);
 
-            // 该刻度线对应的整小时数（最大秒数÷3600 向下取整）
+            // 刻度线 i 对应的数值为 maxSec 的 i/4，向下取整到整小时作为该层的标签
             int hours = (int)(maxSec * i / 4.0 / 3600);
             var label = new TextBlock
             {
-                Text = $"{hours}h", FontSize = 9,
+                Text = $"{hours}h", FontSize = 9, // 小时标签：数字 + h，字号 9px
                 Foreground = EmptyTextBrush // 冻结静态画刷（2026-08-25）
             };
             // 标签贴最左缘；上移 6px 让文字与刻度线视觉齐平
@@ -263,8 +266,8 @@ public class ChartRenderer
             {
                 var label = new TextBlock
                 {
-                    Text = day.ToString("MM-dd"),
-                    FontSize = 9,
+                    Text = day.ToString("MM-dd"), // 只显示"月-日"，省下年份的宽度
+                    FontSize = 9, // 日期标签字号 9px
                     Foreground = EmptyTextBrush // 冻结静态画刷（2026-08-25）
                 };
                 // 标签中心近似对准数据点（左移 15px），贴住画布底部
@@ -377,20 +380,20 @@ public class ChartRenderer
             // 第 2 列：条形底轨——固定主题蓝 alpha=30 的半透明轨道
             var barBg = new Border
             {
-                Height = 14,
+                Height = 14, // 轨道高 14px（比类别条 18px 矮，弱化排行条的存在感）
                 Background = TopBarTrackBrush, // 冻结静态画刷（2026-08-25）
-                CornerRadius = new CornerRadius(3),
-                Margin = new Thickness(4, 0, 8, 0),
-                VerticalAlignment = VerticalAlignment.Center
+                CornerRadius = new CornerRadius(3), // 圆角 3px
+                Margin = new Thickness(4, 0, 8, 0), // 左右留白 4/8px
+                VerticalAlignment = VerticalAlignment.Center // 行内垂直居中
             };
             Grid.SetColumn(barBg, 2);
             // 轨道内左对齐的实心蓝条，长度代表相对占比
             var barFill = new Border
             {
-                Height = 14,
+                Height = 14, // 与轨道同高，形成内嵌圆角蓝条
                 Background = TrendLineBrush, // 冻结静态画刷（2026-08-25）
-                CornerRadius = new CornerRadius(3),
-                HorizontalAlignment = HorizontalAlignment.Left
+                CornerRadius = new CornerRadius(3), // 圆角 3px，与轨道一致
+                HorizontalAlignment = HorizontalAlignment.Left // 左对齐：从轨道左端起按相对占比伸长
             };
             // 按占比填充：star 列实际宽度确定后才准确，用 SizeChanged 随布局更新
             // 最少保底 2px，极短条目也保持可见

@@ -1,3 +1,11 @@
+// ============================================================================
+// ScreenshotRepository.cs — Screenshots 截图索引表的仓储（静态类）
+// 职责：写入截图索引（Insert）、按时间区间取最近一张（GetForTimeRange）、
+//       按文件路径删索引行（DeleteByPath，配合物理文件清理）。
+// 分层约定：本类只管索引，不管物理文件。文件的创建由 ScreenshotService 负责，
+// 文件的删除由容量控制 / CleanOldData 负责，两边不是原子的，
+// 所以"文件没了但索引还在"是可能出现的正常中间态，GetForTimeRange 用 File.Exists 兜住。
+// ============================================================================
 // 基础类型（DateTime、AppDomain 等）
 using System;
 // 文件路径与删除操作（Path/File）
@@ -36,6 +44,7 @@ public static class ScreenshotRepository
         // 程序目录前缀（与 CaptureAndSave 入库时的相对化规则保持一致）
         string appDir = AppDomain.CurrentDomain.BaseDirectory;
         // 绝对路径 → 相对路径（程序目录内的截图）；目录外保持绝对路径（两种形式相同）
+        // 大小写不敏感比较：Windows 路径大小写不敏感，但库里可能存着不同写法的路径
         string relPath = fullPath.StartsWith(appDir, StringComparison.OrdinalIgnoreCase)
             ? fullPath.Substring(appDir.Length)
             : fullPath;
@@ -43,10 +52,14 @@ public static class ScreenshotRepository
         // 打开就绪连接（内部含初始化检查）
         using var conn = DbAccess.Open();
         // 两种存储形式任一命中即删除
+        // 没有索引也没关系：FilePath 列上没有索引，这是全表扫描，但清理是低频操作
         using var cmd = new SqliteCommand(
             "DELETE FROM Screenshots WHERE FilePath = @Abs OR FilePath = @Rel", conn);
+        // 绝对路径形式
         cmd.Parameters.AddWithValue("@Abs", fullPath);
+        // 相对路径形式（相对路径与绝对路径相同时，两个参数值一样，等价于单条件删除）
         cmd.Parameters.AddWithValue("@Rel", relPath);
+        // 执行删除；删不到行也不报错（幂等，重复删无副作用）
         cmd.ExecuteNonQuery();
     }
 
@@ -71,11 +84,15 @@ public static class ScreenshotRepository
         // 创建插入命令
         using var cmd = new SqliteCommand(sql, conn);
         // CapturedAt 和 CreatedAt 都用当前时间，精确到毫秒
-        // 绑定截图文件路径参数
+        // 绑定截图文件路径参数（相对路径/绝对路径都接受；本方法不校验文件是否真的存在，
+        // 存在性判断统一推迟到读取时——插入不该因为文件还没落完盘而失败）
         cmd.Parameters.AddWithValue("@FilePath", filePath);
         // 捕获时间=当前本地时间（yyyy-MM-dd HH:mm:ss.fff）
+        // 严格说这是"登记时间"而不是"真正按下快门的那一刻"，两者通常只差几十毫秒；
+        // 下面 CreatedAt 又单独取了一次 DateTime.Now，两个时间戳可能有毫秒级差异
         cmd.Parameters.AddWithValue("@CapturedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
-        // 文件大小（字节），供容量统计与上限控制使用
+        // 文件大小（字节），由调用方用 FileInfo.Length 传入；供容量统计与上限控制使用，
+        // 传 0 也不会报错，但会让容量统计低估（调用方保证不为 0）
         cmd.Parameters.AddWithValue("@FileSize", fileSize);
         // 入库时间=当前本地时间；与 CapturedAt 基本一致，保留两列以区分业务时间与落库时间
         cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
@@ -103,10 +120,11 @@ public static class ScreenshotRepository
             ORDER BY CapturedAt DESC LIMIT 1";
 
         // 打开就绪连接（内部含初始化检查）
-        using var conn = DbAccess.Open();
+        using var conn = DbAccess.Open();           // 连接随方法结束释放
         // 创建查询命令
-        using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn); // 命令复用该连接
         // 起始边界：格式化到毫秒，与写入格式一致保证字符串比较正确
+        // 这两个参数是本地时间字符串，和 CapturedAt 列（本地时间）同口径，没有做 UTC 换算
         cmd.Parameters.AddWithValue("@Start", startTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
         // 结束边界：同上
         cmd.Parameters.AddWithValue("@End", endTime.ToString("yyyy-MM-dd HH:mm:ss.fff"));
@@ -114,6 +132,7 @@ public static class ScreenshotRepository
         // 标量查询：命中返回 FilePath 字符串，未命中返回 null
         var result = cmd.ExecuteScalar();
         // 有结果才做路径归一与存在性校验
+        // result != DBNull.Value 是必要的：ExecuteScalar 对空行集返回 null，对 NULL 列返回 DBNull
         if (result != null && result != DBNull.Value)
         {
             // 取出数据库中存的路径（可能为相对路径）

@@ -53,12 +53,13 @@ public partial class SettingsWindow
                 var currentIds = new HashSet<int>();
                 foreach (var c in cats)
                 {
+                    // 刚插入的空行（还没填名字）直接跳过，不写库也不参与删除判定
                     if (string.IsNullOrWhiteSpace(c.Name)) continue;
                     currentIds.Add(c.Id);
                     // Id<=0 表示新分类,插入后获新 Id 并回写到 UI 对象
                     // Id>0 更新已有分类
                     int newId = CategoryRepository.UpdateOrInsert(c.Id, c.Name, c.Color ?? "#808080", c.SortOrder);
-                    if (c.Id <= 0) c.Id = newId;
+                    if (c.Id <= 0) c.Id = newId; // 新分类拿到库分配的 Id，保证后续 diff 稳定
                 }
 
                 // 删除用户在 UI 中删掉的自定义分类(预置 Id<=13 不可删)
@@ -186,7 +187,7 @@ public partial class SettingsWindow
     /// <summary>保存当前界面值为快照，供后续变更检测比对。</summary>
     private void SaveSnapshot()
     {
-        _originalSettings = GetCurrentSettingsSnapshot();
+        _originalSettings = GetCurrentSettingsSnapshot(); // 快照=界面值+规则/分类 JSON
     }
 
     /// <summary>
@@ -195,6 +196,8 @@ public partial class SettingsWindow
     /// </summary>
     private Dictionary<string, string> GetCurrentSettingsSnapshot()
     {
+        // 快照的键与 DoSave 落库的键一一对应，但值全部取"控件当前显示"而不是规范化后的库值；
+        // 所以只要用户动过任何输入（哪怕还没校验成合法值），与基准一比对就能发现变更
         var snap = new Dictionary<string, string>();
         snap["PollIntervalSeconds"] = CbxSamplingInterval.Text ?? "";
         snap["IdleThresholdSeconds"] = CbxIdleThreshold.Text ?? "";
@@ -261,6 +264,7 @@ public partial class SettingsWindow
     private void BtnRestoreDefault_Click(object sender, RoutedEventArgs e)
     {
         // 根据导航索引得到页面名（用于确认文案）
+        // 注意这里只有 0-7 是真实页签；索引来源是左侧导航，倒不会越界，default 分支只是兜底
         string pageName = NavList.SelectedIndex switch
         {
             0 => "追踪设置",
@@ -284,7 +288,7 @@ public partial class SettingsWindow
 
         var result = MessageBox.Show(hint, "确认",
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (result != MessageBoxResult.Yes) return;
+        if (result != MessageBoxResult.Yes) return; // 用户选"否"→ 什么都不做直接退出
 
         switch (NavList.SelectedIndex)
         {

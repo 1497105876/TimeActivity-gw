@@ -31,10 +31,12 @@ public static class AppColorRepository
         // 结果字典：进程名 → 颜色值
         var dict = new Dictionary<string, string>();
         // 创建连接（指向统一权威连接字符串）
+        // 本类与其它仓储一样：先 EnsureInit 再自己建连接，等价于 DbAccess.Open()
         using var conn = new SqliteConnection(DatabaseHelper.ConnectionString);
         // 打开连接
         conn.Open();
         // 全表查询：只取进程名与颜色两列（按主键序返回，行数=应用数）
+        // 没有 ORDER BY：实际顺序取决于 SQLite 的 rowid/主键扫描顺序，调用方不应依赖
         using var cmd = new SqliteCommand("SELECT ProcessName, Color FROM AppColors", conn);
         // 执行查询得到只进只读游标
         using var reader = cmd.ExecuteReader();
@@ -42,9 +44,10 @@ public static class AppColorRepository
         while (reader.Read())
         {
             // 第0列=进程名（主键），第1列=颜色值
+            // 颜色列是 NOT NULL，理论上不会为 NULL；若出现脏数据 GetString 会抛异常而不是返回 null
             dict[reader.GetString(0)] = reader.GetString(1);
         }
-        // 返回完整映射
+        // 返回完整映射（表为空时返回空字典，由调用方回退到分类色/默认色）
         return dict;
     }
 
@@ -59,12 +62,16 @@ public static class AppColorRepository
         using var conn = DbAccess.Open();
         // ON CONFLICT 主键冲突时更新颜色，实现 UPSERT
         // 单条语句完成“有则改、无则插”，天然原子且省去先查后写
+        // 注意 DO UPDATE SET 里只写了 Color：冲突（即更新）时 UpdatedAt 不会被刷新，
+        // 它会一直保持首次插入时的时间戳，跟列名给人的直觉不符。
+        // 需要"最后修改时间"语义的话得把 UpdatedAt=datetime('now','localtime') 加进 SET 里
         using var cmd = new SqliteCommand(@"
             INSERT INTO AppColors (ProcessName, Color) VALUES (@p, @c)
             ON CONFLICT(ProcessName) DO UPDATE SET Color=@c", conn);
         // 绑定进程名参数（参数化防注入）
+        // 进程名来自前台窗口枚举，理论上可能带引号/特殊字符，参数化是这里的必备防护
         cmd.Parameters.AddWithValue("@p", processName);
-        // 绑定颜色值参数
+        // 绑定颜色值参数（形如 #RRGGBB 的字符串，本方法不校验格式）
         cmd.Parameters.AddWithValue("@c", color);
         // 执行写入；UpdatedAt 列由表的 DEFAULT (datetime('now','localtime')) 自动维护
         cmd.ExecuteNonQuery();

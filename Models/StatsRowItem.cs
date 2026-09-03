@@ -5,12 +5,13 @@ using System.Windows.Media.Imaging;
 namespace TimeActivity.Models;
 
 /// <summary>
-/// 使用统计列表的每行数据
+/// 使用统计列表的行数据模型
 /// </summary>
 /// <remarks>
-/// 统计页列表的行模型：除原始数据外，还暴露一组计算属性供 XAML 直接绑定
-/// （时长文本、百分比、双色条宽度等）。纯展示 POCO，不实现变更通知——
-/// 统计结果变化时由页面整批重建行集合。
+/// 提供一条统计行所需的原始数据与派生展示值（时长文本、百分比、比例条宽等）。
+/// 注意：当前统计列表实际由 MainWindow.Stats.CreateStatsRow 用代码逐行构建
+/// Border/Grid 行控件（自绘 Canvas 比例条），并未绑定本模型；本类保留为
+/// "模板化行数据"的定义参考，字段语义与 CreateStatsRow 的本地计算保持一致。
 /// </remarks>
 public class StatsRowItem
 {
@@ -34,11 +35,11 @@ public class StatsRowItem
     public int TotalSeconds { get; set; }
 
     /// <summary>占总活跃时长的百分比 0~100</summary>
-    /// <remarks>分母为所选时间范围内全部有效活跃秒数之和</remarks>
+    /// <remarks>分母为统计范围内全部有效（非空闲）活跃秒数之和</remarks>
     public double Percent { get; set; }
 
     /// <summary>占比条颜色</summary>
-    /// <remarks>十六进制串：应用统计=所属分类色，类别统计=默认蓝</remarks>
+    /// <remarks>十六进制串；类别统计默认蓝 #4A90D9，实际色值由调用方按行类型指定</remarks>
     public string BarColor { get; set; } = "#4A90D9";
 
     /// <summary>格式化时长文本</summary>
@@ -49,19 +50,19 @@ public class StatsRowItem
     /// <remarks>固定保留 1 位小数</remarks>
     public string PercentText => $"{Percent:F1}%";
 
-    /// <summary>百分比是否太大需要放在有色部分上（>80%）</summary>
-    /// <remarks>阈值 80%：此时透明区太窄放不下文字，改叠印在色条上</remarks>
+    /// <summary>百分比是否过大、文字要叠放在有色部分上（>80%）</summary>
+    /// <remarks>阈值 80%：此时空余区太窄放不下文字，改叠印在色条上</remarks>
     public bool PercentOnBar => Percent > 80;
 
-    /// <summary>有色部分宽度占比（0~1，用于 Grid ColumnDefinition）</summary>
-    /// <remarks>两颗 Star 列分别绑定 BarFillWidth/BarEmptyWidth 拼出比例条</remarks>
+    /// <summary>有色部分宽度占比（0~1）</summary>
+    /// <remarks>= Percent/100；与 BarEmptyWidth 互补，可拼出宽度按比例的两段</remarks>
     public double BarFillWidth => Percent / 100.0;
 
-    /// <summary>透明部分宽度占比</summary>
+    /// <summary>空余（透明）部分宽度占比</summary>
     /// <remarks>= 1 − BarFillWidth，与有色部分互补凑满整行</remarks>
     public double BarEmptyWidth => 1.0 - BarFillWidth;
 
-    /// <summary>透明部分是否太窄放不下百分比文字</summary>
-    /// <remarks>= !PercentOnBar，XAML 据此切换百分比文字的摆放位置</remarks>
+    /// <summary>百分比文字是否应摆放在空余部分上（空余区够宽时为 true）</summary>
+    /// <remarks>= !PercentOnBar，与 PercentOnBar 恰好互补</remarks>
     public bool TextOnEmpty => !PercentOnBar;
 }

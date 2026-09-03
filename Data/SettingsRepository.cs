@@ -29,7 +29,9 @@ public static class SettingsRepository
     // AI 服务每次调用调 4 次、渲染路径也频繁触发——产生大量短期对象推高 GC 压力。
     // 设置值本身几乎不变（仅设置页保存时更新），全量内存缓存只需几 KB，收益显著。
     // 缓存字典为库的镜像：值 null 表示库中该键为 NULL（区别于"键不存在"）。
+    // 值全部是字符串，解析（int/bool/枚举）与合法性校验由调用方负责，本类不做任何类型推断
     private static Dictionary<string, string?>? _cache;
+    // 保护 _cache 的引用与内容的锁；读（Get）也进锁，是为了避免读到"正在被重建到一半"的字典
     private static readonly object _cacheLock = new();
 
     /// <summary>载入（或复用）设置缓存快照。首次调用走单次全表查询。</summary>
@@ -37,13 +39,20 @@ public static class SettingsRepository
     {
         lock (_cacheLock)
         {
+            // 命中缓存直接返回（快路径）
             if (_cache != null) return _cache;
+            // 逐字序比较：设置键是大小写敏感的技术键（如 AIApiKey），不能用忽略大小写的比较器
             var dict = new Dictionary<string, string?>(StringComparer.Ordinal);
+            // 注意：数据库 IO 是在持锁状态下做的——首次载入期间其它线程的 Get 会阻塞在锁上。
+            // 这是刻意的：宁可让首调用等一下，也不要出现两个线程各建一份缓存再互相覆盖
             using var conn = DbAccess.Open();
+            // 一次性全表读出（Settings 行数只有几十行）
             using var cmd = new SqliteCommand("SELECT Key, Value FROM Settings", conn);
             using var reader = cmd.ExecuteReader();
+            // 库中为 NULL 的值记成 null，与"键不存在"区分开
             while (reader.Read())
                 dict[reader.GetString(0)] = reader.IsDBNull(1) ? null : reader.GetString(1);
+            // 一次性发布（引用赋值是原子的），其它线程要么看到 null 要么看到完整字典
             _cache = dict;
             return dict;
         }
@@ -163,6 +172,8 @@ public static class SettingsRepository
         // 结果字典：键 → 值
         var dict = new Dictionary<string, string>();
         // 打开就绪连接（内部含初始化检查）
+        // 刻意不走内存缓存：GetAll 的语义是"读库里的真实快照"，
+        // 供设置页初始化/导出诊断信息使用，要能反映其它进程或直写库造成的变更
         using var conn = DbAccess.Open();
         // 查全部设置项，不做过滤
         using var cmd = new SqliteCommand("SELECT Key, Value FROM Settings", conn);
@@ -171,15 +182,25 @@ public static class SettingsRepository
         while (reader.Read())
         {
             // 第0列=键；第1列=值，NULL 归一为空串（注意与 Get 的 null 语义不同）
+            // 差异点：Get 把 NULL 当成"未设置"回退 defaultValue，GetAll 则直接给空串
             dict[reader.GetString(0)] = reader.IsDBNull(1) ? "" : reader.GetString(1);
         }
-        // 返回完整设置快照
+        // 返回完整设置快照；只包含在库里真实存在的键，
+        // Defaults 里定义过但没播种/被删掉的键不会出现，调用方要自己兜默认值
         return dict;
     }
 
     /// <summary>
     /// 默认设置值——单一数据源，DatabaseHelper.Initialize 和 BtnRestoreDefault 共用
     /// </summary>
+    /// <remarks>
+    /// 三条约定：
+    /// 1) 值一律是字符串，调用方自己转 int/bool；"true"/"false" 是布尔项的约定写法（小写）；
+    /// 2) 这里列出的键会在首次运行时被播种进 Settings 表，但表里的键只会多不会少——
+    ///    后续版本新增的默认项不会自动补进老库，Get 取不到时靠 defaultValue 兜底；
+    /// 3) 键名本身散落在各个服务里（按字符串硬编码引用），改键名要全局搜一遍，
+    ///    另外 RuleRepository 的 "RulesFingerprint" 是运行期写进来的，不在这个默认表里。
+    /// </remarks>
     public static readonly Dictionary<string, string> Defaults = new()
     {
         // 采集相关
@@ -227,6 +248,7 @@ public static class SettingsRepository
     public static Dictionary<string, string> GetDefaultsByPage(int navIndex) => navIndex switch
     {
         // 常规页：采集行为三项
+        // 页签索引来源：设置窗口左侧导航的 SelectedIndex，2/3 是分类管理与规则管理（无可恢复默认项）
         0 => FilterDefaults("PollIntervalSeconds", "IdleThresholdSeconds", "AutoStartTracking"),
         // 截图页：开关/触发方式/间隔/格式/路径/质量 + 容量与过期清理上限
         1 => FilterDefaults("EnableScreenshot", "ScreenshotOnSwitch", "ScreenshotIntervalMinutes",
@@ -256,9 +278,11 @@ public static class SettingsRepository
         // 遍历请求的键名
         foreach (var key in keys)
             // 只收录 Defaults 中真实存在的键（防拼写错误导致 KeyError）
+            // 副作用：键名写错时这里是静默跳过，不会抛异常也不会有日志，
+            // 表现就是"点了恢复默认但那一项没变"，排查时要顺着这里对照键名
             if (Defaults.TryGetValue(key, out var val))
                 result[key] = val;
-        // 返回筛选后的子集
+        // 返回筛选后的子集；顺序与传入 keys 一致（Dictionary 不保证，但调用方只按键取值）
         return result;
     }
 }

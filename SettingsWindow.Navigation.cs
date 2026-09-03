@@ -81,21 +81,27 @@ public partial class SettingsWindow
     private void LoadSettings()
     {
         // 追踪设置
+        // 采样间隔下拉：库中键 PollIntervalSeconds(秒)，默认 3；下拉可编辑，手输的自定义值靠"文本直接写入"兜底
         SetComboByTagOrText(CbxSamplingInterval, SettingsRepository.Get("PollIntervalSeconds", "3"), "秒");
+        // 空闲阈值下拉：显示用分钟，库中键 IdleThresholdSeconds 以秒存(默认 300 秒=5 分钟)，Tag 里放秒值才能直接命中
         SetComboByTagOrText(CbxIdleThreshold, SettingsRepository.Get("IdleThresholdSeconds", "300"), "分钟");
         // 如果 Tag 匹配不上(自定义值),把秒转回分钟显示
+        // SelectedIndex==-1 说明库里存的是标准选项之外的秒值（比如手输过 8 分钟 → 存了 480 秒）
         if (CbxIdleThreshold.SelectedIndex == -1)
         {
+            // 解析出来的是秒，下拉只显示分钟 → 除以 60 回填，保证文字可读
             if (int.TryParse(SettingsRepository.Get("IdleThresholdSeconds", "300"), out int idleSec))
                 CbxIdleThreshold.Text = (idleSec / 60).ToString();
         }
         ChkAutoStartTracking.IsChecked = SettingsRepository.Get("AutoStartTracking", "true") == "true"; // 字符串比较解析布尔
 
         // 截图设置
+        // 截图总开关默认关(存 "false")：毕竟截图涉及隐私，不默认开启
         ChkEnableScreenshot.IsChecked = SettingsRepository.Get("EnableScreenshot", "false") == "true";
         ScreenshotOptionsPanel.IsEnabled = ChkEnableScreenshot.IsChecked == true; // 选项面板可用性跟随开关
         ChkScreenshotOnSwitch.IsChecked = SettingsRepository.Get("ScreenshotOnSwitch", "true") == "true"; // 切换截屏默认开
 
+        // 定时截图间隔(分钟)：Tag 存的就是分钟数本身，可直接命中选项
         string intervalStr = SettingsRepository.Get("ScreenshotIntervalMinutes", "5");
         SetComboByTagOrText(CbxScreenshotInterval, intervalStr, "分钟");
 
@@ -111,17 +117,18 @@ public partial class SettingsWindow
         // PNG 格式时隐藏质量选项(PNG 无损,不涉及压缩质量)
         QualityRow.Visibility = fmt == "png" ? Visibility.Collapsed : Visibility.Visible;
 
-        SelectComboByTag(CbxScreenshotQuality, SettingsRepository.Get("ScreenshotQuality", "medium"));
+        SelectComboByTag(CbxScreenshotQuality, SettingsRepository.Get("ScreenshotQuality", "medium")); // 质量档:high/medium/low，仅 JPEG 生效
         TxtScreenshotPath.Text = SettingsRepository.Get("ScreenshotPath",
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots"));
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "screenshots")); // 默认存到程序目录下的 screenshots
 
-        // 存储限制：容量与天数两道闸
+        // 存储限制：容量上限与保留天数两套独立开关，各自带一个数值输入框
         ChkMaxSize.IsChecked = SettingsRepository.Get("EnableMaxSize", "true") == "true";
         TxtMaxSize.Text = SettingsRepository.Get("MaxScreenshotSizeMB", "5120");
         ChkMaxAge.IsChecked = SettingsRepository.Get("EnableMaxAge", "true") == "true";
         TxtMaxAge.Text = SettingsRepository.Get("MaxScreenshotAgeDays", "30");
 
         // 数据设置
+        // 保留天数下拉：Tag 存天数，默认 90；选项中"永久"对应 0，即永不清历史数据
         SetComboByTagOrText(CbxDataRetention, SettingsRepository.Get("DataRetentionDays", "90"), "天");
 
         // AI 设置（2026-08-23 重做：服务商预设 + OpenAI 兼容统一接口）
@@ -145,22 +152,25 @@ public partial class SettingsWindow
             if (item.Tag?.ToString() == provider) { CbxAIProvider.SelectedItem = item; break; }
         }
         _currentAiProviderTag = provider; // 记忆切换的初始锚点（装载期不触发联动）
+        // 服务商三要素直接回填：地址/Key/模型名（Key 存在库里，装载后塞进 PasswordBox 保持密文显示）
         TxtApiUrl.Text = SettingsRepository.Get("AIApiUrl", "");
         TxtApiKey.Password = SettingsRepository.Get("AIApiKey", "");
         CbxAIModel.Text = SettingsRepository.Get("AIModel", "");
 
         // AI 高级参数（留空=用服务商默认值）
-        TxtAITemperature.Text = SettingsRepository.Get("AITemperature", "");
-        TxtAIMaxTokens.Text = SettingsRepository.Get("AIMaxTokens", "");
-        TxtAITimeout.Text = SettingsRepository.Get("AITimeoutSeconds", "");
+        TxtAITemperature.Text = SettingsRepository.Get("AITemperature", "");   // 采样温度，字符串传空表示不动它
+        TxtAIMaxTokens.Text = SettingsRepository.Get("AIMaxTokens", "");       // 单次回复 token 上限
+        TxtAITimeout.Text = SettingsRepository.Get("AITimeoutSeconds", "");    // 请求超时(秒)
 
-        // AI 总结文件保存设置
+        // AI 总结文件保存设置：导出目录 + 保留个数/总大小两个阈值，具体口径由 AISummaryService 消费
         TxtAISummaryPath.Text = SettingsRepository.Get("AISummaryPath", "");
         TxtAISummaryMaxCount.Text = SettingsRepository.Get("AISummaryMaxCount", "0");
         TxtAISummaryMaxSizeMB.Text = SettingsRepository.Get("AISummaryMaxSizeMB", "0");
 
         // 系统设置
+        // 开机自启默认关；这里只回填勾选，真正写注册表要等点保存时调用 AutoStartHelper
         ChkAutoStart.IsChecked = SettingsRepository.Get("AutoStartWithWindows", "false") == "true";
+        // 最小化到托盘默认开：开启后最小化不会占据任务栏，而是藏到系统托盘图标里
         ChkMinimizeToTray.IsChecked = SettingsRepository.Get("MinimizeToTray", "true") == "true";
     }
 

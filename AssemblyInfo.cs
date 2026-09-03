@@ -17,3 +17,6 @@ using System.Windows;
                                                 //(used if a resource is not found in the page,
                                                 // app, or any theme specific resource dictionaries)
 )]
+
+// 对本项目的影响：程序未定义自定义控件，不依赖 Themes/generic.xaml，此特性按 WPF 模板默认保留即可；
+// 若日后加入自定义控件并需要"无样式时的默认外观"，再把泛型资源字典放到本程序集的 Themes 目录下。

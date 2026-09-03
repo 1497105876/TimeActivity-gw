@@ -95,7 +95,9 @@ public partial class MainWindow
     {
         // 鼠标在时间轴上的 X 坐标
         double mouseX = e.GetPosition(MainTimelineCanvas).X;
+        // 当前画布可用宽度：布局未完成时 GetContainerWidth 会用 880 兜底
         double width = GetContainerWidth();
+        // 宽度仍 <=0（理论上到不了）则直接忽略，防止下方换算除零
         if (width <= 0) return;
 
         // 鼠标 X 坐标对应的时间（秒）：视口起点 + 相对比例 × 可见时长
@@ -155,8 +157,10 @@ public partial class MainWindow
     /// </summary>
     private void MainTimelineCanvas_MouseMove(object sender, MouseEventArgs e)
     {
+        // 取鼠标在时间轴画布内的像素 X；mouseX/width 的比值 = 鼠标位于可视窗口内的比例位置
         double mouseX = e.GetPosition(MainTimelineCanvas).X;
         double width = GetContainerWidth();
+        // 布局未就绪（width<=0）时忽略本次移动：等 SizeChanged 触发重画后再响应，避免除零/浮窗错位
         if (width <= 0) return;
 
         // 鼠标 X 坐标对应的时间（秒）
@@ -170,6 +174,7 @@ public partial class MainWindow
         {
             if (act.IsIdle) continue; // 空闲段不参与悬停提示
 
+            // 活动记录里存的是"当天时刻"，统一换算成"当天第几秒(0~86400)"再做区间比较
             double startSec = act.StartTime.TimeOfDay.TotalSeconds;
             double endSec = act.EndTime.TimeOfDay.TotalSeconds;
             bool wrapped = endSec < startSec;      // 是否跨午夜段
@@ -194,6 +199,7 @@ public partial class MainWindow
         }
 
         // 每次移动都更新 Popup 位置 — 相对于 MainTimelineCanvas
+        // 鼠标像素坐标是浮窗的定位锚点，加固定偏移可避免浮窗本体遮住鼠标/指针所指的活动段
         var canvasPos = e.GetPosition(MainTimelineCanvas);
         DetailPopup.HorizontalOffset = canvasPos.X + 14; // 右偏 14px 避免遮挡鼠标指针
         DetailPopup.VerticalOffset = canvasPos.Y + 18;   // 下偏 18px

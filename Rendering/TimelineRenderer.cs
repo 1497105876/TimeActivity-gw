@@ -22,7 +22,7 @@ namespace TimeActivity.Rendering;
 /// </summary>
 /// <remarks>
 /// 视口模型：[viewStart, viewStart+visibleSeconds] 秒线性映射到 [0,width] 像素；
-/// 高亮模式下选中段额外绘灰色贯穿竖带，未选中色块整体淡化为 20% 不透明度。
+/// 高亮模式下选中段额外绘灰色贯穿竖带，未选中色块的整体不透明度降为 0.2（淡出）。
 /// </remarks>
 public class TimelineRenderer
 {
@@ -44,25 +44,27 @@ public class TimelineRenderer
 
     private SolidColorBrush GetBrush(Color c)
     {
+        // 命中缓存直接返回：同一颜色只建一次画刷，避免重绘反复分配对象
         if (_brushCache.TryGetValue(c, out var b)) return b;
-        var brush = new SolidColorBrush(c);
-        brush.Freeze();
-        _brushCache[c] = brush;
+        var brush = new SolidColorBrush(c); // 未命中：按颜色值新建一个画刷
+        brush.Freeze(); // Freeze 冻结：内容锁定，WPF 才能跨线程安全共享
+        _brushCache[c] = brush; // 登记进缓存，后续同色直接命中
         return brush;
     }
 
     private static SolidColorBrush Frozen(Color c)
     {
-        var brush = new SolidColorBrush(c);
-        brush.Freeze();
+        // 静态固定色专用构造：值在初始化期固定，建一次即冻结，无需走缓存
+        var brush = new SolidColorBrush(c); // 按颜色值创建画刷
+        brush.Freeze(); // 冻结后交给静态字段长期持有
         return brush;
     }
 
     // 时间轴固定色（背景/贯穿灰条/刻度线/刻度文字）
-    private static readonly SolidColorBrush BgBrush = Frozen(Color.FromRgb(0xF5, 0xF5, 0xF5));
-    private static readonly SolidColorBrush BandBrush = Frozen(Color.FromArgb(70, 0x60, 0x60, 0x60));
-    private static readonly SolidColorBrush TickBrush = Frozen(Color.FromRgb(0xBB, 0xBB, 0xBB));
-    private static readonly SolidColorBrush TickTextBrush = Frozen(Color.FromRgb(0x99, 0x99, 0x99));
+    private static readonly SolidColorBrush BgBrush = Frozen(Color.FromRgb(0xF5, 0xF5, 0xF5)); // 时间轴底色：极浅灰
+    private static readonly SolidColorBrush BandBrush = Frozen(Color.FromArgb(70, 0x60, 0x60, 0x60)); // 高亮竖带：灰且 alpha=70 半透明，压住背景但透出色块
+    private static readonly SolidColorBrush TickBrush = Frozen(Color.FromRgb(0xBB, 0xBB, 0xBB)); // 刻度短竖线：浅灰
+    private static readonly SolidColorBrush TickTextBrush = Frozen(Color.FromRgb(0x99, 0x99, 0x99)); // 刻度数字：中灰
 
     /// <summary>
     /// 构造函数
@@ -107,11 +109,11 @@ public class TimelineRenderer
         // 画浅灰色背景
         var bg = new Rectangle
         {
-            Width = width,
-            Height = height,
+            Width = width, // 铺满整个可视宽度
+            Height = height, // 纵向撑满画布（主窗口固定传 44px）
             Fill = BgBrush, // 冻结静态画刷（2026-08-25）
-            RadiusX = 4,
-            RadiusY = 4
+            RadiusX = 4, // 圆角 4px
+            RadiusY = 4 // 与 RadiusX 配对成圆角矩形
         };
         // 背景 ZIndex=0，压在所有图层之下
         Panel.SetZIndex(bg, 0);
@@ -176,10 +178,10 @@ public class TimelineRenderer
             {
                 var band = new Rectangle
                 {
-                    Width = w,
-                    Height = height,
+                    Width = w, // 合并后的竖带宽度
+                    Height = height, // 从顶贯通到底
                     Fill = BandBrush, // 冻结静态画刷（2026-08-25）
-                    RadiusX = 2,
+                    RadiusX = 2, // 小圆角避免直角生硬
                     RadiusY = 2
                 };
                 Panel.SetZIndex(band, ++bz); // 位于背景之上、彩色块之下
@@ -219,12 +221,13 @@ public class TimelineRenderer
 
             // 经委托取色，并判定淡化：处于高亮模式且本条未被选中 → dim=true
             var color = GetColorFunc(act.ProcessName, act.Category);
-            bool dim = false;
+            bool dim = false; // 默认不淡化
             if (hasHighlight)
             {
+                // 高亮模式下才需要逐个判断选中与否
                 bool sel = (highlightedApps != null && highlightedApps.Contains(act.ProcessName)) ||
                            (highlightedCategories != null && highlightedCategories.Contains(act.Category));
-                dim = hasHighlight && !sel;
+                dim = hasHighlight && !sel; // 只有"未命中选中集合"的段才淡化
             }
 
             // 按 (颜色, 是否淡化) 分组累积，同组稍后合并为一个 Path
@@ -249,20 +252,20 @@ public class TimelineRenderer
             {
                 foreach (var (x, w) in kv.Value)
                 {
-                    // 追加一个闭合的四点矩形轮廓
-                    ctx.BeginFigure(new Point(x, 0), true, true);
-                    ctx.LineTo(new Point(x + w, 0), true, false);
-                    ctx.LineTo(new Point(x + w, height), true, false);
-                    ctx.LineTo(new Point(x, height), true, false);
+                    // 每个矩形按顺时针描 4 个顶点：左上→右上→右下→左下，由闭合标志收口
+                    ctx.BeginFigure(new Point(x, 0), true, true); // 起点取左上角 (x,0)
+                    ctx.LineTo(new Point(x + w, 0), true, false); // 顶边：向右走 w 到右上角
+                    ctx.LineTo(new Point(x + w, height), true, false); // 右边：下探到画布底部
+                    ctx.LineTo(new Point(x, height), true, false); // 底边：向左回到左下角
                 }
             }
             // Dim 组整体降到 20% 不透明度呈现"变暗"效果
             var path = new Path
             {
-                Data = geo,
+                Data = geo, // 前面拼好的 StreamGeometry 作为形状数据
                 Fill = GetBrush(kv.Key.C), // 冻结画刷缓存（2026-08-25）
-                Opacity = kv.Key.Dim ? 0.2 : 1.0,
-                StrokeThickness = 0
+                Opacity = kv.Key.Dim ? 0.2 : 1.0, // 淡化组压到 0.2，正常组保持 1.0
+                StrokeThickness = 0 // 无描边，只显示填充色块
             };
             // 各组依次入层（相对顺序无关，只需高于背景与竖带）
             Panel.SetZIndex(path, z++);
@@ -316,14 +319,14 @@ public class TimelineRenderer
             canvas.Children.Add(line);
 
             // 整点只标小时数字，非整点标 "h:mm"
-            int h = m / 60;
-            int mm = m % 60;
-            string label = mm == 0 ? $"{h}" : $"{h}:{mm:D2}";
+            int h = m / 60; // 刻度所在的小时数
+            int mm = m % 60; // 余下的分钟数（整点为 0）
+            string label = mm == 0 ? $"{h}" : $"{h}:{mm:D2}"; // 整点不带分钟；非整点分钟补零两位
 
             var text = new TextBlock
             {
-                Text = label,
-                FontSize = 10,
+                Text = label, // 刻度标签文本（"3" 或 "3:30"）
+                FontSize = 10, // 刻度字号（比概览刻度的 9px 略大，便于阅读）
                 Foreground = TickTextBrush // 冻结静态画刷（2026-08-25）
             };
             // 文字右移 2px 微调，置于刻度线正下方
