@@ -39,4 +39,15 @@
     <None Update="Data\seed_rules.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- tests 目录是独立的测试项目，主项目编译时必须把它排除掉。
+       原因：SDK 风格项目默认会把项目目录下所有 **/*.cs 都抓来编译，
+       不会因为子目录自带 csproj 就放过它。不排除的话测试代码会被编进
+       主程序，然后因为找不到 xunit 类型直接报错。
+       写 tests\** 而不是逐个文件排除，以后再加测试项目不用改这里。 -->
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <None Remove="tests\**" />
+    <Page Remove="tests\**" />
+  </ItemGroup>
+
 </Project>

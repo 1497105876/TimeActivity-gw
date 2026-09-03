@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- 必须是 net8.0-windows，不能写 net8.0。
+         主项目是 net8.0-windows（WPF），测试项目框架低一档会报 NU1201 目标框架不兼容。 -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 关掉可空检查，免得测试代码被主项目遗留的 nullable 警告淹没 -->
+    <Nullable>disable</Nullable>
+
+    <!-- 主项目开了 UseWPF，这里也开，保证 WPF 相关的框架引用完整。
+         不开的话，引用主项目里涉及 WPF 类型的代码可能编译不过。 -->
+    <UseWPF>true</UseWPF>
+
+    <!-- 测试项目不打包、不发布 -->
+    <IsPackable>false</IsPackable>
+    <RootNamespace>TimeActivity.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6" />
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 单向引用：测试项目引用主项目，主项目不知道测试项目存在 -->
+    <ProjectReference Include="..\..\TimeActivity.csproj" />
+  </ItemGroup>
+
+</Project>

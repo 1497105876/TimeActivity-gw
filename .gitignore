@@ -1,73 +1,151 @@
-## .NET / Visual Studio
-bin/
-obj/
-*.user
-*.suo
-*.userosscache
-*.sln.docstates
-*.userprefs
+## ============================================================
+## TimeActivity .gitignore
+## 2026-09-03 整理：去掉重复条目，补齐测试产物、打包产物与安全相关项
+## 注意：.github/ 不能忽略，CI 工作流文件必须进仓库才会生效
+## ============================================================
 
-## NuGet
+## ---------- .NET / MSBuild 构建输出 ----------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+BenchmarkDotNet.Artifacts/
+
+## ---------- NuGet ----------
 *.nupkg
 *.snupkg
 .nuget/
 packages/
 project.lock.json
 project.fragment.lock.json
-artifacts/
 
-## Visual Studio
-.vs/
-*.cache
-*.log
-*.tlog
-*.idb
+## ---------- 编译中间产物与符号 ----------
 *.pdb
 *.ilk
+*.meta
+*.obj
+*.iobj
+*.ipdb
+*.pch
+*.tlog
+*.idb
+*.cache
+*.tli
+*.tlh
+*.rsp
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.vspscc
+*.vssscc
+.builds
 
-## Build results
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
-
-## User-specific files
-*.rsuser
+## ---------- Visual Studio / Rider / VS Code ----------
+.vs/
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 *.suo
 *.user
 *.userosscache
+*.userprefs
 *.sln.docstates
+*.rsuser
+*.VisualState.xml
+LocalHistory/
+UpgradeLog*.XML
+UpgradeLog*.htm
+ClientBin/
+*.opendb
+*.VC.db
+*.VC.VC.opendb
 
-## OS files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-.DS_Store
+## ---------- 测试与覆盖率（跑 dotnet test 之后产生） ----------
+## 注意：tests/ 目录本身不能忽略，测试代码是项目资产，CI 要检出它才能跑测试。
+##       测试项目的 bin/ obj/ 已被上面的 [Bb]in/ [Oo]bj/ 覆盖，无需单独写。
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+coverage.cobertura.xml
+coverage.opencover.xml
+*.opencover.xml
+coverage.json
+*.received.*
+*.ncrunchproject
+*.ncrunchsolution
+.NCrunch_*
+*.psess
+*.vsp
+*.vspx
 
-## Runtime data
+## ---------- 其他代码分析工具产物 ----------
+.sonarqube/
+.sonar/
+StrykerOutput/
+*.dotCover
+
+## ---------- 打包与安装产物（CI 打包之后产生） ----------
+publish/
+*.zip
+*.7z
+*.rar
+*.msi
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+
+## ---------- 安全相关（这类文件绝不能进仓库） ----------
+*.pfx
+*.publishsettings
+*.snk
+*.key
+.env
+*.env.local
+secrets.json
+
+## ---------- 本项目运行时数据 ----------
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
 screenshots/
+ai_summaries/
+logs/
 
-## Temp/analysis files
+## ---------- 本项目临时与分析文件 ----------
 manictime_apps.txt
 classified_procs.json
 temp_*.txt
 temp_*.py
+__pycache__/
+*.pyc
 
+## ---------- 工作区与本地留存 ----------
 .workbuddy/
 _shots/
-publish/
-
-
 *.bak
-ai_summaries/
+*~
+
+## ---------- 操作系统 ----------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+*.swp

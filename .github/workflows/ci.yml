@@ -1,0 +1,393 @@
+# ============================================================
+# TimeActivity CI/CD
+# ------------------------------------------------------------
+# 流水线：构建 → 验证 → 打包 → 发版（手动）
+#
+# 三条硬约束（改这个文件前务必记住）：
+#   1. 只能跑 Windows runner —— 项目是 net8.0-windows + WPF，
+#      Linux/macOS 缺 Windows Desktop 目标包，restore 阶段就挂。
+#   2. 主项目 DebugType=none 不产符号，将来接单元测试要覆盖率时，
+#      构建必须覆盖成 -p:DebugType=portable，否则 coverage 是空的。
+#   3. 主项目是 WPF 桌面程序，没有传统意义上的"部署服务器"，
+#      这里的"部署"= 打包成单文件 exe 并发布到 GitHub Releases。
+#
+# 密钥：项目不依赖任何 CI 密钥。AI 的 ApiKey 存在用户本地 SQLite
+#       设置表里，代码里没有硬编码，所以无需配任何 secrets。
+# ============================================================
+
+name: CI/CD
+
+on:
+  # 推到主干：全链路跑（构建 → 验证 → 打包，不发版）
+  push:
+    branches: [master]
+  # 拉取请求：只跑构建 + 验证，不打包，保证合入前的质量门禁
+  pull_request:
+    branches: [master]
+  # 手动发版：唯一会真正创建 GitHub Release 的入口
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '发版号，例如 1.2.0；留空则用流水线运行号兜底'
+        required: false
+        default: ''
+      create_release:
+        description: '是否同时创建 GitHub Release'
+        type: boolean
+        default: false
+
+# 同一个分支上来了新提交，就掐掉上一次还没跑完的，省机器时间
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 最小权限：默认只读，只有发版那个 job 单独提权
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT: TimeActivity.csproj
+  RID: win-x64
+  BUILD_DIR: bin/Release/net8.0-windows
+  PUB_DIR: artifacts/app
+  ZIP_DIR: artifacts/zip
+
+jobs:
+  # ----------------------------------------------------------
+  # 1. 构建：把代码编译出来，顺带统计编译告警
+  # ----------------------------------------------------------
+  build:
+    name: 1 构建
+    runs-on: windows-2022
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 缓存 NuGet 包
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: 还原依赖
+        run: dotnet restore ${{ env.PROJECT }}
+
+      - name: 编译（Release）
+        shell: pwsh
+        run: |
+          # 输出同时打到屏幕和日志，方便下一步数告警
+          dotnet build ${{ env.PROJECT }} -c Release --no-restore -v minimal *>&1 | Tee-Object -FilePath build.log
+          if ($LASTEXITCODE -ne 0) { Write-Error "编译失败"; exit 1 }
+
+      - name: 统计编译告警
+        shell: pwsh
+        run: |
+          $warn = @(Select-String -Path build.log -Pattern ':\s+warning\s' -AllMatches).Count
+          $err  = @(Select-String -Path build.log -Pattern ':\s+error\s' -AllMatches).Count
+          $summary = @"
+          ## 构建结果
+
+          - 配置：Release / net8.0-windows
+          - 错误：$err
+          - 警告：$warn
+          "@
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          Write-Host "错误 $err 个，警告 $warn 个"
+
+  # ----------------------------------------------------------
+  # 2. 验证（测试占位）
+  #    仓库目前还没有单元测试项目，这一阶段先做三件不依赖测试
+  #    框架的事：格式检查、启动冒烟、运行期产物检查。
+  #    将来接上 xUnit 后，只需要在本 job 里加一行
+  #      dotnet test <测试项目> -c Release -p:DebugType=portable
+  #    并把下面 continue-on-error 的占位步骤换成真正的门禁。
+  # ----------------------------------------------------------
+  verify:
+    name: 2 验证（测试占位）
+    needs: build
+    runs-on: windows-2022
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 缓存 NuGet 包
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: 还原并编译
+        run: |
+          dotnet restore ${{ env.PROJECT }}
+          dotnet build ${{ env.PROJECT }} -c Release --no-restore -v minimal
+
+      # 项目根目录没有 .editorconfig，格式规则会跑出不少噪音，
+      # 所以这里只报告不阻断，等哪天真要立规矩再加门禁。
+      - name: 代码格式检查（不阻断）
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet format whitespace --verify-no-changes --no-restore -v minimal *>&1 | Tee-Object -FilePath format.log
+          $code = $LASTEXITCODE
+          $diff = @(Select-String -Path format.log -Pattern '\.cs\(' -AllMatches).Count
+          if ($code -eq 0) {
+            "格式检查：通过" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            "格式检查：发现 $diff 处空白/格式差异（未配置 .editorconfig，仅提示）" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      # 程序起来不崩就算过。WPF 程序在 runner 上没有真人交互，
+      # 只验证"能启动、8 秒内没自己退出"，不验证界面内容。
+      - name: 启动冒烟（不阻断）
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:BUILD_DIR 'TimeActivity.exe'
+          if (-not (Test-Path $exe)) {
+            # 目标框架或输出目录结构万一变了，兜底递归找一次，别因为路径写死就误判
+            $hit = Get-ChildItem -Path bin -Filter TimeActivity.exe -Recurse | Select-Object -First 1
+            if ($hit) { $exe = $hit.FullName } else { Write-Warning "找不到编译产物 TimeActivity.exe"; exit 1 }
+          }
+          $dir = Split-Path $exe -Parent
+          $proc = Start-Process -FilePath $exe -WorkingDirectory $dir -PassThru
+          Start-Sleep -Seconds 8
+          if ($proc.HasExited) {
+            Write-Warning "进程启动后退出，退出码 $($proc.ExitCode)"
+            "启动冒烟：失败（退出码 $($proc.ExitCode)）" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+            exit 1
+          }
+          "启动冒烟：通过（PID $($proc.Id) 持续存活 8 秒）" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          Stop-Process -Id $proc.Id -Force
+
+      # 跑完之后看一眼它有没有往自己目录写东西，间接确认数据层初始化走通了
+      - name: 运行期产物检查（不阻断）
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $db = Get-ChildItem -Path $env:BUILD_DIR -Filter timeactivity.db -Recurse | Select-Object -First 1
+          if ($db) {
+            $size = $db.Length
+            "运行期产物：timeactivity.db 已生成（$size 字节），数据库初始化走通" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          } else {
+            Write-Warning "未检测到 timeactivity.db，数据库初始化可能没走通"
+            exit 1
+          }
+
+  # ----------------------------------------------------------
+  # 静态分析（旁路作业，不参与门禁）
+  # ----------------------------------------------------------
+  # 静态分析 = 不运行代码，只读源码找问题。做法是用 MSBuild 参数临时
+  # 打开 .NET 官方分析器（CAxxxx 规则）重新编一遍，把报出来的警告按规则
+  # 编号统计成表。用命令行参数而不是写进 csproj，是为了不碰主项目配置，
+  # 想关掉随时删掉这个作业就行。
+  #
+  # 它能查到：空引用隐患、资源未释放、字符串比较用错、集合用法低效…
+  # 它查不到：算错了（比如 1h30m 算成 1h5s）——那得靠单元测试。
+  # ----------------------------------------------------------
+  analyze:
+    name: 静态分析
+    needs: build
+    runs-on: windows-2022
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 缓存 NuGet 包
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: 还原依赖
+        run: dotnet restore ${{ env.PROJECT }}
+
+      - name: 开启 .NET 分析器重新编译
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          dotnet build ${{ env.PROJECT }} -c Release --no-restore -v minimal `
+            -p:EnableNETAnalyzers=true `
+            -p:AnalysisLevel=latest-recommended `
+            -p:AnalysisMode=Recommended *>&1 | Tee-Object -FilePath analyze.log
+          Write-Host "分析器构建退出码 $LASTEXITCODE"
+
+      - name: 按规则编号汇总警告
+        shell: pwsh
+        run: |
+          $summary = "## 静态分析结果`n`n"
+          if (-not (Test-Path analyze.log)) {
+            $summary += "未生成分析日志，请检查上一步是否执行成功。"
+          } else {
+            $lines = @(Select-String -Path analyze.log -Pattern 'warning\s+([A-Z]{2}\d+)' -AllMatches)
+            $byRule = @{}
+            foreach ($line in $lines) {
+              foreach ($m in $line.Matches) {
+                $code = $m.Groups[1].Value
+                $byRule[$code] = [int]($byRule[$code]) + 1
+              }
+            }
+            $total = ($byRule.Values | Measure-Object -Sum).Sum
+            if (-not $total) { $total = 0 }
+            if ($total -eq 0) {
+              $summary += "未发现任何警告。"
+            } else {
+              $summary += "共 $total 条警告，按规则编号统计：`n`n"
+              $summary += "| 规则编号 | 数量 |`n| --- | --- |`n"
+              foreach ($item in ($byRule.GetEnumerator() | Sort-Object -Property Value -Descending | Select-Object -First 20)) {
+                $summary += "| $($item.Key) | $($item.Value) |`n"
+              }
+              $summary += "`n规则编号含义可在微软文档查 CAxxxx / IDE 编号。"
+            }
+          }
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+  # ----------------------------------------------------------
+  # 3. 打包：产出可直接分发的单文件 exe
+  #    拉取请求不打包，避免每个 PR 都往仓库里堆产物
+  # ----------------------------------------------------------
+  package:
+    name: 3 打包
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: windows-2022
+
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      zip_name: ${{ steps.ver.outputs.zip_name }}
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 缓存 NuGet 包
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: 计算版本号
+        id: ver
+        shell: pwsh
+        run: |
+          $raw = '${{ inputs.version }}'
+          if ($raw -and $raw.Trim() -ne '') {
+            $v = $raw.Trim() -replace '^v',''
+          } elseif ($env:GITHUB_REF -like 'refs/tags/*') {
+            $v = $env:GITHUB_REF -replace '^refs/tags/v?',''
+          } else {
+            $v = "0.0.${{ github.run_number }}"
+          }
+          $zip = "TimeActivity-v${v}-${env:RID}.zip"
+          "version=$v"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "zip_name=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "version=$v zip=$zip"
+
+      - name: 发布（单文件 / 依赖框架）
+        run: |
+          dotnet publish ${{ env.PROJECT }} -c Release -r ${{ env.RID }} --self-contained false -o ${{ env.PUB_DIR }} -v minimal
+
+      # 单文件 publish 最容易漏的就是随行文件和原生库，
+      # 少一个 dll 用户那边就是启动即崩，所以这里逐项点名检查。
+      - name: 产物完整性校验
+        shell: pwsh
+        run: |
+          $must = @(
+            'TimeActivity.exe',
+            'Data/seed_rules.json',
+            'e_sqlite3.dll',
+            'wpfgfx_cor3.dll',
+            'PresentationNative_cor3.dll'
+          )
+          $missing = @()
+          foreach ($f in $must) {
+            $p = Join-Path $env:PUB_DIR ($f -replace '/','\')
+            if (-not (Test-Path $p)) { $missing += $f }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Error "产物缺失：$($missing -join ', ')"
+            exit 1
+          }
+          "产物校验：通过（含 exe、预置规则、SQLite 与 WPF 原生库）" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: 打压缩包
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:ZIP_DIR | Out-Null
+          $dst = Join-Path $env:ZIP_DIR '${{ steps.ver.outputs.zip_name }}'
+          Compress-Archive -Path (Join-Path $env:PUB_DIR '*') -DestinationPath $dst
+          $size = [math]::Round((Get-Item $dst).Length / 1MB, 2)
+          "打包完成：${{ steps.ver.outputs.zip_name }}（$size MB）" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.ver.outputs.zip_name }}
+          path: ${{ env.ZIP_DIR }}/${{ steps.ver.outputs.zip_name }}
+          retention-days: 90
+
+  # ----------------------------------------------------------
+  # 4. 发版：只有手动触发且勾选了 create_release 才会执行
+  #    路径：Actions → CI/CD → Run workflow → 勾上创建 Release
+  # ----------------------------------------------------------
+  release:
+    name: 4 发版
+    needs: package
+    if: github.event_name == 'workflow_dispatch' && inputs.create_release
+    runs-on: windows-2022
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: 拉取代码（带完整历史，用于生成 Release Notes）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 下载构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.package.outputs.zip_name }}
+          path: dist
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.package.outputs.version }}
+          name: TimeActivity v${{ needs.package.outputs.version }}
+          files: dist/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
