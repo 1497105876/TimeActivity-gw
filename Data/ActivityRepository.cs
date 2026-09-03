@@ -2,7 +2,12 @@
 // ActivityRepository.cs — Activities 活动明细表的仓储（静态类）
 // 职责：活动记录插入/按日查询/区间聚合（分类、进程、每日总量）；
 //       GetUsedProcessNames 供设置页规则管理展示"用过的应用"。
-// 查询均以 StartTime 的 date()/区间为过滤条件，依赖三个索引加速。
+// 时间口径：过滤与分组一律走 UTC 列（StartTimeUtc），展示才用本地列（StartTime/EndTime）。
+// 索引提示（重要）：DatabaseHelper 里那三个 Activities 索引都建在本地列上
+//   （IX_Activities_StartTime / _Category / _ProcessName），
+//   而本文件的查询条件要么在 StartTimeUtc 上包了 date(...,'localtime') 函数、
+//   要么直接裸比 StartTimeUtc——包了函数就用不上索引，StartTimeUtc 更是压根没索引，
+//   所以下面这些查询实际都是全表扫描，行数涨上去以后会慢，靠每日预聚合表（DailySummaryRepository）来绕。
 // ============================================================================
 // 基础类型（DateTime）
 using System;

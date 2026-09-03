@@ -53,6 +53,16 @@ public class ChartRenderer
     // 固定色静态冻结复用；动态色（分类色/半透明轨道）走实例缓存，避免重绘产生大量未冻结对象
     private readonly Dictionary<Color, SolidColorBrush> _brushCache = new();
 
+    /// <summary>
+    /// 按颜色取冻结画刷：命中缓存直接复用，未命中则新建 → Freeze → 登记缓存。
+    /// </summary>
+    /// <param name="c">目标颜色（含 alpha；分类色、半透明轨道色都走这里）</param>
+    /// <returns>已冻结、可安全共享复用的 SolidColorBrush</returns>
+    /// <remarks>
+    /// 为什么不每次 new：未冻结的 Freezable 无法被 WPF 内部共享，
+    /// 而本渲染器是"清空 → 全量重建"的重绘模式，短时间内会堆出成百上千个短命画刷；
+    /// 冻结后既能复用，也免去了属性变更通知的开销。
+    /// </remarks>
     private SolidColorBrush GetBrush(Color c)
     {
         // 命中缓存直接返回：同色画刷只建一次，重绘不再重复分配

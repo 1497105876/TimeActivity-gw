@@ -1,3 +1,14 @@
+// ============================================================================
+// CategoryColorHelper.cs — 分类颜色助手（实例状态 + 静态快捷方法）
+// 职责：
+//   1) Load()：从 Categories 表一次性读出"分类名→颜色"字典，失败时回退预置分类配色；
+//   2) ParseHex()：把十六进制/命名颜色字符串解析成 WPF Color，非法值兜底 #90A4AE；
+//   3) GetBrush/GetColor：按分类名取已冻结的 Brush/Color（渲染端大量复用，避免每帧 new）。
+// 缓存策略：
+//   - 实例级 _colors：每次 Load() 全量重建，保证删除的分类不会残留旧颜色。
+//   - 静态 _hexBrushCache：颜色串 → 冻结 SolidColorBrush，跨实例共享、跨线程安全（Freeze 后 WPF 内部可共享）。
+// 用法顺序：启动时调用 Load() 建好 _colors，之后渲染器用 GetColor/GetBrush 取色即可。
+// ============================================================================
 using System;
 using System.Collections.Generic;
 using System.Windows.Media;

@@ -2,6 +2,13 @@
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
+// ============================================================================
+// StatsRowItem.cs — 统计列表行数据模型（展示用，当前未绑定 ListView）
+// 职责：封装一条统计行所需的全部字段与派生展示值（格式化文本、比例条宽度等）。
+// 现状说明：MainWindow.Stats 当前用的是自绘 Canvas 比例条（Border+TextBlock），
+//           未走数据绑定，本类作为"数据结构定义"与 CreateStatsRow 的计算逻辑保持同步。
+// 未来用途：若改造成 ItemSource 绑定，本类可直接作 ItemTemplate 的数据源。
+// ============================================================================
 namespace TimeActivity.Models;
 
 /// <summary>
